@@ -25,7 +25,7 @@ export function Logo({
     <div className={`inline-flex items-center gap-2.5 ${variant === "vertical" ? "flex-col text-center" : ""} ${className}`}>
       {/* Official Logomark */}
       <img
-        src="/logo-gw.png"
+        src="/logo-gw.svg"
         alt="Guess What"
         width={px}
         height={px}

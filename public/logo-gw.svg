@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" fill="none">
+  <defs>
+    <linearGradient id="gw-grad" x1="0" y1="100" x2="120" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF0400"/>
+      <stop offset="100%" stop-color="#F7911B"/>
+    </linearGradient>
+  </defs>
+  <!-- Speech bubble body -->
+  <ellipse cx="55" cy="48" rx="48" ry="40" fill="url(#gw-grad)"/>
+  <!-- Speech bubble tail -->
+  <path d="M30 78 Q25 92 15 95 Q28 88 32 82Z" fill="url(#gw-grad)"/>
+  <!-- Thought dots -->
+  <circle cx="95" cy="15" r="12" fill="url(#gw-grad)"/>
+  <circle cx="112" cy="5" r="6" fill="url(#gw-grad)"/>
+  <!-- "gw" text -->
+  <text x="55" y="60" text-anchor="middle" font-family="'Baloo 2', sans-serif" font-weight="800" font-size="42" fill="white" letter-spacing="-1">gw</text>
+</svg>
