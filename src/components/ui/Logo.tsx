@@ -13,9 +13,9 @@ export function Logo({
 }: LogoProps) {
   /* Height-based sizing — the official lockup is 463×189 (wide horizontal) */
   const heightMap = {
-    sm: 96,
-    md: 120,
-    lg: 150,
+    sm: 120,
+    md: 150,
+    lg: 180,
   };
 
   const h = heightMap[size];
