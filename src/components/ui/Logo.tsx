@@ -13,9 +13,9 @@ export function Logo({
 }: LogoProps) {
   /* Height-based sizing — the official lockup includes icon + wordmark */
   const heightMap = {
-    sm: 36,
-    md: 44,
-    lg: 60,
+    sm: 44,
+    md: 56,
+    lg: 72,
   };
 
   const h = heightMap[size];
