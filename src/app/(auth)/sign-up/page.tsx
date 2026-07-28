@@ -16,6 +16,7 @@ export default function SignUpPage() {
   const [referralCode, setReferralCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,16 +34,27 @@ export default function SignUpPage() {
 
     setLoading(true);
     try {
-      await signUp({
+      const result = await signUp({
         email: email.trim(),
         password,
         username: username.trim(),
         referralCode: referralCode.trim() || undefined,
       });
-      router.push("/dashboard");
+
+      // If Supabase returned a session, the user is logged in immediately
+      // Otherwise email confirmation is required
+      if (result.session) {
+        router.push("/dashboard");
+      } else {
+        setSuccess(true);
+      }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Something went wrong";
-      setError(message);
+      // Supabase AuthApiError has a message property
+      if (err && typeof err === "object" && "message" in err) {
+        setError((err as { message: string }).message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -57,6 +69,17 @@ export default function SignUpPage() {
 
       {/* Card */}
       <div className="rounded-card border border-rule bg-paper-2 p-8">
+        {success ? (
+          <div className="text-center py-4">
+            <div className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-green-500/15">
+              <svg className="size-8 text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" /></svg>
+            </div>
+            <h2 className="font-display text-xl font-bold">Check Your Email</h2>
+            <p className="mt-2 text-sm text-ink-muted">We sent a confirmation link to <strong className="text-ink">{email}</strong>. Click it to activate your account.</p>
+            <Link href="/login" className="mt-6 inline-block text-sm font-medium text-accent hover:underline">Go to Login →</Link>
+          </div>
+        ) : (
+          <>
         <h1 className="font-display text-2xl font-bold text-center">Create Account</h1>
         <p className="mt-2 text-sm text-ink-muted text-center">Join thousands of players and start winning</p>
 
@@ -121,6 +144,8 @@ export default function SignUpPage() {
           Already have an account?{" "}
           <Link href="/login" className="font-medium text-accent hover:underline">Log in</Link>
         </div>
+          </>
+        )}
       </div>
 
       <p className="mt-6 text-center text-xs text-ink-muted">
