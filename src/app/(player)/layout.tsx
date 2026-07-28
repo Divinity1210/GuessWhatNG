@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { MobileNav, Logo } from "@/components/ui";
+import { useAuth } from "@/components/providers/AuthProvider";
 import {
   TrendingUpIcon,
   PlayIcon,
@@ -47,6 +48,16 @@ const navGroups = [
 
 export default function PlayerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, profile, signOut } = useAuth();
+
+  const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Player";
+  const initials = displayName.slice(0, 2).toUpperCase();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/");
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -92,11 +103,16 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         <div className="border-t border-rule px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="grid size-9 place-items-center rounded-full bg-gradient-to-br from-accent-3 to-accent font-display text-sm font-bold text-white">
-              GP
+              {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-ink">Guest Player</p>
-              <p className="truncate text-xs text-ink-muted">Free tier</p>
+              <p className="truncate text-sm font-medium text-ink">{displayName}</p>
+              <button
+                onClick={handleSignOut}
+                className="text-xs text-ink-muted hover:text-accent transition-colors"
+              >
+                Sign out
+              </button>
             </div>
           </div>
         </div>
@@ -108,7 +124,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-rule bg-paper/90 px-4 py-3 backdrop-blur-xl md:hidden">
           <Logo size="sm" />
           <div className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-accent-3 to-accent text-xs font-bold text-white font-display">
-            GP
+            {initials}
           </div>
         </header>
 
