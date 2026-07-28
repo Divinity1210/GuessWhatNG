@@ -13,9 +13,9 @@ export function Logo({
 }: LogoProps) {
   /* Height-based sizing — the official lockup includes icon + wordmark */
   const heightMap = {
-    sm: 44,
-    md: 56,
-    lg: 72,
+    sm: 52,
+    md: 64,
+    lg: 80,
   };
 
   const h = heightMap[size];
@@ -26,7 +26,11 @@ export function Logo({
       alt="GuessWhat"
       height={h}
       className={`object-contain shrink-0 ${className}`}
-      style={{ height: `${h}px`, width: "auto" }}
+      style={{
+        height: `${h}px`,
+        width: "auto",
+        mixBlendMode: "screen",
+      }}
     />
   );
 
