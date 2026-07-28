@@ -37,6 +37,7 @@ export async function signUp({ email, password, username, referralCode }: SignUp
     email,
     password,
     options: {
+      emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
       data: {
         username: username.trim(),
         full_name: "",
