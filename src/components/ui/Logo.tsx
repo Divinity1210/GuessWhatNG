@@ -23,7 +23,7 @@ export function Logo({
 
   const content = (
     <img
-      src="/official-logo.png"
+      src="/gw-logo.png"
       alt="GuessWhat"
       height={h}
       className={`object-contain shrink-0 ${className}`}
