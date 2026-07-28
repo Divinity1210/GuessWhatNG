@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** Auth actions */
   const signUp = useCallback(async (payload: SignUpPayload) => {
-    await authSignUp(payload);
+    return await authSignUp(payload);
     // onAuthStateChange will update context automatically
   }, []);
 
