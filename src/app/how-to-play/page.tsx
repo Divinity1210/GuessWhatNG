@@ -68,7 +68,7 @@ export default function HowToPlayPage() {
           }}
         >
           <div className="pl-2 pr-3">
-            <Logo />
+            <Logo size="xs" />
           </div>
           <div className="hidden items-center gap-1 sm:flex">
             <Link

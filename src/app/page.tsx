@@ -66,7 +66,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[var(--color-bg,#0a0a0c)] text-[var(--color-ink,#f3f3f5)] overflow-x-hidden font-sans">
       {/* ── Top Navigation ── */}
       <header className="fixed inset-x-0 top-0 z-50 border-b border-[oklch(24%_0.015_60)] bg-[oklch(14%_0.015_60/0.85)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-0">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <Logo size="xs" />
           <nav className="hidden items-center gap-8 md:flex">
             <a href="#how-it-works" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">

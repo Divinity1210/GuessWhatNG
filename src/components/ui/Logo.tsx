@@ -13,10 +13,10 @@ export function Logo({
 }: LogoProps) {
   /* Height-based sizing — the official lockup is 463×189 (wide horizontal) */
   const heightMap = {
-    xs: 80,   // navbar / tight header
-    sm: 80,   // sidebar
-    md: 100,  // standard display
-    lg: 110,  // hero / auth pages
+    xs: 42,   // navbar / tight header
+    sm: 52,   // sidebar
+    md: 72,   // standard display
+    lg: 96,   // hero / auth pages
   };
 
   const h = heightMap[size];
