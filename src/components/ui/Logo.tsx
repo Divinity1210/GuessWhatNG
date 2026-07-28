@@ -11,11 +11,11 @@ export function Logo({
   href = "/",
   className = "",
 }: LogoProps) {
-  /* Height-based sizing — the official lockup includes icon + wordmark */
+  /* Height-based sizing — the official lockup is 463×189 (wide horizontal) */
   const heightMap = {
-    sm: 52,
-    md: 64,
-    lg: 80,
+    sm: 72,
+    md: 88,
+    lg: 110,
   };
 
   const h = heightMap[size];
