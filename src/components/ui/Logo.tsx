@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 interface LogoProps {
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   href?: string;
   className?: string;
 }
@@ -13,9 +13,10 @@ export function Logo({
 }: LogoProps) {
   /* Height-based sizing — the official lockup is 463×189 (wide horizontal) */
   const heightMap = {
-    sm: 120,
-    md: 150,
-    lg: 180,
+    xs: 48,   // navbar / tight header
+    sm: 64,   // sidebar
+    md: 120,  // standard display
+    lg: 150,  // hero / auth pages
   };
 
   const h = heightMap[size];
