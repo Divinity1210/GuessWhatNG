@@ -13,7 +13,7 @@ export function Logo({
 }: LogoProps) {
   /* Height-based sizing — the official lockup is 463×189 (wide horizontal) */
   const heightMap = {
-    xs: 80,   // navbar / tight header
+    xs: 100,  // navbar / tight header
     sm: 80,   // sidebar
     md: 120,  // standard display
     lg: 150,  // hero / auth pages
@@ -30,18 +30,13 @@ export function Logo({
       style={{
         height: `${h}px`,
         width: "auto",
-        mixBlendMode: "screen",
       }}
     />
   );
 
   if (href) {
     return (
-      <Link
-        href={href}
-        className="inline-block"
-        style={{ mixBlendMode: "screen" }}
-      >
+      <Link href={href} className="inline-block">
         {content}
       </Link>
     );
