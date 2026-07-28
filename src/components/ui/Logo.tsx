@@ -13,8 +13,8 @@ export function Logo({
 }: LogoProps) {
   /* Height-based sizing — the official lockup is 463×189 (wide horizontal) */
   const heightMap = {
-    xs: 48,   // navbar / tight header
-    sm: 64,   // sidebar
+    xs: 64,   // navbar / tight header
+    sm: 80,   // sidebar
     md: 120,  // standard display
     lg: 150,  // hero / auth pages
   };
@@ -37,7 +37,11 @@ export function Logo({
 
   if (href) {
     return (
-      <Link href={href} className="inline-block transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
+      <Link
+        href={href}
+        className="inline-block"
+        style={{ mixBlendMode: "screen" }}
+      >
         {content}
       </Link>
     );
