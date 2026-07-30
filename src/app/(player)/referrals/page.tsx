@@ -1,155 +1,118 @@
 "use client";
 
-import { Button, Badge, StatCard } from "@/components/ui";
-import { useState } from "react";
-import {
-  UsersIcon,
-  PlayIcon,
-  CoinsIcon,
-  TrophyIcon,
-  CheckIcon,
-  ArrowRightIcon,
-  TargetIcon,
-  GiftIcon,
-} from "@/components/ui/Icons";
-
-const referralCode = "GUESSWHAT-GP247";
-
-const stats = [
-  { label: "Total Referrals", value: "12", Icon: UsersIcon },
-  { label: "Active Players", value: "8", Icon: PlayIcon },
-  { label: "Coins Earned", value: "1,200", Icon: CoinsIcon },
-  { label: "Cash Earned", value: "₦6,000", Icon: TrophyIcon },
-];
-
-const shareChannels = [
-  { name: "WhatsApp", color: "bg-[#25D366]/15 text-[#25D366] border-[#25D366]/25" },
-  { name: "Facebook", color: "bg-[#1877F2]/15 text-[#1877F2] border-[#1877F2]/25" },
-  { name: "X", color: "bg-ink-3/15 text-ink border-rule" },
-  { name: "Telegram", color: "bg-[#0088cc]/15 text-[#0088cc] border-[#0088cc]/25" },
-  { name: "Email", color: "bg-accent/15 text-accent border-accent/25" },
-];
-
-const history = [
-  { name: "ChiChi_Win", date: "Jul 21", status: "active", reward: "100 coins" },
-  { name: "Lagos_King", date: "Jul 18", status: "active", reward: "100 coins" },
-  { name: "TemiGuess", date: "Jul 15", status: "active", reward: "100 coins + ₦500" },
-  { name: "BenueBlaze", date: "Jul 12", status: "pending", reward: "Pending signup" },
-  { name: "AbujaAce", date: "Jul 10", status: "active", reward: "100 coins" },
-];
+import { useEffect, useState } from "react";
+import { Button, Badge } from "@/components/ui";
+import { UsersIcon, CoinsIcon, ArrowRightIcon } from "@/components/ui/Icons";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { getReferredUsers, type ReferralRow } from "@/lib/supabase/queries";
 
 export default function ReferralsPage() {
+  const { user, profile } = useAuth();
+  const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  function copyCode() {
-    navigator.clipboard.writeText(referralCode);
+  useEffect(() => {
+    if (!user) return;
+    async function load() {
+      try {
+        const refs = await getReferredUsers(user!.id);
+        setReferrals(refs);
+      } catch (err) {
+        console.error("Referrals load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [user]);
+
+  const handleCopy = () => {
+    if (!profile?.referral_code) return;
+    navigator.clipboard.writeText(profile.referral_code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = () => {
+    if (!profile?.referral_code) return;
+    const text = `Join me on Guess What! Use my code ${profile.referral_code} to sign up and get bonus coins. https://guesswhat-tan.vercel.app/sign-up`;
+    if (navigator.share) {
+      navigator.share({ title: "Guess What — Join me!", text });
+    } else {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="font-display text-2xl font-bold md:text-3xl">Referrals</h1>
-        <p className="mt-1 text-sm text-ink-muted">Invite friends and earn rewards together</p>
-      </div>
+      <h1 className="font-display text-2xl font-bold">Referrals</h1>
 
-      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {stats.map((s) => (
-          <StatCard key={s.label} label={s.label} value={s.value} icon={<s.Icon className="size-5 text-[#F7911B]" />} />
-        ))}
-      </div>
-
-      {/* Referral code */}
-      <section className="relative overflow-hidden rounded-card border border-rule bg-paper-2 p-6">
-        <div className="absolute inset-0 gradient-brand-soft" />
+      {/* ── Referral card ── */}
+      <section className="relative overflow-hidden rounded-card border border-rule bg-paper-2 p-6 md:p-8">
+        <div className="absolute inset-0 gradient-glow opacity-40" />
         <div className="relative z-10">
-          <h2 className="font-display text-lg font-bold">Your Referral Code</h2>
-          <p className="mt-1 text-sm text-ink-3">Share this code and earn 100 coins + ₦500 for every active referral</p>
-          <div className="mt-4 flex items-center gap-3">
-            <div className="flex-1 rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-3 font-mono text-lg font-bold text-accent">
-              {referralCode}
+          <div className="flex items-center gap-3 mb-2">
+            <UsersIcon className="size-6 text-accent" />
+            <h2 className="font-display text-lg font-bold">Invite Friends, Earn Coins</h2>
+          </div>
+          <p className="text-sm text-ink-muted">Share your referral code. When a friend signs up and plays, you both earn bonus coins!</p>
+
+          <div className="mt-6 flex items-center gap-3">
+            <div className="flex-1 rounded-[var(--radius-sm)] border border-accent/30 bg-accent-muted px-4 py-3 text-center font-display text-xl font-bold tracking-[0.2em] text-accent">
+              {profile?.referral_code ?? "—"}
             </div>
-            <Button size="md" onClick={copyCode}>
-              {copied ? (
-                <span className="flex items-center gap-1.5"><CheckIcon className="size-4" /> Copied!</span>
-              ) : (
-                "Copy Code"
-              )}
+            <Button variant="secondary" size="sm" onClick={handleCopy}>
+              {copied ? "Copied!" : "Copy"}
             </Button>
           </div>
+
+          <Button className="mt-4 w-full" onClick={handleShare}>
+            Share Referral Link
+          </Button>
         </div>
       </section>
 
-      {/* Share channels */}
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-card border border-rule bg-paper-2 p-5 text-center">
+          <p className="font-display text-2xl font-bold text-ink">{referrals.length}</p>
+          <p className="text-xs text-ink-muted mt-1">Friends Referred</p>
+        </div>
+        <div className="rounded-card border border-rule bg-paper-2 p-5 text-center">
+          <p className="font-display text-2xl font-bold text-accent">{referrals.length * 50}</p>
+          <p className="text-xs text-ink-muted mt-1">Bonus Coins Earned</p>
+        </div>
+      </div>
+
+      {/* ── Referred users list ── */}
       <section className="rounded-card border border-rule bg-paper-2 p-6">
-        <h2 className="font-display text-lg font-bold">Invite Via</h2>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {shareChannels.map((ch) => (
-            <button
-              key={ch.name}
-              className={`flex items-center gap-2 rounded-[var(--radius-pill)] border px-4 py-2 text-sm font-medium transition-all duration-200 hover:brightness-110 ${ch.color}`}
-            >
-              <span>{ch.name}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="rounded-card border border-rule bg-paper-2 p-6">
-        <h2 className="font-display text-lg font-bold">How Referrals Work</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div className="text-center p-4 rounded-xl bg-paper-3">
-            <div className="size-12 mx-auto grid place-items-center rounded-xl bg-[#F7911B]/10 text-[#F7911B]">
-              <ArrowRightIcon className="size-6" />
-            </div>
-            <h3 className="mt-3 font-display font-semibold">Share Code</h3>
-            <p className="mt-1 text-xs text-ink-3">Send your referral code or link to friends</p>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-paper-3">
-            <div className="size-12 mx-auto grid place-items-center rounded-xl bg-[#F7911B]/10 text-[#F7911B]">
-              <TargetIcon className="size-6" />
-            </div>
-            <h3 className="mt-3 font-display font-semibold">Friend Signs Up</h3>
-            <p className="mt-1 text-xs text-ink-3">They create an account using your code</p>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-paper-3">
-            <div className="size-12 mx-auto grid place-items-center rounded-xl bg-[#F7911B]/10 text-[#F7911B]">
-              <GiftIcon className="size-6" />
-            </div>
-            <h3 className="mt-3 font-display font-semibold">Both Earn</h3>
-            <p className="mt-1 text-xs text-ink-3">You get 100 coins + ₦500, they get 50 coins</p>
-          </div>
-        </div>
-      </section>
-
-      {/* History */}
-      <section className="rounded-card border border-rule bg-paper-2">
-        <div className="border-b border-rule p-5">
-          <h2 className="font-display text-lg font-bold">Referral History</h2>
-        </div>
-        <div className="divide-y divide-rule/50">
-          {history.map((h) => (
-            <div key={h.name} className="flex items-center justify-between px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className="grid size-8 place-items-center rounded-full bg-accent-muted text-xs font-bold text-accent font-display">
-                  {h.name[0]}
-                </div>
+        <h2 className="font-display text-lg font-bold">Referred Friends</h2>
+        {referrals.length > 0 ? (
+          <div className="mt-4 space-y-3">
+            {referrals.map((ref) => (
+              <div key={ref.id} className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium text-ink">@{h.name}</p>
-                  <p className="text-xs text-ink-muted">{h.date}</p>
+                  <p className="text-sm font-medium text-ink">{ref.username}</p>
+                  <p className="text-xs text-ink-muted">Joined {new Date(ref.created_at).toLocaleDateString("en-NG")}</p>
                 </div>
+                <Badge variant="active">+50 coins</Badge>
               </div>
-              <div className="text-right">
-                <Badge variant={h.status === "active" ? "success" : "warning"} dot>
-                  {h.status}
-                </Badge>
-                <p className="mt-0.5 text-xs text-ink-3">{h.reward}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-6 text-center text-sm text-ink-muted">No referrals yet. Share your code to start earning!</p>
+        )}
       </section>
     </div>
   );

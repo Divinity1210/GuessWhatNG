@@ -1,111 +1,109 @@
 "use client";
 
-import { StatCard, Badge, Button, ProgressBar } from "@/components/ui";
-import {
-  CoinsIcon,
-  TimerIcon,
-  TrophyIcon,
-  FlameIcon,
-  StarIcon,
-  UsersIcon,
-  TargetIcon,
-  CheckIcon,
-} from "@/components/ui/Icons";
+import { useEffect, useState } from "react";
+import { Button, Badge, StatCard, EmptyState } from "@/components/ui";
+import { GiftIcon, CoinsIcon, TrophyIcon } from "@/components/ui/Icons";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { getUserWallet, getWalletTransactions, type WalletRow, type WalletTxnRow } from "@/lib/supabase/queries";
 
-const rewardStats = [
-  { label: "Total Earned", value: "₦145,000", Icon: CoinsIcon },
-  { label: "Pending Rewards", value: "₦4,500", Icon: TimerIcon },
-  { label: "Achievements", value: "12/25", Icon: TrophyIcon },
-  { label: "Streak Bonus", value: "5x", Icon: FlameIcon },
-];
-
-const achievements = [
-  { name: "First Win", desc: "Win your first session", Icon: TrophyIcon, unlocked: true },
-  { name: "Streak Master", desc: "Win 5 sessions in a row", Icon: FlameIcon, unlocked: true },
-  { name: "Top 10", desc: "Finish in the top 10", Icon: StarIcon, unlocked: true },
-  { name: "Big Spender", desc: "Enter a ₦500+ session", Icon: CoinsIcon, unlocked: true },
-  { name: "Social Butterfly", desc: "Refer 5 friends", Icon: UsersIcon, unlocked: false, progress: 60 },
-  { name: "Marathon Player", desc: "Play 100 sessions", Icon: TargetIcon, unlocked: false, progress: 47 },
-  { name: "Perfect Score", desc: "Answer all questions correctly", Icon: StarIcon, unlocked: false, progress: 0 },
-  { name: "Legend", desc: "Reach #1 on the all-time board", Icon: TrophyIcon, unlocked: false, progress: 0 },
-];
-
-const history = [
-  { desc: "Sunday Showdown — 2nd place", amount: "₦75,000", date: "Today" },
-  { desc: "Daily challenge completion", amount: "50 coins", date: "Today" },
-  { desc: "Achievement unlocked — Top 10", amount: "100 coins", date: "Yesterday" },
-  { desc: "Friday Frenzy — 8th place", amount: "₦5,000", date: "Jul 19" },
-  { desc: "Referral bonus — @Lagos_King", amount: "100 coins", date: "Jul 18" },
-];
+function formatNaira(n: number) { return `₦${n.toLocaleString()}`; }
 
 export default function RewardsPage() {
+  const { user } = useAuth();
+  const [wallet, setWallet] = useState<WalletRow | null>(null);
+  const [rewards, setRewards] = useState<WalletTxnRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    async function load() {
+      try {
+        const [w, txns] = await Promise.all([
+          getUserWallet(user!.id),
+          getWalletTransactions(user!.id, 50),
+        ]);
+        setWallet(w);
+        // Filter to reward-type transactions only
+        setRewards(txns.filter((t) => t.type === "reward" || t.type === "referral_bonus" || t.type === "promo"));
+      } catch (err) {
+        console.error("Rewards load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      </div>
+    );
+  }
+
+  const totalRewards = rewards.reduce((sum, r) => sum + r.reward_delta, 0);
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold md:text-3xl">Rewards</h1>
-          <p className="mt-1 text-sm text-ink-muted">Track your earnings, achievements, and bonuses</p>
-        </div>
-        <Button size="sm" href="/wallet">Withdraw Rewards</Button>
+      <h1 className="font-display text-2xl font-bold">Rewards</h1>
+
+      {/* ── Summary cards ── */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Total Earned"
+          value={formatNaira(totalRewards)}
+          icon={<GiftIcon className="size-5 text-accent" />}
+        />
+        <StatCard
+          label="Reward Balance"
+          value={formatNaira(wallet?.reward_balance ?? 0)}
+          icon={<TrophyIcon className="size-5 text-amber-400" />}
+        />
+        <StatCard
+          label="Withdrawable"
+          value={formatNaira(wallet?.withdrawable_balance ?? 0)}
+          icon={<div className="size-5 grid place-items-center rounded-full bg-green-500/20 text-green-400 text-xs font-bold">₦</div>}
+        />
       </div>
 
-      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {rewardStats.map((s) => (
-          <StatCard key={s.label} label={s.label} value={s.value} icon={<s.Icon className="size-5 text-[#F7911B]" />} />
-        ))}
+      {/* ── Withdrawal action ── */}
+      <div>
+        <Button disabled={(wallet?.withdrawable_balance ?? 0) <= 0}>
+          {(wallet?.withdrawable_balance ?? 0) > 0
+            ? `Withdraw ${formatNaira(wallet!.withdrawable_balance)}`
+            : "Nothing to withdraw yet"
+          }
+        </Button>
       </div>
 
-      {/* Achievements */}
+      {/* ── Reward history ── */}
       <section className="rounded-card border border-rule bg-paper-2 p-6">
-        <h2 className="font-display text-lg font-bold">Achievements</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {achievements.map((a) => (
-            <div
-              key={a.name}
-              className={`rounded-[var(--radius-md)] border p-4 transition-all duration-200 ${
-                a.unlocked
-                  ? "border-accent/30 bg-accent-muted"
-                  : "border-rule bg-paper-3 opacity-70"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="size-10 grid place-items-center rounded-xl bg-[#F7911B]/10 text-[#F7911B]">
-                  <a.Icon className="size-5" />
+        <h2 className="font-display text-lg font-bold">Reward History</h2>
+        {rewards.length > 0 ? (
+          <div className="mt-4 space-y-2">
+            {rewards.map((r) => (
+              <div key={r.id} className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-9 place-items-center rounded-full bg-green-500/15 text-green-400 text-xs font-bold">
+                    +
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-ink">
+                      {r.type === "reward" ? "Session Prize" : r.type === "referral_bonus" ? "Referral Bonus" : "Promo Bonus"}
+                    </p>
+                    <p className="text-xs text-ink-muted">
+                      {new Date(r.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">{a.name}</p>
-                  <p className="truncate text-xs text-ink-muted">{a.desc}</p>
-                </div>
-                {a.unlocked && (
-                  <Badge variant="success">
-                    <CheckIcon className="size-3" />
-                  </Badge>
-                )}
+                <p className="text-sm font-semibold text-green-400">+{formatNaira(r.reward_delta)}</p>
               </div>
-              {!a.unlocked && a.progress !== undefined && a.progress > 0 && (
-                <ProgressBar value={a.progress} className="mt-3" />
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Reward history */}
-      <section className="rounded-card border border-rule bg-paper-2">
-        <div className="border-b border-rule p-5">
-          <h2 className="font-display text-lg font-bold">Reward History</h2>
-        </div>
-        <div className="divide-y divide-rule/50">
-          {history.map((h, i) => (
-            <div key={i} className="flex items-center justify-between px-5 py-4">
-              <div>
-                <p className="text-sm font-medium text-ink">{h.desc}</p>
-                <p className="text-xs text-ink-muted">{h.date}</p>
-              </div>
-              <p className="text-sm font-semibold text-success">+{h.amount}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="No rewards yet" description="Play sessions and win prizes to earn rewards!" />
+        )}
       </section>
     </div>
   );

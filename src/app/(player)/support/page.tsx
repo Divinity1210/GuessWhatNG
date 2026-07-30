@@ -1,124 +1,190 @@
 "use client";
 
-import { Button, Badge } from "@/components/ui";
-import { useState } from "react";
-import {
-  PlayIcon,
-  CoinsIcon,
-  TargetIcon,
-  ZapIcon,
-  HelpCircleIcon,
-} from "@/components/ui/Icons";
-
-const faqs = [
-  { q: "How do I play?", a: "Join a session, answer questions by predicting what most players will choose, and earn points for matching the crowd consensus." },
-  { q: "How do I earn coins?", a: "Buy coins directly, earn them through daily challenges, referrals, or win them in sessions." },
-  { q: "How do I withdraw?", a: "Go to Wallet → Withdraw. You can withdraw to your bank account or mobile wallet. Minimum withdrawal is ₦1,000." },
-  { q: "What happens if I disconnect?", a: "Your progress is saved automatically. You can resume the session from where you left off." },
-  { q: "How are winners determined?", a: "Players who match the majority answer score points. Higher accuracy and faster response times earn more." },
-];
-
-const helpCategories = [
-  { Icon: PlayIcon, title: "Gameplay", desc: "Rules, scoring, sessions" },
-  { Icon: CoinsIcon, title: "Payments", desc: "Coins, withdrawals, billing" },
-  { Icon: TargetIcon, title: "Account", desc: "Profile, security, settings" },
-  { Icon: ZapIcon, title: "Technical", desc: "Bugs, performance, errors" },
-];
-
-const tickets = [
-  { id: "TK-001", subject: "Withdrawal not received", status: "open", date: "Jul 22" },
-  { id: "TK-002", subject: "Session froze during question 5", status: "resolved", date: "Jul 18" },
-];
+import { useEffect, useState } from "react";
+import { Button, Badge, EmptyState } from "@/components/ui";
+import { HelpCircleIcon } from "@/components/ui/Icons";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { getMyTickets, getTicketMessages, createTicket, sendTicketMessage, type TicketRow, type TicketMessageRow } from "@/lib/supabase/queries";
 
 export default function SupportPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const filteredFaqs = searchQuery
-    ? faqs.filter((f) => f.q.toLowerCase().includes(searchQuery.toLowerCase()) || f.a.toLowerCase().includes(searchQuery.toLowerCase()))
-    : faqs;
+  const { user } = useAuth();
+  const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
+  const [messages, setMessages] = useState<TicketMessageRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+
+  // New ticket form
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Reply form
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    async function load() {
+      try {
+        const t = await getMyTickets(user!.id);
+        setTickets(t);
+      } catch (err) {
+        console.error("Support load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [user]);
+
+  useEffect(() => {
+    if (!selectedTicket) return;
+    async function loadMessages() {
+      const msgs = await getTicketMessages(selectedTicket!);
+      setMessages(msgs);
+    }
+    loadMessages();
+  }, [selectedTicket]);
+
+  const handleCreateTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !subject.trim() || !body.trim()) return;
+    setCreating(true);
+    try {
+      const ticketId = await createTicket(user.id, subject.trim(), body.trim());
+      setSubject("");
+      setBody("");
+      setShowNew(false);
+      const t = await getMyTickets(user.id);
+      setTickets(t);
+      setSelectedTicket(ticketId);
+    } catch (err) {
+      console.error("Create ticket error:", err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !selectedTicket || !reply.trim()) return;
+    setSending(true);
+    try {
+      await sendTicketMessage(selectedTicket, user.id, reply.trim());
+      setReply("");
+      const msgs = await getTicketMessages(selectedTicket);
+      setMessages(msgs);
+    } catch (err) {
+      console.error("Send reply error:", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const inputClass = "w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      </div>
+    );
+  }
+
+  const statusColors: Record<string, "active" | "info" | "default" | "upcoming"> = {
+    open: "active",
+    pending: "upcoming",
+    resolved: "info",
+    closed: "default",
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="font-display text-2xl font-bold md:text-3xl">Support</h1>
-        <p className="mt-1 text-sm text-ink-muted">Get help with your account, gameplay, and more</p>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-2xl font-bold">Support</h1>
+        <Button size="sm" onClick={() => { setShowNew(true); setSelectedTicket(null); }}>
+          New Ticket
+        </Button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <input
-          type="search"
-          placeholder="Search FAQ..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-[var(--radius-md)] border border-rule bg-paper-2 px-5 py-3.5 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
-        />
-      </div>
-
-      {/* Quick help categories */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {helpCategories.map((cat) => (
-          <button key={cat.title} className="rounded-card border border-rule bg-paper-2 p-5 text-left transition-all duration-200 hover:border-rule-2 hover:shadow-soft">
-            <div className="size-10 grid place-items-center rounded-xl bg-[#F7911B]/10 text-[#F7911B]">
-              <cat.Icon className="size-5" />
+      {/* ── New ticket form ── */}
+      {showNew && (
+        <section className="rounded-card border border-rule bg-paper-2 p-6">
+          <h2 className="font-display text-lg font-bold">Create Support Ticket</h2>
+          <form className="mt-4 space-y-4" onSubmit={handleCreateTicket}>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Subject</label>
+              <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Brief description" required className={inputClass} />
             </div>
-            <h3 className="mt-3 font-display font-semibold text-ink">{cat.title}</h3>
-            <p className="mt-0.5 text-xs text-ink-muted">{cat.desc}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* FAQ */}
-      <section className="rounded-card border border-rule bg-paper-2">
-        <div className="border-b border-rule px-5 py-4 flex items-center gap-2">
-          <HelpCircleIcon className="size-5 text-[#F7911B]" />
-          <h2 className="font-display text-lg font-bold">Frequently Asked Questions</h2>
-        </div>
-        <div className="divide-y divide-rule/50">
-          {filteredFaqs.map((f, i) => (
-            <details key={i} className="group px-5 py-4">
-              <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-ink list-none">
-                {f.q}
-                <span className="text-ink-muted transition-transform group-open:rotate-180">▼</span>
-              </summary>
-              <p className="mt-3 text-sm leading-relaxed text-ink-3">{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      {/* Actions */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <section className="rounded-card border border-rule bg-paper-2 p-6">
-          <h2 className="font-display font-semibold">Live Chat Support</h2>
-          <p className="mt-1 text-sm text-ink-3">Chat with our support team in real-time</p>
-          <Button className="mt-4" size="sm">Start Chat</Button>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Message</label>
+              <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Describe your issue..." required rows={4} className={inputClass} />
+            </div>
+            <div className="flex gap-3">
+              <Button type="submit" disabled={creating}>{creating ? "Creating..." : "Submit Ticket"}</Button>
+              <Button type="button" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+            </div>
+          </form>
         </section>
-        <section className="rounded-card border border-rule bg-paper-2 p-6">
-          <h2 className="font-display font-semibold">Submit Ticket</h2>
-          <p className="mt-1 text-sm text-ink-3">Create a support ticket and we&apos;ll respond via email</p>
-          <Button variant="secondary" className="mt-4" size="sm">New Ticket</Button>
-        </section>
-      </div>
+      )}
 
-      {/* My tickets */}
-      <section className="rounded-card border border-rule bg-paper-2">
-        <div className="border-b border-rule px-5 py-4">
-          <h2 className="font-display text-lg font-bold">My Tickets</h2>
-        </div>
-        <div className="divide-y divide-rule/50">
-          {tickets.map((t) => (
-            <div key={t.id} className="flex items-center justify-between px-5 py-4">
-              <div>
-                <p className="text-sm font-medium text-ink">{t.subject}</p>
-                <p className="text-xs text-ink-muted">{t.id} · {t.date}</p>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* ── Ticket list ── */}
+        <section className="lg:col-span-1 space-y-2">
+          {tickets.length > 0 ? tickets.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => { setSelectedTicket(t.id); setShowNew(false); }}
+              className={`w-full text-left rounded-[var(--radius-sm)] border px-4 py-3 transition-all ${
+                selectedTicket === t.id ? "border-accent bg-accent-muted" : "border-rule bg-paper-2 hover:border-rule-2"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-ink truncate">{t.subject}</p>
+                <Badge variant={statusColors[t.status] ?? "default"} className="text-[0.6rem]">{t.status}</Badge>
               </div>
-              <Badge variant={t.status === "open" ? "warning" : "success"} dot>
-                {t.status}
-              </Badge>
+              <p className="text-xs text-ink-muted mt-1">{new Date(t.updated_at).toLocaleDateString("en-NG")}</p>
+            </button>
+          )) : (
+            <p className="text-sm text-ink-muted text-center py-8">No tickets yet.</p>
+          )}
+        </section>
+
+        {/* ── Conversation ── */}
+        <section className="lg:col-span-2 rounded-card border border-rule bg-paper-2 p-6">
+          {selectedTicket ? (
+            <>
+              <h2 className="font-display text-lg font-bold mb-4">Conversation</h2>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {messages.map((msg) => {
+                  const isMe = msg.sender_id === user?.id;
+                  return (
+                    <div key={msg.id} className={`rounded-[var(--radius-sm)] px-4 py-3 ${
+                      isMe ? "bg-accent-muted border border-accent/20 ml-8" : "bg-paper-3 border border-rule/50 mr-8"
+                    }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-medium text-ink">{isMe ? "You" : msg.profiles?.username ?? "Support"}</p>
+                        <p className="text-xs text-ink-muted">{new Date(msg.created_at).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}</p>
+                      </div>
+                      <p className="text-sm text-ink-2">{msg.body}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <form className="mt-4 flex gap-2" onSubmit={handleReply}>
+                <input type="text" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Type a reply..." className={`flex-1 ${inputClass}`} />
+                <Button type="submit" size="sm" disabled={sending}>{sending ? "..." : "Send"}</Button>
+              </form>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <HelpCircleIcon className="size-10 text-ink-muted mb-3" />
+              <p className="text-sm text-ink-muted">Select a ticket or create a new one.</p>
             </div>
-          ))}
-        </div>
-      </section>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
