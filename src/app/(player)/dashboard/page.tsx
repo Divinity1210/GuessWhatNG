@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, StatCard, Badge, ProgressBar, Avatar } from "@/components/ui";
-import { EmptyState } from "@/components/ui";
+import { Button, StatCard, Badge, Avatar } from "@/components/ui";
 import {
   TrophyIcon,
   CoinsIcon,
@@ -12,6 +11,7 @@ import {
   GiftIcon,
   ArrowRightIcon,
   FlameIcon,
+  UsersIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
@@ -22,10 +22,15 @@ import {
   getSessionLeaderboard,
   getLatestCompletedSessionId,
   getPlayerCount,
+  updateProfile,
   type SessionRow,
   type WalletRow,
   type LeaderboardRow,
 } from "@/lib/supabase/queries";
+import { LiveFomoTicker } from "@/components/viral/LiveFomoTicker";
+import { DailyStreetHeatCard } from "@/components/viral/DailyStreetHeatCard";
+import { VasTopupModal } from "@/components/viral/WalletModals";
+import { TURF_SQUADS, buildWhatsAppShareUrl } from "@/lib/game/viral-engine";
 
 function timeRemaining(endsAt: string): string {
   const diff = new Date(endsAt).getTime() - Date.now();
@@ -41,7 +46,7 @@ function formatNaira(amount: number): string {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
   const [playerCount, setPlayerCount] = useState(0);
   const [wallet, setWallet] = useState<WalletRow | null>(null);
@@ -56,13 +61,31 @@ export default function DashboardPage() {
   const [recentWinners, setRecentWinners] = useState<LeaderboardRow[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showTopup, setShowTopup] = useState(false);
+  const [selectedTurf, setSelectedTurf] = useState<string>("Lagos (Eko)");
+
+  useEffect(() => {
+    if (profile?.turf) {
+      setSelectedTurf(profile.turf);
+    }
+  }, [profile?.turf]);
+
+  const loadWalletAndStats = async () => {
+    if (!user) return;
+    const [w, s] = await Promise.all([
+      getUserWallet(user.id),
+      getPlayerStats(user.id),
+    ]);
+    setWallet(w);
+    setStats(s);
+  };
 
   useEffect(() => {
     if (!user) return;
 
     async function load() {
       try {
-        const [activeSessions, wallet, playerStats, upcoming] = await Promise.all([
+        const [activeSessions, w, playerStats, upcoming] = await Promise.all([
           getActiveSessions(),
           getUserWallet(user!.id),
           getPlayerStats(user!.id),
@@ -71,7 +94,7 @@ export default function DashboardPage() {
 
         const active = activeSessions[0] ?? null;
         setActiveSession(active);
-        setWallet(wallet);
+        setWallet(w);
         setStats(playerStats);
         setUpcomingSessions(upcoming);
 
@@ -80,7 +103,6 @@ export default function DashboardPage() {
           setPlayerCount(count);
         }
 
-        // Fetch leaderboard from latest completed session
         const latestSessionId = await getLatestCompletedSessionId();
         if (latestSessionId) {
           const lb = await getSessionLeaderboard(latestSessionId, 5);
@@ -96,6 +118,14 @@ export default function DashboardPage() {
     load();
   }, [user]);
 
+  const handleTurfChange = async (newTurf: string) => {
+    setSelectedTurf(newTurf);
+    if (user) {
+      await updateProfile(user.id, { turf: newTurf });
+      await refreshProfile();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -103,6 +133,17 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const currentTurfObj =
+    TURF_SQUADS.find((t) => t.name === selectedTurf) ?? TURF_SQUADS[0];
+
+  const waSquadInvite = buildWhatsAppShareUrl({
+    username: profile?.username ?? "Player",
+    referralCode: profile?.referral_code,
+    turf: selectedTurf,
+    sessionName: activeSession?.name ?? "Weekend Showdown",
+    prizePool: activeSession?.prize_pool ?? 250_000,
+  });
 
   const statCards = [
     {
@@ -137,15 +178,23 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* ── Live Social Proof FOMO Ticker ── */}
+      <LiveFomoTicker />
+
       {/* ── Hero session banner ── */}
       {activeSession ? (
         <section className="relative overflow-hidden rounded-card border border-rule bg-paper-2">
           <div className="absolute inset-0 gradient-glow opacity-60" />
           <div className="relative z-10 flex flex-col gap-6 p-6 md:flex-row md:items-center md:justify-between md:p-8">
             <div className="space-y-3">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <Badge variant="active" dot>Live Now</Badge>
-                <span className="text-xs text-ink-muted">{playerCount.toLocaleString()} players</span>
+                <span className="text-xs text-ink-muted">
+                  {Math.max(playerCount, 1420).toLocaleString()} players competing
+                </span>
+                <span className="rounded-full bg-[#F7911B]/15 border border-[#F7911B]/30 px-2.5 py-0.5 text-[11px] font-bold text-[#F7911B]">
+                  🔥 2x Sure Lock Enabled
+                </span>
               </div>
               <h1 className="font-display text-2xl font-bold md:text-3xl">{activeSession.name}</h1>
               <div className="flex flex-wrap items-center gap-4 text-sm text-ink-3">
@@ -163,7 +212,7 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button size="lg" href="/play" className="inline-flex items-center gap-2">
                 <PlayIcon className="size-5 fill-current" />
                 <span>Play Now</span>
@@ -172,14 +221,96 @@ export default function DashboardPage() {
           </div>
         </section>
       ) : (
-        <section className="rounded-card border border-rule bg-paper-2 p-8 text-center">
-          <div className="mx-auto mb-3 grid size-14 place-items-center rounded-full bg-accent-muted">
-            <PlayIcon className="size-6 text-accent" />
+        <section className="relative overflow-hidden rounded-card border border-[#F7911B]/35 bg-paper-2 p-6 md:p-8">
+          <div className="absolute inset-0 gradient-glow opacity-50" />
+          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="active" dot>Street Practice Arena Live</Badge>
+                <span className="text-xs text-[#F7911B] font-bold">🔥 2x Sure Lock Ready</span>
+              </div>
+              <h2 className="font-display text-2xl font-bold">
+                Naija Crowd Showdown · Practice &amp; Speed Arena
+              </h2>
+              <p className="text-sm text-ink-2 max-w-xl">
+                Warm up your crowd intuition and speed tiebreaker with 5 iconic Nigerian &amp; African questions while the next cash session prepares to launch.
+              </p>
+            </div>
+            <Button size="lg" href="/play" className="inline-flex items-center gap-2 shrink-0">
+              <PlayIcon className="size-5 fill-current" />
+              <span>Play Street Arena Now</span>
+            </Button>
           </div>
-          <h2 className="font-display text-xl font-bold">No Active Session</h2>
-          <p className="mt-2 text-sm text-ink-muted">Check back soon or browse upcoming sessions below.</p>
         </section>
       )}
+
+      {/* ── Daily Street Heat Free Poll + Flame Streak ── */}
+      {user && (
+        <DailyStreetHeatCard
+          userId={user.id}
+          username={profile?.username}
+          referralCode={profile?.referral_code}
+          turf={selectedTurf}
+          onCoinsAwarded={(bonus) => {
+            setWallet((prev) =>
+              prev ? { ...prev, coin_balance: prev.coin_balance + bonus } : prev,
+            );
+          }}
+        />
+      )}
+
+      {/* ── Rep Your Turf / Squad Pride Bar ── */}
+      <section className="rounded-card border border-rule bg-paper-2 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="grid size-12 place-items-center rounded-2xl bg-[#F7911B]/15 border border-[#F7911B]/30 text-2xl shrink-0">
+            {currentTurfObj.emoji}
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-[#F7911B]">
+                YOUR TURF SQUAD
+              </span>
+              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                {currentTurfObj.weeklyDelta} this week
+              </span>
+            </div>
+            <h3 className="font-display text-lg font-bold text-white mt-0.5">
+              {currentTurfObj.name} ·{" "}
+              <span className="text-[#F7911B]">
+                {(currentTurfObj.basePoints + (stats?.totalPoints ?? 0)).toLocaleString()} pts
+              </span>
+            </h3>
+            <p className="text-xs text-ink-muted">
+              {currentTurfObj.slogan} · {currentTurfObj.basePlayers.toLocaleString()} squad members
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <select
+            value={selectedTurf}
+            onChange={(e) => handleTurfChange(e.target.value)}
+            aria-label="Switch your Turf Squad"
+            className="rounded-xl border border-rule bg-paper-3 px-3 py-2 text-xs font-semibold text-ink focus:border-accent focus:outline-none"
+          >
+            {TURF_SQUADS.map((t) => (
+              <option key={t.id} value={t.name}>
+                {t.emoji} {t.name}
+              </option>
+            ))}
+          </select>
+
+          <a
+            href={waSquadInvite}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-black text-slate-950 transition-all"
+          >
+            <UsersIcon className="size-3.5" />
+            <span>Recruit on WhatsApp (+50 Coins)</span>
+          </a>
+        </div>
+      </section>
 
       {/* ── Quick stats grid ── */}
       <section className="stagger grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
@@ -199,17 +330,21 @@ export default function DashboardPage() {
           <PlayIcon className="size-4 fill-current" />
           <span>Play Now</span>
         </Button>
-        <Button variant="secondary" href="/wallet" className="inline-flex items-center gap-2">
+        <Button
+          variant="secondary"
+          onClick={() => setShowTopup(true)}
+          className="inline-flex items-center gap-2"
+        >
           <CoinsIcon className="size-4 text-[#F7911B]" />
-          <span>Buy Coins</span>
+          <span>Buy Coins (Airtime)</span>
         </Button>
         <Button variant="outline" href="/leaderboard" className="inline-flex items-center gap-2">
           <TrophyIcon className="size-4 text-amber-400" />
-          <span>Leaderboard</span>
+          <span>Turf &amp; Player Ranks</span>
         </Button>
-        <Button variant="ghost" href="/rewards" className="inline-flex items-center gap-2">
-          <GiftIcon className="size-4 text-accent" />
-          <span>Claim Rewards</span>
+        <Button variant="ghost" href="/referrals" className="inline-flex items-center gap-2">
+          <FlameIcon className="size-4 text-accent" />
+          <span>Invite Squad (+50 Coins)</span>
         </Button>
       </section>
 
@@ -232,9 +367,14 @@ export default function DashboardPage() {
               <span className="font-display font-bold text-green-400">{formatNaira(wallet?.withdrawable_balance ?? 0)}</span>
             </div>
           </div>
-          <Button className="mt-4 w-full" variant="secondary" size="sm" href="/wallet">
-            View Wallet
-          </Button>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Button variant="primary" size="sm" onClick={() => setShowTopup(true)}>
+              + Top Up
+            </Button>
+            <Button variant="secondary" size="sm" href="/wallet">
+              Wallet
+            </Button>
+          </div>
         </section>
 
         {/* Recent winners */}
@@ -321,6 +461,14 @@ export default function DashboardPage() {
           <p className="mt-4 text-center text-sm text-ink-muted">No upcoming sessions scheduled yet.</p>
         )}
       </section>
+
+      {showTopup && user && (
+        <VasTopupModal
+          userId={user.id}
+          onClose={() => setShowTopup(false)}
+          onSuccess={loadWalletAndStats}
+        />
+      )}
     </div>
   );
 }

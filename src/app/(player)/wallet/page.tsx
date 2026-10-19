@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { StatCard, Button, Badge, TabGroup } from "@/components/ui";
-import { CoinsIcon, GiftIcon, TimerIcon, ArrowRightIcon } from "@/components/ui/Icons";
+import { useCallback, useEffect, useState } from "react";
+import { StatCard, Button, TabGroup } from "@/components/ui";
+import { CoinsIcon, GiftIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getUserWallet, getWalletTransactions, type WalletRow, type WalletTxnRow } from "@/lib/supabase/queries";
+import { VasTopupModal, WithdrawalModal } from "@/components/viral/WalletModals";
 
 const TXN_LABELS: Record<string, string> = {
-  subscription_grant: "Coin Purchase",
+  subscription_grant: "Airtime VAS Coin Purchase",
   session_entry: "Session Entry",
   reward: "Prize Reward",
-  referral_bonus: "Referral Bonus",
-  promo: "Promo Bonus",
-  withdrawal: "Withdrawal",
+  referral_bonus: "Squad Referral Bonus",
+  promo: "Daily Streak / Welcome Bonus",
+  withdrawal: "Bank / OPay Withdrawal",
   adjustment: "Adjustment",
 };
 
@@ -26,25 +27,28 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<WalletTxnRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
+  const [showTopup, setShowTopup] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+
+  const loadWallet = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [w, txns] = await Promise.all([
+        getUserWallet(user.id),
+        getWalletTransactions(user.id, 50),
+      ]);
+      setWallet(w);
+      setTransactions(txns);
+    } catch (err) {
+      console.error("Wallet load error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (!user) return;
-    async function load() {
-      try {
-        const [w, txns] = await Promise.all([
-          getUserWallet(user!.id),
-          getWalletTransactions(user!.id, 50),
-        ]);
-        setWallet(w);
-        setTransactions(txns);
-      } catch (err) {
-        console.error("Wallet load error:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [user]);
+    loadWallet();
+  }, [loadWallet]);
 
   if (loading) {
     return (
@@ -54,16 +58,24 @@ export default function WalletPage() {
     );
   }
 
-  const filteredTxns = tab === "all"
-    ? transactions
-    : transactions.filter((t) => {
-        if (tab === "credits") return t.coin_delta > 0 || t.reward_delta > 0;
-        return t.coin_delta < 0 || t.reward_delta < 0;
-      });
+  const filteredTxns =
+    tab === "all"
+      ? transactions
+      : transactions.filter((t) => {
+          if (tab === "credits") return t.coin_delta > 0 || t.reward_delta > 0;
+          return t.coin_delta < 0 || t.reward_delta < 0;
+        });
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="font-display text-2xl font-bold">Wallet</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Wallet &amp; Airtime VAS</h1>
+          <p className="text-xs text-ink-muted mt-0.5">
+            Instant coin top-ups via MTN, Airtel, Glo &amp; 9mobile airtime · Cash withdrawals to OPay, PalmPay &amp; Nigerian banks
+          </p>
+        </div>
+      </div>
 
       {/* ── Balance cards ── */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -80,24 +92,32 @@ export default function WalletPage() {
         <StatCard
           label="Withdrawable"
           value={formatNaira(wallet?.withdrawable_balance ?? 0)}
-          icon={<div className="size-5 grid place-items-center rounded-full bg-green-500/20 text-green-400 text-xs font-bold">₦</div>}
+          icon={
+            <div className="size-5 grid place-items-center rounded-full bg-green-500/20 text-green-400 text-xs font-bold">
+              ₦
+            </div>
+          }
         />
       </div>
 
       {/* ── Quick actions ── */}
       <div className="flex flex-wrap gap-3">
-        <Button className="inline-flex items-center gap-2">
+        <Button className="inline-flex items-center gap-2" onClick={() => setShowTopup(true)}>
           <CoinsIcon className="size-4" />
-          Buy Coins
+          <span>Buy Coins (Airtime VAS)</span>
         </Button>
-        <Button variant="secondary" className="inline-flex items-center gap-2" disabled={(wallet?.withdrawable_balance ?? 0) <= 0}>
-          Withdraw
+        <Button
+          variant="secondary"
+          className="inline-flex items-center gap-2"
+          onClick={() => setShowWithdraw(true)}
+        >
+          <span>Withdraw to Bank / OPay</span>
         </Button>
       </div>
 
       {/* ── Transaction history ── */}
       <section className="rounded-card border border-rule bg-paper-2 p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="font-display text-lg font-bold">Transaction History</h2>
           <TabGroup
             tabs={[
@@ -115,31 +135,48 @@ export default function WalletPage() {
             {filteredTxns.map((txn) => {
               const isCredit = txn.coin_delta > 0 || txn.reward_delta > 0;
               return (
-                <div key={txn.id} className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3">
+                <div
+                  key={txn.id}
+                  className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3"
+                >
                   <div className="flex items-center gap-3">
-                    <div className={`grid size-9 place-items-center rounded-full text-xs font-bold ${
-                      isCredit ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
-                    }`}>
+                    <div
+                      className={`grid size-9 place-items-center rounded-full text-xs font-bold ${
+                        isCredit ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+                      }`}
+                    >
                       {isCredit ? "+" : "−"}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-ink">{TXN_LABELS[txn.type] ?? txn.type}</p>
+                      <p className="text-sm font-medium text-ink">
+                        {txn.note || TXN_LABELS[txn.type] || txn.type}
+                      </p>
                       <p className="text-xs text-ink-muted">
                         {new Date(txn.created_at).toLocaleDateString("en-NG", {
-                          day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     {txn.coin_delta !== 0 && (
-                      <p className={`text-sm font-semibold ${isCredit ? "text-green-400" : "text-red-400"}`}>
-                        {isCredit ? "+" : ""}{txn.coin_delta.toLocaleString()} coins
+                      <p
+                        className={`text-sm font-semibold ${
+                          isCredit ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {isCredit ? "+" : ""}
+                        {txn.coin_delta.toLocaleString()} coins
                       </p>
                     )}
                     {txn.reward_delta !== 0 && (
                       <p className={`text-xs ${isCredit ? "text-green-400" : "text-red-400"}`}>
-                        {isCredit ? "+" : ""}{formatNaira(txn.reward_delta)}
+                        {isCredit ? "+" : ""}
+                        {formatNaira(txn.reward_delta)}
                       </p>
                     )}
                   </div>
@@ -148,9 +185,28 @@ export default function WalletPage() {
             })}
           </div>
         ) : (
-          <p className="mt-8 text-center text-sm text-ink-muted">No transactions yet.</p>
+          <p className="mt-8 text-center text-sm text-ink-muted">
+            No transactions yet. Top up coins with airtime or play the Daily Street Heat poll!
+          </p>
         )}
       </section>
+
+      {showTopup && user && (
+        <VasTopupModal
+          userId={user.id}
+          onClose={() => setShowTopup(false)}
+          onSuccess={loadWallet}
+        />
+      )}
+
+      {showWithdraw && user && (
+        <WithdrawalModal
+          userId={user.id}
+          maxAmount={wallet?.withdrawable_balance ?? 0}
+          onClose={() => setShowWithdraw(false)}
+          onSuccess={loadWallet}
+        />
+      )}
     </div>
   );
 }

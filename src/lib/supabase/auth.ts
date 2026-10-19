@@ -5,6 +5,7 @@ export type SignUpPayload = {
   password: string;
   username: string;
   referralCode?: string;
+  turf?: string;
 };
 
 export type SignInPayload = {
@@ -16,17 +17,19 @@ export type SignInPayload = {
  * Sign up a new player. The DB trigger `handle_new_user` auto-creates
  * a profile row + wallet from the metadata we pass here.
  */
-export async function signUp({ email, password, username, referralCode }: SignUpPayload) {
+export async function signUp({ email, password, username, referralCode, turf }: SignUpPayload) {
   const supabase = createSupabaseBrowserClient();
+  const cleanRef = referralCode?.trim().toUpperCase();
+  const selectedTurf = turf?.trim() || "Lagos (Eko)";
 
   // If a referral code is provided, look up the referrer's profile id
   let referredBy: string | undefined;
-  if (referralCode?.trim()) {
+  if (cleanRef) {
     const { data: referrer } = await supabase
       .from("profiles")
       .select("id")
-      .eq("referral_code", referralCode.trim().toUpperCase())
-      .single();
+      .eq("referral_code", cleanRef)
+      .maybeSingle();
 
     if (referrer) {
       referredBy = referrer.id;
@@ -41,11 +44,18 @@ export async function signUp({ email, password, username, referralCode }: SignUp
       data: {
         username: username.trim(),
         full_name: "",
+        referral_code: cleanRef || "",
+        turf: selectedTurf,
       },
     },
   });
 
   if (error) throw error;
+
+  if (data.user && typeof window !== "undefined") {
+    localStorage.setItem(`gw_turf_${data.user.id}`, selectedTurf);
+    localStorage.setItem(`gw_streak_${data.user.id}`, "1");
+  }
 
   // If we found a referrer, update the profile with referred_by
   if (referredBy && data.user) {

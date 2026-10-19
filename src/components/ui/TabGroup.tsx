@@ -9,17 +9,19 @@ interface Tab {
 
 interface TabGroupProps {
   tabs: Tab[];
+  value?: string;
   defaultValue?: string;
   onChange?: (value: string) => void;
   className?: string;
 }
 
-export function TabGroup({ tabs, defaultValue, onChange, className = "" }: TabGroupProps) {
-  const [active, setActive] = useState(defaultValue ?? tabs[0]?.value ?? "");
+export function TabGroup({ tabs, value, defaultValue, onChange, className = "" }: TabGroupProps) {
+  const [internalActive, setInternalActive] = useState(defaultValue ?? tabs[0]?.value ?? "");
+  const active = value !== undefined ? value : internalActive;
 
-  function select(value: string) {
-    setActive(value);
-    onChange?.(value);
+  function select(nextValue: string) {
+    setInternalActive(nextValue);
+    onChange?.(nextValue);
   }
 
   return (

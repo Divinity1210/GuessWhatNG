@@ -12,7 +12,11 @@ import {
   ZapIcon,
   BrainIcon,
   ArrowRightIcon,
+  FlameIcon,
 } from "@/components/ui/Icons";
+import { LiveFomoTicker } from "@/components/viral/LiveFomoTicker";
+import { LandingMiniGame } from "@/components/viral/LandingMiniGame";
+import { TURF_SQUADS } from "@/lib/game/viral-engine";
 
 const steps = [
   {
@@ -41,22 +45,22 @@ const steps = [
 const features = [
   {
     title: "Real Cash Prizes",
-    desc: "Win real cash paid directly to your bank account or digital wallet.",
+    desc: "Win real cash paid directly to your Nigerian bank, OPay, PalmPay or Moniepoint.",
     Icon: CoinsIcon,
   },
   {
-    title: "No Trivia Required",
-    desc: "No general knowledge needed. You only need to read the room and predict human behavior.",
-    Icon: BrainIcon,
+    title: "2x Sure Lock Power-Up",
+    desc: "Arm your 2x Confidence Lock on the 1 question you're 100% sure you know the crowd's pick.",
+    Icon: FlameIcon,
   },
   {
-    title: "72-Hour Live Sessions",
-    desc: "Sessions run round the clock. Enter anytime and track your ranking live.",
-    Icon: TimerIcon,
+    title: "Rep Your Turf & Campus",
+    desc: "Every point you score boosts your City, State, or University Squad on the Turf Wars table.",
+    Icon: UsersIcon,
   },
   {
     title: "Tiebreaker Speed Thrill",
-    desc: "Ties are broken by response speed. Fast thinkers take the biggest share of the pot.",
+    desc: "Ties are broken by millisecond speed. Fast thinkers take the biggest share of the pot.",
     Icon: ZapIcon,
   },
 ];
@@ -72,8 +76,8 @@ export default function LandingPage() {
             <a href="#how-it-works" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
               How to Play
             </a>
-            <a href="#live-demo" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
-              Live Predictions
+            <a href="#turf-wars" className="text-sm font-medium text-gray-300 hover:text-[#F7911B] transition-colors">
+              Turf & Campus Wars
             </a>
             <a href="#features" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
               Why Play
@@ -98,18 +102,23 @@ export default function LandingPage() {
       </header>
 
       {/* ── Hero Section ── */}
-      <section className="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-28">
+      <section className="relative overflow-hidden pt-28 pb-20 md:pt-36 md:pb-28">
         {/* Background glow effects */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 size-[650px] rounded-full bg-[#F7911B]/10 blur-[140px] pointer-events-none" />
         <div className="absolute top-1/3 right-10 size-[400px] rounded-full bg-[#FF0400]/10 blur-[120px] pointer-events-none" />
 
         <div className="relative z-10 mx-auto max-w-6xl px-6">
+          {/* Live FOMO Social Proof Ticker */}
+          <div className="mx-auto max-w-3xl mb-6">
+            <LiveFomoTicker compact />
+          </div>
+
           {/* Live indicator badge */}
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-2.5 rounded-full border border-[#F7911B]/30 bg-[#F7911B]/10 px-4 py-1.5 text-xs font-semibold text-[#F7911B] backdrop-blur-md">
               <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
               <span className="size-2 rounded-full bg-emerald-400 -ml-4.5" />
-              <span>Live Session: Weekend Showdown · ₦250,000 Pot</span>
+              <span>Live Session: Weekend Showdown · ₦250,000 Pot · Airtime & Instant Bank Payouts</span>
             </div>
           </div>
 
@@ -118,12 +127,11 @@ export default function LandingPage() {
             <h1 className="font-display text-4xl font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl leading-[1.1]">
               Think Like the <span className="bg-gradient-to-r from-[#F7911B] via-[#FF0400] to-[#F7911B] bg-clip-text text-transparent">Crowd.</span>
               <br />
-              Win <span className="bg-gradient-to-r from-[#F7911B] to-[#FF0400] bg-clip-text text-transparent">Real Prizes.</span>
+              Win <span className="bg-gradient-to-r from-[#F7911B] to-[#FF0400] bg-clip-text text-transparent">Real Cash.</span>
             </h1>
 
             <p className="mt-6 text-lg text-gray-300 sm:text-xl max-w-2xl mx-auto leading-relaxed">
-              The social prediction game where you win by guessing what most players will pick.
-              No trivia knowledge needed — just read the room.
+              Africa&apos;s #1 social prediction arena. You don&apos;t need textbook trivia — just predict what most Nigerians &amp; Africans will pick, lock in your 2x Sure Pick, and cash out.
             </p>
 
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -135,10 +143,10 @@ export default function LandingPage() {
                 <span>Start Playing Free — Get 100 Coins</span>
               </Link>
               <a
-                href="#how-it-works"
+                href="#turf-wars"
                 className="w-full sm:w-auto rounded-full border border-white/20 bg-white/5 px-7 py-4 text-base font-semibold text-gray-200 backdrop-blur-sm transition-colors hover:bg-white/10 hover:text-white text-center"
               >
-                How It Works ↓
+                View Turf &amp; Campus Wars ↓
               </a>
             </div>
 
@@ -146,7 +154,7 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-wrap items-center justify-center gap-8 text-sm text-gray-400">
               <div className="flex items-center gap-2">
                 <UsersIcon className="size-4.5 text-[#F7911B]" />
-                <span><strong className="text-white font-bold">12,400+</strong> Active Players</span>
+                <span><strong className="text-white font-bold">24,800+</strong> Active Players</span>
               </div>
               <div className="flex items-center gap-2">
                 <TrophyIcon className="size-4.5 text-amber-400" />
@@ -154,17 +162,17 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center gap-2">
                 <StarIcon className="size-4.5 text-yellow-400" />
-                <span><strong className="text-white font-bold">4.9/5</strong> Player Rating</span>
+                <span><strong className="text-white font-bold">MTN · Airtel · Glo · OPay</strong> Ready</span>
               </div>
             </div>
           </div>
 
-          {/* ── Brand Expression Human Imagery Showcase ── */}
+          {/* ── Brand Expression Human Imagery + Interactive Mini-Game Showcase ── */}
           <div className="mt-16 grid gap-6 lg:grid-cols-12 items-center">
             {/* Left Card: Human Player Thinking / Crossing Fingers */}
             <div className="lg:col-span-4 relative group">
               <div className="relative overflow-hidden rounded-3xl border border-[#F7911B]/30 bg-gradient-to-b from-[#F7911B]/20 to-black/60 p-2 backdrop-blur-md shadow-2xl transition-transform duration-300 group-hover:-translate-y-1">
-                <div className="relative h-[340px] w-full rounded-2xl overflow-hidden">
+                <div className="relative h-[380px] w-full rounded-2xl overflow-hidden">
                   <Image
                     src="/hero-portrait.png"
                     alt="Player predicting crowd answer with fingers crossed"
@@ -177,79 +185,29 @@ export default function LandingPage() {
                   {/* Brand Thought Bubble overlay */}
                   <div className="absolute top-4 left-4 rounded-2xl bg-white/95 backdrop-blur-md px-4 py-2 text-xs font-bold text-gray-900 shadow-xl flex items-center gap-2">
                     <span className="size-2 rounded-full bg-[#F7911B] animate-pulse" />
-                    <span>Fingers crossed... Jollof Rice wins!</span>
+                    <span>2x Lock on Smoky Party Jollof! 🔥</span>
                   </div>
 
                   <div className="absolute bottom-4 left-4 right-4">
                     <span className="inline-block rounded-full bg-[#F7911B] px-3 py-1 text-xs font-bold text-black uppercase tracking-wider">
-                      Live Player
+                      ⚡ Lagos (Eko) Turf Leader
                     </span>
                     <p className="mt-1 font-display text-lg font-bold text-white">Adaora, Lagos</p>
-                    <p className="text-xs text-gray-300">Streak: 5 Sessions Won</p>
+                    <p className="text-xs text-gray-300">7-Day Flame Streak · 5 Sessions Won</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Center Card: Interactive Live Question Market Preview */}
+            {/* Center Card: Interactive 3-Question Live Playable Mini-Game */}
             <div className="lg:col-span-4 relative">
-              <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-[oklch(20%_0.02_60)] to-[oklch(12%_0.01_60)] p-6 shadow-2xl backdrop-blur-xl">
-                <div className="flex items-center justify-between text-xs text-gray-400 border-b border-white/10 pb-3">
-                  <span className="font-semibold text-[#F7911B]">QUESTION 4 OF 10</span>
-                  <span className="font-mono text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
-                    <TimerIcon className="size-3.5" />
-                    <span>18s Left</span>
-                  </span>
-                </div>
-
-                <h3 className="mt-4 font-display text-xl font-bold text-white leading-snug">
-                  Which Nigerian meal will be chosen by the majority?
-                </h3>
-
-                {/* Option Bars */}
-                <div className="mt-5 space-y-3">
-                  {[
-                    { option: "Jollof Rice", pct: "64%", label: "Crowd Favorite", active: true },
-                    { option: "Fried Rice & Chicken", pct: "22%", label: "2nd Most Picked", active: false },
-                    { option: "Pounded Yam & Egusi", pct: "14%", label: "Contender", active: false },
-                  ].map((item, idx) => (
-                    <div
-                      key={idx}
-                      className={`relative overflow-hidden rounded-xl border p-3.5 transition-all ${
-                        item.active
-                          ? "border-[#F7911B] bg-[#F7911B]/15"
-                          : "border-white/10 bg-white/5"
-                      }`}
-                    >
-                      <div
-                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#F7911B]/30 to-[#FF0400]/30 transition-all duration-700"
-                        style={{ width: item.pct }}
-                      />
-                      <div className="relative z-10 flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-white text-sm">{item.option}</p>
-                          <p className="text-[11px] text-[#F7911B] font-medium">{item.label}</p>
-                        </div>
-                        <span className="font-display font-black text-lg text-white">{item.pct}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-white/10">
-                  <div className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-emerald-400" />
-                    <span>4,218 players voting</span>
-                  </div>
-                  <span className="text-[#F7911B] font-semibold">Ties broken by speed</span>
-                </div>
-              </div>
+              <LandingMiniGame />
             </div>
 
             {/* Right Card: Human Winner Celebrating */}
             <div className="lg:col-span-4 relative group">
               <div className="relative overflow-hidden rounded-3xl border border-[#FF0400]/30 bg-gradient-to-b from-[#FF0400]/20 to-black/60 p-2 backdrop-blur-md shadow-2xl transition-transform duration-300 group-hover:-translate-y-1">
-                <div className="relative h-[340px] w-full rounded-2xl overflow-hidden">
+                <div className="relative h-[380px] w-full rounded-2xl overflow-hidden">
                   <Image
                     src="/hero-winner.png"
                     alt="Player celebrating big cash win"
@@ -261,14 +219,14 @@ export default function LandingPage() {
                   {/* Winner Badge overlay */}
                   <div className="absolute top-4 right-4 rounded-2xl bg-gradient-to-r from-[#F7911B] to-[#FF0400] px-4 py-2 text-xs font-black text-white shadow-xl flex items-center gap-1.5">
                     <TrophyIcon className="size-4 text-yellow-300" />
-                    <span>WON ₦100,000 CASH</span>
+                    <span>CASHED OUT ₦100,000</span>
                   </div>
 
                   <div className="absolute bottom-4 left-4 right-4">
                     <span className="inline-block rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-black uppercase tracking-wider">
-                      Verified Winner
+                      Instant OPay Alert
                     </span>
-                    <p className="mt-1 font-display text-lg font-bold text-white">Kelvin O.</p>
+                    <p className="mt-1 font-display text-lg font-bold text-white">Kelvin O. · Abuja Squad</p>
                     <p className="text-xs text-gray-300">1st Place — Weekend Showdown #47</p>
                   </div>
                 </div>
@@ -404,6 +362,127 @@ export default function LandingPage() {
                     <ArrowRightIcon className="size-4" />
                   </Link>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Rep Your Turf: City & Campus Squad Wars ── */}
+      <section id="turf-wars" className="py-20 md:py-28 border-t border-white/10 bg-[#0d1018]">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="max-w-2xl">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F7911B]/15 border border-[#F7911B]/30 px-3.5 py-1 text-xs font-extrabold uppercase tracking-wider text-[#F7911B]">
+                <FlameIcon className="size-3.5" />
+                <span>Turf &amp; Campus Squad Wars</span>
+              </span>
+              <h2 className="mt-4 font-display text-3xl font-black text-white sm:text-5xl">
+                Rep Your City. Rep Your Campus.
+              </h2>
+              <p className="mt-3 text-base text-gray-300">
+                Every point you score boosts your Turf on the national and Pan-African leaderboard. Rally your WhatsApp group so your squad doesn&apos;t carry last!
+              </p>
+            </div>
+            <Link
+              href="/sign-up"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#F7911B] to-[#FF0400] px-6 py-3.5 text-sm font-black text-white shadow-lg shadow-orange-500/20 hover:brightness-110 transition-all shrink-0"
+            >
+              <span>Join &amp; Rep Your Turf</span>
+              <ArrowRightIcon className="size-4" />
+            </Link>
+          </div>
+
+          <div className="mt-12 grid gap-6 lg:grid-cols-2">
+            {/* City Wars */}
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 className="font-display text-lg font-bold text-white">
+                  ⚡ Top Cities &amp; States (Live Standings)
+                </h3>
+                <span className="text-xs font-semibold text-emerald-400">Updated Live</span>
+              </div>
+              <div className="space-y-3">
+                {TURF_SQUADS.filter((t) => t.category === "city")
+                  .slice(0, 4)
+                  .map((turf, idx) => (
+                    <div
+                      key={turf.id}
+                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/40 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`grid size-8 place-items-center rounded-xl font-display text-xs font-black ${
+                            idx === 0
+                              ? "bg-gradient-to-br from-[#F7911B] to-[#FF0400] text-white"
+                              : "bg-white/10 text-gray-300"
+                          }`}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <div>
+                          <p className="font-display font-bold text-white text-sm">
+                            {turf.emoji} {turf.name}
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            {turf.basePlayers.toLocaleString()} players · MVP @{turf.topPlayer}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-display font-black text-sm text-[#F7911B]">
+                          {turf.basePoints.toLocaleString()} pts
+                        </p>
+                        <p className="text-[11px] text-emerald-400 font-semibold">{turf.weeklyDelta}</p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Campus Wars */}
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 className="font-display text-lg font-bold text-white">
+                  🎓 University Campus Clash
+                </h3>
+                <span className="text-xs font-semibold text-[#F7911B]">₦100k Campus Bonus</span>
+              </div>
+              <div className="space-y-3">
+                {TURF_SQUADS.filter((t) => t.category === "campus")
+                  .slice(0, 4)
+                  .map((turf, idx) => (
+                    <div
+                      key={turf.id}
+                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/40 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`grid size-8 place-items-center rounded-xl font-display text-xs font-black ${
+                            idx === 0
+                              ? "bg-gradient-to-br from-[#F7911B] to-[#FF0400] text-white"
+                              : "bg-white/10 text-gray-300"
+                          }`}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <div>
+                          <p className="font-display font-bold text-white text-sm">
+                            {turf.emoji} {turf.name}
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            {turf.basePlayers.toLocaleString()} students · MVP @{turf.topPlayer}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-display font-black text-sm text-[#F7911B]">
+                          {turf.basePoints.toLocaleString()} pts
+                        </p>
+                        <p className="text-[11px] text-emerald-400 font-semibold">{turf.weeklyDelta}</p>
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
           </div>

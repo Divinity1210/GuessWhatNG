@@ -95,8 +95,8 @@ h1, h2, h3, h4, h5, h6 {
 
 .gradient-glow {
   background-image:
-    radial-gradient(circle at top right, rgba(247, 145, 27, 0.26), transparent 44%),
-    radial-gradient(circle at left center, rgba(108, 76, 255, 0.16), transparent 40%);
+    radial-gradient(circle at top right, rgba(247, 145, 27, 0.2), transparent 44%),
+    radial-gradient(circle at left center, rgba(255, 4, 0, 0.1), transparent 40%);
 }
 
 .text-gradient-brand {

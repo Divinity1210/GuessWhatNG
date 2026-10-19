@@ -1,4 +1,4 @@
-type BadgeVariant = "active" | "completed" | "upcoming" | "closing" | "info" | "warning" | "danger" | "success" | "neutral";
+type BadgeVariant = "active" | "completed" | "upcoming" | "closing" | "info" | "warning" | "danger" | "success" | "neutral" | "default" | "gold";
 
 const variantStyles: Record<BadgeVariant, string> = {
   active: "bg-success/15 text-success border-success/25",
@@ -10,6 +10,8 @@ const variantStyles: Record<BadgeVariant, string> = {
   danger: "bg-danger/15 text-danger border-danger/25",
   success: "bg-success/15 text-success border-success/25",
   neutral: "bg-surface-boost text-ink-3 border-rule",
+  default: "bg-surface-boost text-ink-3 border-rule",
+  gold: "bg-accent/15 text-accent border-accent/30",
 };
 
 interface BadgeProps {

@@ -25,6 +25,8 @@ export type Profile = {
   avatar_url: string | null;
   role: string;
   referral_code: string;
+  turf?: string;
+  streak_days?: number;
 };
 
 type AuthState = {
@@ -35,7 +37,7 @@ type AuthState = {
 };
 
 type AuthActions = {
-  signUp: (payload: SignUpPayload) => Promise<void>;
+  signUp: (payload: SignUpPayload) => Promise<{ user: User | null; session: Session | null }>;
   signIn: (payload: SignInPayload) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -60,10 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (userId: string): Promise<Profile | null> => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, full_name, avatar_url, role, referral_code")
+        .select("*")
         .eq("id", userId)
         .single();
-      return data as Profile | null;
+      if (!data) return null;
+      const p = data as Profile;
+      if (typeof window !== "undefined") {
+        const localTurf = localStorage.getItem(`gw_turf_${userId}`);
+        const localStreak = localStorage.getItem(`gw_streak_${userId}`);
+        return {
+          ...p,
+          turf: p.turf || localTurf || "Lagos (Eko)",
+          streak_days: p.streak_days || (localStreak ? Number(localStreak) : 1),
+        };
+      }
+      return p;
     },
     [supabase],
   );

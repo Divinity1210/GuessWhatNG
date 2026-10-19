@@ -115,7 +115,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         {/* User section at bottom */}
         <div className="border-t border-white/5 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-tr from-accent to-purple-600 font-display text-xs font-bold text-white shadow-md">
+            <div className="grid size-9 place-items-center rounded-xl bg-accent font-display text-xs font-bold text-white shadow-md">
               {initials}
             </div>
             <div className="flex-1 min-w-0">
@@ -140,7 +140,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
               onClick={() => setMenuOpen(!menuOpen)}
               className="p-2 rounded-xl bg-white/5 text-slate-300 hover:text-white"
             >
-              ☰
+              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <Logo size="sm" />
           </div>
@@ -156,7 +156,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
 
             <Link
               href="/profile"
-              className="grid size-8 place-items-center rounded-xl bg-gradient-to-tr from-accent to-purple-600 text-xs font-bold text-white shadow-md"
+              className="grid size-8 place-items-center rounded-xl bg-accent text-xs font-bold text-white shadow-md"
             >
               {initials}
             </Link>

@@ -95,15 +95,18 @@ export async function getSessionQuestions(sessionId: string): Promise<SessionQue
   if (error) throw error;
 
   // Sort options within each question
-  return (data ?? []).map((sq) => ({
-    ...sq,
-    questions: {
-      ...sq.questions,
-      question_options: (sq.questions as SessionQuestion["questions"]).question_options.sort(
-        (a, b) => a.position - b.position,
-      ),
-    },
-  })) as SessionQuestion[];
+  return (data ?? []).map((sq) => {
+    const q = (Array.isArray(sq.questions) ? sq.questions[0] : sq.questions) as unknown as SessionQuestion["questions"];
+    return {
+      ...sq,
+      questions: {
+        ...q,
+        question_options: (q?.question_options ?? []).sort(
+          (a, b) => a.position - b.position,
+        ),
+      },
+    };
+  }) as unknown as SessionQuestion[];
 }
 
 // ─── Submit Answer ───────────────────────────────────────────────────────────
@@ -113,15 +116,28 @@ export async function submitAnswer(
   questionId: string,
   optionId: string,
   responseMs: number,
+  isLocked2x = false,
 ): Promise<void> {
   const supabase = createSupabaseBrowserClient();
 
-  const { error } = await supabase.rpc("submit_answer", {
+  let { error } = await supabase.rpc("submit_answer", {
     p_entry_id: entryId,
     p_question_id: questionId,
     p_option_id: optionId,
     p_response_ms: responseMs,
+    p_is_locked_2x: isLocked2x,
   });
+
+  // Fallback to 4-arg RPC if remote DB has not run migration 00000000000002 yet
+  if (error && (error.message.includes("p_is_locked_2x") || error.message.includes("function submit_answer"))) {
+    const retry = await supabase.rpc("submit_answer", {
+      p_entry_id: entryId,
+      p_question_id: questionId,
+      p_option_id: optionId,
+      p_response_ms: responseMs,
+    });
+    error = retry.error;
+  }
 
   if (error) {
     if (error.message.includes("entry not open")) {
@@ -160,7 +176,7 @@ export async function getMyAnswers(entryId: string) {
 
   if (error) throw error;
 
-  const map: Record<string, { optionId: string; responseMs: number }> = {};
+  const map: Record<string, { optionId: string; responseMs: number; isLocked2x?: boolean }> = {};
   for (const a of data ?? []) {
     map[a.question_id] = { optionId: a.option_id, responseMs: a.response_ms };
   }
