@@ -49,7 +49,7 @@ export default function RewardsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="size-6 animate-spin rounded-full border-2 border-[#F7911B] border-t-transparent" />
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
@@ -59,81 +59,79 @@ export default function RewardsPage() {
     .reduce((sum, r) => sum + r.reward_delta, 0);
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="font-display text-2xl font-bold text-[#F4F5F8]">
-          Payouts &amp; Settlements
-        </h1>
-        <p className="text-xs text-[#8A92A6] mt-0.5">
-          Transfer settled session winnings to OPay, PalmPay, Moniepoint, Kuda, or any commercial bank.
+        <h1 className="font-display text-2xl font-bold">Cash Rewards &amp; Payouts</h1>
+        <p className="text-xs text-ink-muted mt-0.5">
+          Withdraw your session prizes directly to OPay, PalmPay, Moniepoint, Kuda or any Nigerian bank.
         </p>
       </div>
 
-      {/* ── Summary Ledger ── */}
+      {/* ── Summary cards ── */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
-          label="Cumulative Prizes"
+          label="Total Cash Earned"
           value={formatNaira(totalRewards)}
-          icon={<GiftIcon className="size-4 text-[#F7911B]" />}
+          icon={<GiftIcon className="size-5 text-accent" />}
         />
         <StatCard
-          label="Settled Balance"
+          label="Reward Balance"
           value={formatNaira(wallet?.reward_balance ?? 0)}
-          icon={<TrophyIcon className="size-4 text-[#C8CDD8]" />}
+          icon={<TrophyIcon className="size-5 text-amber-400" />}
         />
         <StatCard
-          label="Available Payout"
+          label="Withdrawable"
           value={formatNaira(wallet?.withdrawable_balance ?? 0)}
-          icon={<span className="font-mono text-xs font-bold text-[#10B981]">NGN</span>}
+          icon={
+            <div className="size-5 grid place-items-center rounded-full bg-green-500/20 text-green-400 text-xs font-bold">
+              ₦
+            </div>
+          }
         />
       </div>
 
-      {/* ── Actions ── */}
+      {/* ── Withdrawal action ── */}
       <div className="flex flex-wrap gap-3">
         <Button onClick={() => setShowWithdraw(true)}>
           {(wallet?.withdrawable_balance ?? 0) > 0
-            ? `Transfer ${formatNaira(wallet!.withdrawable_balance)} via NIP`
-            : "Request Bank / OPay Transfer"}
+            ? `Withdraw ${formatNaira(wallet!.withdrawable_balance)} to Bank / OPay`
+            : "Request Bank / OPay Payout"}
         </Button>
         <Button variant="secondary" href="/play">
-          Enter Live Pool
+          Play Session to Win Cash
         </Button>
       </div>
 
-      {/* ── Settlement History ── */}
-      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F5F8] border-b border-[#222631] pb-3">
-          Settlement &amp; Bonus Log
-        </h2>
+      {/* ── Reward history ── */}
+      <section className="rounded-card border border-rule bg-paper-2 p-6">
+        <h2 className="font-display text-lg font-bold">Reward &amp; Bonus History</h2>
         {rewards.length > 0 ? (
-          <div className="divide-y divide-[#222631]">
+          <div className="mt-4 space-y-2">
             {rewards.map((r) => {
               const isCredit = r.reward_delta >= 0 && r.coin_delta >= 0;
               return (
                 <div
                   key={r.id}
-                  className="flex items-center justify-between py-3.5 first:pt-4 last:pb-0"
+                  className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <span
-                      className={`grid size-8 place-items-center rounded-lg border font-mono text-xs font-semibold ${
-                        isCredit
-                          ? "border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]"
-                          : "border-[#2E3442] bg-[#171A21] text-[#C8CDD8]"
+                    <div
+                      className={`grid size-9 place-items-center rounded-full text-xs font-bold ${
+                        isCredit ? "bg-green-500/15 text-green-400" : "bg-amber-500/15 text-amber-400"
                       }`}
                     >
-                      {isCredit ? "CR" : "OUT"}
-                    </span>
+                      {isCredit ? "+" : "↗"}
+                    </div>
                     <div>
-                      <p className="text-xs sm:text-sm font-medium text-[#F4F5F8]">
+                      <p className="text-sm font-medium text-ink">
                         {r.note ||
                           (r.type === "reward"
-                            ? "Session Pool Prize"
+                            ? "Session Cash Prize"
                             : r.type === "referral_bonus"
-                              ? "Referral Credit"
-                              : "Daily Streak Credit")}
+                              ? "Squad Referral Bonus"
+                              : "Streak / Welcome Bonus")}
                       </p>
-                      <p className="font-mono text-[11px] text-[#8A92A6] tabular-nums">
+                      <p className="text-xs text-ink-muted">
                         {new Date(r.created_at).toLocaleDateString("en-NG", {
                           day: "numeric",
                           month: "short",
@@ -142,15 +140,15 @@ export default function RewardsPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right font-mono tabular-nums">
+                  <div className="text-right">
                     {r.reward_delta !== 0 ? (
-                      <p className={`text-xs sm:text-sm font-semibold ${r.reward_delta > 0 ? "text-[#10B981]" : "text-[#C8CDD8]"}`}>
+                      <p className={`text-sm font-semibold ${r.reward_delta > 0 ? "text-green-400" : "text-amber-400"}`}>
                         {r.reward_delta > 0 ? "+" : ""}
                         {formatNaira(r.reward_delta)}
                       </p>
                     ) : (
-                      <p className="text-xs sm:text-sm font-semibold text-[#F7911B]">
-                        +{r.coin_delta} GW
+                      <p className="text-sm font-semibold text-[#F7911B]">
+                        +{r.coin_delta} coins
                       </p>
                     )}
                   </div>
@@ -160,8 +158,8 @@ export default function RewardsPage() {
           </div>
         ) : (
           <EmptyState
-            title="No settlements recorded"
-            description="Rank in the top entries of a live session pool to earn Naira payouts."
+            title="No rewards yet"
+            description="Play sessions and win prizes to earn cash rewards!"
           />
         )}
       </section>

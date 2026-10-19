@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, Badge } from "@/components/ui";
-import { UsersIcon, CoinsIcon, CheckIcon } from "@/components/ui/Icons";
+import { UsersIcon, CoinsIcon, ZapIcon, CheckIcon, FlameIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getReferredUsers, type ReferralRow } from "@/lib/supabase/queries";
 import {
@@ -13,10 +13,10 @@ import {
 } from "@/lib/game/viral-engine";
 
 const AMBASSADOR_TIERS = [
-  { name: "Tier 1 · Associate", minRefs: 0, code: "T1", perk: "+50 GW per verified invite" },
-  { name: "Tier 2 · Captain", minRefs: 3, code: "T2", perk: "+150 GW milestone bonus" },
-  { name: "Tier 3 · Syndicate Lead", minRefs: 10, code: "T3", perk: "Division badge + priority pools" },
-  { name: "Tier 4 · Partner", minRefs: 25, code: "T4", perk: "Monthly partner revenue share" },
+  { name: "Street Starter", minRefs: 0, badge: "🌱", perk: "+50 Coins per invite" },
+  { name: "Area Captain", minRefs: 3, badge: "⚡", perk: "+150 Bonus Milestone" },
+  { name: "Campus Odogwu", minRefs: 10, badge: "👑", perk: "VIP Turf Badge + Priority Drops" },
+  { name: "National Legend", minRefs: 25, badge: "🦁", perk: "Monthly Ambassador Cash Pool" },
 ];
 
 export default function ReferralsPage() {
@@ -47,13 +47,12 @@ export default function ReferralsPage() {
     typeof window !== "undefined" ? window.location.origin : "https://guesswhat-tan.vercel.app";
   const inviteLink = `${origin}/sign-up?ref=${encodeURIComponent(refCode)}`;
   const turfInfo =
-    TURF_SQUADS.find((t) => t.id === (profile?.turf || "lagos") || t.name === profile?.turf) ??
-    TURF_SQUADS[0];
-  const turfLabel = `${turfInfo.name} (${turfInfo.emoji})`;
+    TURF_SQUADS.find((t) => t.id === (profile?.turf || "lagos")) ?? TURF_SQUADS[0];
+  const turfLabel = `${turfInfo.emoji} ${turfInfo.name}`;
 
   const currentTierIndex = AMBASSADOR_TIERS.reduce(
     (acc, tier, idx) => (referrals.length >= tier.minRefs ? idx : acc),
-    0,
+    0
   );
   const currentTier = AMBASSADOR_TIERS[currentTierIndex];
   const nextTier = AMBASSADOR_TIERS[currentTierIndex + 1];
@@ -73,14 +72,14 @@ export default function ReferralsPage() {
   const whatsappUrl = buildWhatsAppShareUrl({
     username: profile?.username || "Player",
     referralCode: refCode,
-    turf: turfInfo.name,
+    turf: turfLabel,
     challengeQuestion: "If Burna Boy, Wizkid & Davido drop at midnight, who hits #1 first?",
-    prizePool: 250000,
+    prizePool: 50000,
   });
 
   const twitterUrl = buildTwitterShareUrl({
     referralCode: refCode,
-    turf: turfInfo.name,
+    turf: turfLabel,
     challengeQuestion: "If Burna Boy, Wizkid & Davido drop at midnight, who hits #1 first?",
   });
 
@@ -89,19 +88,19 @@ export default function ReferralsPage() {
     try {
       const dataUrl = generateBragCardDataUrl({
         username: profile?.username || "Player",
-        turf: turfInfo.name,
-        sessionName: "Weekend Showdown Pool",
-        prizePool: "₦250,000",
-        timeSeconds: "18.4",
+        turf: turfLabel,
+        sessionName: "Think & Win Live Cash Arena",
+        prizePool: "₦50,000+",
+        timeSeconds: "1.4",
         answeredCount: 10,
         used2xLock: true,
-        challengeQuestion: "Predict what the majority of Nigerians will choose & compete for cash.",
+        challengeQuestion: "Predict what most Nigerians will pick & win real cash!",
         referralCode: refCode,
       });
       if (dataUrl) {
         const a = document.createElement("a");
         a.href = dataUrl;
-        a.download = `GuessWhat-Slip-${refCode}.png`;
+        a.download = `guesswhat-invite-${refCode}.png`;
         a.click();
       }
     } finally {
@@ -112,137 +111,141 @@ export default function ReferralsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="size-6 animate-spin rounded-full border-2 border-[#F7911B] border-t-transparent" />
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[#F4F5F8]">
-            Syndicate &amp; Referral Ledger
-          </h1>
-          <p className="text-xs text-[#8A92A6] mt-0.5">
-            Every verified signup credits <strong className="text-[#F7911B]">+50 GW Coins</strong> to your balance and{" "}
-            <strong className="text-[#10B981]">+150 GW Coins</strong> to your invitee.
+          <h1 className="font-display text-2xl font-bold">Squad & Ambassador Hub</h1>
+          <p className="text-sm text-ink-muted">
+            Recruit players to your turf. Every signup gives{" "}
+            <strong className="text-accent">+50 Coins</strong> to you AND{" "}
+            <strong className="text-success">+150 Welcome Coins</strong> to your friend!
           </p>
         </div>
         <Badge variant="gold">
-          [{currentTier.code}] {currentTier.name}
+          {currentTier.badge} {currentTier.name}
         </Badge>
       </div>
 
-      {/* ── Referral Command Panel ── */}
-      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-6 space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#222631] pb-4">
-          <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-lg border border-[#2E3442] bg-[#171A21] text-[#F7911B]">
-              <UsersIcon className="size-5" />
+      {/* ── Viral Referral Command Card ── */}
+      <section className="relative overflow-hidden rounded-card border border-accent/30 bg-paper-2 p-6 md:p-8 shadow-elevated">
+        <div className="absolute inset-0 gradient-glow opacity-45" />
+        <div className="relative z-10 space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-xl bg-accent-muted text-accent">
+                <UsersIcon className="size-6" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-bold">
+                  Recruit for {turfLabel}
+                </h2>
+                <p className="text-xs text-ink-muted">
+                  Share on WhatsApp Status, Group Chats, or X — your code auto-applies!
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-[#F4F5F8]">
-                Recruit for {turfLabel}
-              </h2>
-              <p className="text-xs text-[#8A92A6]">
-                Direct links automatically apply your referral code on sign-up.
-              </p>
-            </div>
-          </div>
-          <span className="rounded border border-[#10B981]/30 bg-[#10B981]/10 px-2.5 py-1 font-mono text-xs font-semibold text-[#10B981]">
-            +50 GW / SIGNUP
-          </span>
-        </div>
-
-        {/* Code & Direct Link */}
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="flex items-center justify-between rounded-lg border border-[#222631] bg-[#090A0D] px-4 py-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A92A6]">
-                Referral Code
-              </p>
-              <p className="mt-0.5 font-mono text-lg font-semibold tracking-wider text-[#F7911B]">
-                {refCode}
-              </p>
-            </div>
-            <Button variant="secondary" size="sm" onClick={handleCopyCode}>
-              {copiedCode ? "Copied" : "Copy Code"}
-            </Button>
+            <span className="rounded-pill border border-success/30 bg-success-muted px-3 py-1 text-xs font-bold text-success">
+              Instant +50 Coins / Invite
+            </span>
           </div>
 
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-[#222631] bg-[#090A0D] px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8A92A6]">
-                Auto-Apply Link
-              </p>
-              <p className="mt-0.5 truncate font-mono text-xs text-[#C8CDD8]">{inviteLink}</p>
+          {/* Code & Auto-Link Boxes */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="flex items-center justify-between rounded-[var(--radius-sm)] border border-accent/30 bg-paper-1/90 px-4 py-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-dim">
+                  Your VIP Code
+                </p>
+                <p className="font-display text-xl font-bold tracking-[0.18em] text-accent">
+                  {refCode}
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={handleCopyCode}>
+                {copiedCode ? "Copied!" : "Copy Code"}
+              </Button>
             </div>
-            <Button variant="secondary" size="sm" onClick={handleCopyLink}>
-              {copiedLink ? "Copied" : "Copy URL"}
-            </Button>
+
+            <div className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-rule bg-paper-1/90 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-dim">
+                  1-Click Auto-Apply Link
+                </p>
+                <p className="truncate font-mono text-xs text-ink-muted">{inviteLink}</p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+                {copiedLink ? "Copied!" : "Copy Link"}
+              </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Share Channels */}
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-lg bg-[#F7911B] hover:bg-[#FFA236] px-4 py-2.5 text-xs font-semibold text-[#090A0D] transition-colors"
-          >
-            Share via WhatsApp
-          </a>
+          {/* 1-Tap Viral Share Buttons */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[#25D366] px-4 py-3 text-sm font-bold text-[#07130a] shadow-sm transition-transform hover:scale-[1.01]"
+            >
+              <span>📲</span> Share to WhatsApp
+            </a>
 
-          <a
-            href={twitterUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-lg border border-[#2E3442] bg-[#171A21] hover:bg-[#1F242D] px-4 py-2.5 text-xs font-semibold text-[#F4F5F8] transition-colors"
-          >
-            Post on X
-          </a>
+            <a
+              href={twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-3 text-sm font-bold text-ink transition-colors hover:border-accent/40"
+            >
+              <span>𝕏</span> Post on X
+            </a>
 
-          <button
-            type="button"
-            onClick={handleDownloadInviteCard}
-            disabled={downloadingCard}
-            className="flex items-center justify-center gap-2 rounded-lg border border-[#222631] bg-[#090A0D] hover:border-[#2E3442] px-4 py-2.5 text-xs font-medium text-[#C8CDD8] transition-colors disabled:opacity-50"
-          >
-            {downloadingCard ? "Rendering PNG..." : "Download Slip PNG"}
-          </button>
+            <button
+              type="button"
+              onClick={handleDownloadInviteCard}
+              disabled={downloadingCard}
+              className="flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-accent/40 bg-accent-muted px-4 py-3 text-sm font-bold text-accent transition-colors hover:bg-accent/20 disabled:opacity-50"
+            >
+              <ZapIcon className="size-4" />
+              {downloadingCard ? "Generating PNG..." : "Download Status Flyer"}
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* ── Telemetry Strip ── */}
-      <div className="grid grid-cols-3 divide-x divide-[#222631] rounded-xl border border-[#222631] bg-[#111318] py-4 text-center font-mono tabular-nums">
-        <div className="px-3">
-          <p className="text-xl font-semibold text-[#F4F5F8]">{referrals.length}</p>
-          <p className="mt-1 font-sans text-[11px] text-[#8A92A6]">Verified Invites</p>
+      {/* ── Stats & Ambassador Ladder ── */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-card border border-rule bg-paper-2 p-5 text-center">
+          <p className="font-display text-2xl font-bold text-ink">{referrals.length}</p>
+          <p className="text-xs text-ink-muted mt-1">Squad Recruits</p>
         </div>
-        <div className="px-3">
-          <p className="text-xl font-semibold text-[#F7911B]">{referrals.length * 50} GW</p>
-          <p className="mt-1 font-sans text-[11px] text-[#8A92A6]">Coins Earned</p>
+        <div className="rounded-card border border-rule bg-paper-2 p-5 text-center">
+          <p className="font-display text-2xl font-bold text-accent">{referrals.length * 50}</p>
+          <p className="text-xs text-ink-muted mt-1">Referral Coins Earned</p>
         </div>
-        <div className="px-3">
-          <p className="text-xl font-semibold text-[#10B981]">
-            {nextTier ? `${Math.max(0, nextTier.minRefs - referrals.length)}` : "MAX"}
+        <div className="rounded-card border border-rule bg-paper-2 p-5 text-center">
+          <p className="font-display text-2xl font-bold text-success">
+            {nextTier ? `${Math.max(0, nextTier.minRefs - referrals.length)} left` : "MAX"}
           </p>
-          <p className="mt-1 font-sans text-[11px] text-[#8A92A6]">
-            {nextTier ? `To ${nextTier.code}` : "Top Tier"}
+          <p className="text-xs text-ink-muted mt-1">
+            {nextTier ? `To ${nextTier.name}` : "Top Ambassador Tier"}
           </p>
         </div>
       </div>
 
-      {/* ── Syndicate Tiers ── */}
-      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5">
-        <div className="flex items-center justify-between border-b border-[#222631] pb-3 mb-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F5F8]">
-            Syndicate Progression
-          </h2>
-          <span className="font-mono text-xs text-[#8A92A6] tabular-nums">
-            {referrals.length} / {nextTier ? nextTier.minRefs : 25} INVITES
+      {/* ── Campus & Street Ambassador Milestones ── */}
+      <section className="rounded-card border border-rule bg-paper-2 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <FlameIcon className="size-5 text-accent" />
+            <h2 className="font-display text-lg font-bold">Ambassador Ranks</h2>
+          </div>
+          <span className="text-xs text-ink-muted">
+            {referrals.length} / {nextTier ? nextTier.minRefs : 25} recruits
           </span>
         </div>
 
@@ -253,69 +256,66 @@ export default function ReferralsPage() {
             return (
               <div
                 key={tier.name}
-                className={`rounded-lg border p-4 ${
+                className={`rounded-[var(--radius-sm)] border p-4 transition-all ${
                   isCurrent
-                    ? "border-[#F7911B] bg-[#171A21]"
+                    ? "border-accent bg-accent-muted/40 shadow-glow"
                     : unlocked
-                      ? "border-[#2E3442] bg-[#090A0D]"
-                      : "border-[#222631] bg-[#090A0D] opacity-60"
+                      ? "border-success/30 bg-success-muted/10"
+                      : "border-rule bg-paper-3/60 opacity-65"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="rounded border border-[#2E3442] bg-[#111318] px-2 py-0.5 font-mono text-xs font-bold text-[#F7911B]">
-                    {tier.code}
-                  </span>
+                  <span className="text-2xl">{tier.badge}</span>
                   {unlocked ? (
-                    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold text-[#10B981]">
-                      <CheckIcon className="size-3" /> ACTIVE
+                    <span className="inline-flex items-center gap-1 rounded-pill bg-success/20 px-2 py-0.5 text-[10px] font-bold text-success">
+                      <CheckIcon className="size-3" /> Unlocked
                     </span>
                   ) : (
-                    <span className="font-mono text-[10px] text-[#8A92A6]">
-                      {tier.minRefs} REQ
+                    <span className="text-[11px] font-semibold text-ink-dim">
+                      {tier.minRefs} invites
                     </span>
                   )}
                 </div>
-                <p className="mt-3 text-sm font-semibold text-[#F4F5F8]">{tier.name}</p>
-                <p className="mt-1 text-xs text-[#8A92A6]">{tier.perk}</p>
+                <p className="mt-2 font-display text-sm font-bold text-ink">{tier.name}</p>
+                <p className="mt-1 text-xs text-ink-muted">{tier.perk}</p>
               </div>
             );
           })}
         </div>
       </section>
 
-      {/* ── Referred Players Ledger ── */}
-      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F5F8]">
-          Referred Accounts
-        </h2>
+      {/* ── Referred users list ── */}
+      <section className="rounded-card border border-rule bg-paper-2 p-6">
+        <h2 className="font-display text-lg font-bold">Your Recruited Squad</h2>
         {referrals.length > 0 ? (
-          <div className="mt-4 divide-y divide-[#222631]">
+          <div className="mt-4 space-y-3">
             {referrals.map((ref) => (
               <div
                 key={ref.id}
-                className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
+                className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="grid size-8 place-items-center rounded-lg border border-[#2E3442] bg-[#171A21] font-mono text-xs font-semibold text-[#F4F5F8]">
+                  <div className="flex size-9 items-center justify-center rounded-full bg-accent-muted font-display text-xs font-bold text-accent">
                     {ref.username.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-xs sm:text-sm font-medium text-[#F4F5F8]">@{ref.username}</p>
-                    <p className="font-mono text-[11px] text-[#8A92A6]">
-                      {new Date(ref.created_at).toLocaleDateString("en-NG")}
+                    <p className="text-sm font-medium text-ink">{ref.username}</p>
+                    <p className="text-xs text-ink-muted">
+                      Joined {new Date(ref.created_at).toLocaleDateString("en-NG")}
                     </p>
                   </div>
                 </div>
-                <Badge variant="active">+50 GW</Badge>
+                <Badge variant="active">+50 coins</Badge>
               </div>
             ))}
           </div>
         ) : (
-          <div className="mt-4 rounded-lg border border-[#222631] bg-[#090A0D] p-6 text-center">
-            <CoinsIcon className="mx-auto size-6 text-[#8A92A6]" />
-            <p className="mt-2 text-xs font-semibold text-[#F4F5F8]">No referred accounts yet</p>
-            <p className="mt-1 text-xs text-[#8A92A6]">
-              Share your invite link with your division to credit +50 GW Coins per verified signup.
+          <div className="mt-6 rounded-[var(--radius-sm)] border border-dashed border-rule p-6 text-center">
+            <CoinsIcon className="mx-auto size-8 text-accent/70" />
+            <p className="mt-2 text-sm font-semibold text-ink">No squad recruits yet</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              Drop your WhatsApp link in your campus or street group chat to earn your first +50
+              Coins!
             </p>
           </div>
         )}

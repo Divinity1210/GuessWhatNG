@@ -6,7 +6,7 @@ import {
   buildTwitterShareUrl,
   generateBragCardDataUrl,
 } from "@/lib/game/viral-engine";
-import { CheckIcon } from "@/components/ui/Icons";
+import { TrophyIcon, ZapIcon, FlameIcon, CheckIcon } from "@/components/ui/Icons";
 
 interface ViralBragCardProps {
   username: string;
@@ -80,7 +80,7 @@ export function ViralBragCard({
       if (dataUrl) {
         const a = document.createElement("a");
         a.href = dataUrl;
-        a.download = `GuessWhat-${username}-Receipt.png`;
+        a.download = `GuessWhat-${username}-PredictionCard.png`;
         a.click();
       }
     } finally {
@@ -89,99 +89,100 @@ export function ViralBragCard({
   };
 
   return (
-    <div className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-6 space-y-5 text-left">
+    <div className="rounded-3xl border border-[#F7911B]/50 bg-gradient-to-b from-[#1a131c] via-[#121622] to-[#0d1018] p-6 shadow-2xl space-y-5 text-left">
       {/* Receipt Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#222631] pb-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-4">
         <div className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-[#10B981]" />
-          <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#F4F5F8]">
-            VERIFIED ENTRY RECEIPT
+          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-3 py-1 text-[11px] font-black uppercase tracking-wider text-white">
+            <FlameIcon className="size-3.5" />
+            <span>OFFICIAL LOCK-IN RECEIPT</span>
           </span>
         </div>
-        <span className="font-mono text-xs text-[#8A92A6]">
-          DIVISION: <strong className="text-[#F7911B]">{turf}</strong>
+        <span className="text-xs font-bold text-[#F7911B]">
+          Repping {turf}
         </span>
       </div>
 
-      {/* 3-Column Telemetry Strip */}
-      <div className="grid grid-cols-3 divide-x divide-[#222631] rounded-lg border border-[#222631] bg-[#090A0D] py-3 text-center">
-        <div className="px-2">
-          <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Lock Speed</p>
-          <p className="mt-1 font-mono text-lg sm:text-xl font-semibold text-[#10B981] tabular-nums">
-            {timeSeconds}s
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-ink-muted">Total Speed</p>
+          <p className="mt-1 font-display text-xl sm:text-2xl font-black text-emerald-400 flex items-center justify-center gap-1">
+            <ZapIcon className="size-4" />
+            <span>{timeSeconds}s</span>
           </p>
         </div>
 
-        <div className="px-2">
-          <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Session Pool</p>
-          <p className="mt-1 font-mono text-lg sm:text-xl font-semibold text-[#F7911B] tabular-nums">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-ink-muted">Prize Pool</p>
+          <p className="mt-1 font-display text-xl sm:text-2xl font-black text-[#F7911B]">
             ₦{prizePool.toLocaleString()}
           </p>
         </div>
 
-        <div className="px-2">
-          <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">2x Multiplier</p>
-          <p className="mt-1 font-mono text-lg sm:text-xl font-semibold text-[#F4F5F8] tabular-nums">
-            {used2xLock ? "LOCKED" : `${answeredCount}/10`}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-ink-muted">2x Sure Lock</p>
+          <p className="mt-1 font-display text-xl sm:text-2xl font-black text-white">
+            {used2xLock ? "ACTIVE 🔥" : `${answeredCount}/10`}
           </p>
         </div>
       </div>
 
       {/* Debate Prompt Box */}
-      <div className="rounded-lg border border-[#222631] bg-[#171A21] p-4 space-y-1.5">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[#F7911B]">
-          CHALLENGE PROMPT · VOTE DISTRIBUTION HIDDEN UNTIL CLOSE
+      <div className="rounded-2xl border border-[#F7911B]/35 bg-[#F7911B]/10 p-4 space-y-1.5">
+        <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#F7911B]">
+          🤔 Challenge Your Squad On This Question (Vote Counts Hidden!)
         </p>
-        <p className="text-sm sm:text-base font-semibold text-[#F4F5F8] leading-snug">
+        <p className="font-display text-base sm:text-lg font-bold text-white leading-snug">
           &ldquo;{challengeQuestion}&rdquo;
         </p>
-        <p className="text-xs text-[#8A92A6]">
-          Share your slip with your group — earn{" "}
-          <strong className="text-[#F4F5F8]">+50 GW Coins</strong> per verified signup.
+        <p className="text-xs text-ink-2">
+          Ask your WhatsApp group what they think the crowd picked — earn{" "}
+          <strong className="text-[#F7911B]">+50 Bonus Coins</strong> for every friend who joins!
         </p>
       </div>
 
-      {/* Share Actions */}
+      {/* Viral Share Buttons */}
       <div className="grid gap-2.5 sm:grid-cols-2">
         <a
           href={waUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F7911B] hover:bg-[#FFA236] px-4 py-2.5 text-xs font-semibold text-[#090A0D] transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-4 py-3.5 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition-all"
         >
-          <span>Share Challenge on WhatsApp</span>
+          <span>📲 Challenge Squad on WhatsApp</span>
         </a>
 
         <button
           type="button"
           onClick={handleDownloadStatusCard}
           disabled={downloading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#2E3442] bg-[#171A21] hover:bg-[#1F242D] px-4 py-2.5 text-xs font-semibold text-[#F4F5F8] transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F7911B] to-[#FF0400] hover:brightness-110 px-4 py-3.5 text-sm font-black text-white shadow-lg shadow-orange-500/20 transition-all"
         >
-          <span>{downloading ? "Rendering PNG..." : "Download Receipt PNG (1080×1350)"}</span>
+          <span>{downloading ? "Generating PNG..." : "📸 Download WhatsApp Status Card"}</span>
         </button>
 
         <a
           href={twitterUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#222631] bg-[#090A0D] hover:border-[#2E3442] px-4 py-2.5 text-xs font-medium text-[#C8CDD8] transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 px-4 py-3 text-xs font-bold text-white transition-all"
         >
-          <span>Post on X</span>
+          <span>𝕏 Post Debate on X (Twitter)</span>
         </a>
 
         <button
           type="button"
           onClick={handleCopyLink}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#222631] bg-[#090A0D] hover:border-[#2E3442] px-4 py-2.5 font-mono text-xs font-medium text-[#C8CDD8] transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 px-4 py-3 text-xs font-bold text-white transition-all"
         >
           {copied ? (
             <>
-              <CheckIcon className="size-3.5 text-[#10B981]" />
-              <span className="text-[#10B981]">LINK COPIED</span>
+              <CheckIcon className="size-4 text-emerald-400" />
+              <span className="text-emerald-400">Invite Link Copied!</span>
             </>
           ) : (
-            <span>COPY REF LINK ({referralCode || "BONUS"})</span>
+            <span>🔗 Copy Invite Link ({referralCode || "BONUS"})</span>
           )}
         </button>
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Avatar, Badge, Button, TabGroup } from "@/components/ui";
+import { TrophyIcon, FlameIcon, UsersIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   getSessionLeaderboard,
@@ -64,11 +65,12 @@ export default function LeaderboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="size-6 animate-spin rounded-full border-2 border-[#F7911B] border-t-transparent" />
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
 
+  // Use real leaderboard if available, otherwise showcase realistic Hall of Fame standby
   const displayRows: LeaderboardRow[] =
     leaderboard.length > 0
       ? leaderboard
@@ -81,8 +83,9 @@ export default function LeaderboardPage() {
           profiles: { username: m.username, avatar_url: null },
         }));
 
-  const topThree = displayRows.slice(0, 3);
+  const podium = displayRows.slice(0, 3);
 
+  // Group crowd breakdown by question
   const groupedBreakdown = crowdBreakdown.reduce(
     (acc, row) => {
       if (!acc[row.question_id]) {
@@ -118,7 +121,7 @@ export default function LeaderboardPage() {
     username: profile?.username ?? "Player",
     referralCode: profile?.referral_code,
     turf: userTurf,
-    sessionName: "Division Standings",
+    sessionName: "Turf & Campus Wars",
     prizePool: 250_000,
   });
 
@@ -130,14 +133,12 @@ export default function LeaderboardPage() {
   });
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[#F4F5F8]">
-            Standings &amp; Division Ledger
-          </h1>
-          <p className="text-xs text-[#8A92A6] mt-0.5">
-            Settled player rankings, City &amp; University division aggregates, and post-session crowd distributions.
+          <h1 className="font-display text-2xl font-bold">Leaderboard &amp; Turf Wars</h1>
+          <p className="text-xs text-ink-muted mt-0.5">
+            Track individual winners, City/Campus squad standings, and post-session crowd vote breakdowns.
           </p>
         </div>
 
@@ -147,7 +148,7 @@ export default function LeaderboardPage() {
               value={selectedSession ?? ""}
               onChange={(e) => setSelectedSession(e.target.value)}
               aria-label="Select completed session"
-              className="rounded-lg border border-[#222631] bg-[#111318] px-3 py-2 text-xs text-[#F4F5F8] focus:border-[#F7911B] focus:outline-none"
+              className="rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
             >
               {sessions.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -161,20 +162,21 @@ export default function LeaderboardPage() {
             href={waTurfRally}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2E3442] bg-[#171A21] hover:bg-[#1F242D] px-3.5 py-2 text-xs font-semibold text-[#F4F5F8] transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-black text-slate-950 transition-all"
           >
-            <span>Share {userTurf.split(" ")[0]} Standings</span>
+            <UsersIcon className="size-3.5" />
+            <span>Rally {userTurf.split(" ")[0]} on WhatsApp</span>
           </a>
         </div>
       </div>
 
       <TabGroup
         tabs={[
-          { label: "Top Players", value: "players" },
-          { label: "City Divisions", value: "cities" },
-          { label: "Universities", value: "campus" },
-          { label: "Pan-African", value: "africa" },
-          { label: "Vote Distribution", value: "breakdown" },
+          { label: "🏆 Top Players", value: "players" },
+          { label: "⚡ City Turf Wars", value: "cities" },
+          { label: "🎓 Campus Clash", value: "campus" },
+          { label: "🌍 Pan-African", value: "africa" },
+          { label: "📊 Crowd Vote Reveal", value: "breakdown" },
         ]}
         value={boardMode}
         onChange={setBoardMode}
@@ -184,159 +186,174 @@ export default function LeaderboardPage() {
       {boardMode === "players" && (
         <>
           {leaderboard.length === 0 && (
-            <div className="rounded-lg border border-[#222631] bg-[#111318] px-4 py-2.5 text-xs text-[#C8CDD8] flex items-center justify-between">
-              <span>Archive: Weekend Showdown #47</span>
-              <Badge variant="active">SETTLED</Badge>
+            <div className="rounded-xl border border-[#F7911B]/30 bg-[#F7911B]/10 px-4 py-2.5 text-xs text-[#F7911B] flex items-center justify-between">
+              <span>Showing Hall of Fame Standings (Weekend Showdown #47)</span>
+              <Badge variant="active">Verified Payouts</Badge>
             </div>
           )}
 
-          {/* Top 3 Ledger Cards */}
-          {topThree.length >= 3 && (
-            <section className="grid gap-3 sm:grid-cols-3">
-              {topThree.map((p) => (
-                <div
-                  key={p.user_id}
-                  className={`rounded-xl border p-4 ${
-                    p.rank === 1
-                      ? "border-[#F7911B]/50 bg-[#111318]"
-                      : "border-[#222631] bg-[#111318]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-semibold text-[#8A92A6]">
-                      RANK #0{p.rank}
-                    </span>
-                    <span className="font-mono text-sm font-semibold text-[#10B981] tabular-nums">
-                      {formatNaira(p.prize)}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <Avatar name={p.profiles?.username ?? "?"} size="md" rank={p.rank} />
-                    <div>
-                      <p className="text-sm font-semibold text-[#F4F5F8]">
-                        @{p.profiles?.username ?? "player"}
-                      </p>
-                      <p className="font-mono text-xs text-[#8A92A6] tabular-nums">
-                        {p.points} pts · {(p.response_ms / 1000).toFixed(1)}s
-                      </p>
+          {/* Podium */}
+          {podium.length >= 3 && (
+            <section className="flex items-end justify-center gap-4 py-6">
+              {[podium[1], podium[0], podium[2]].map((p, idx) => {
+                const heights = ["h-28", "h-36", "h-24"];
+                const ranks = [2, 1, 3];
+                return (
+                  <div key={p.user_id} className="flex flex-col items-center gap-2">
+                    <Avatar name={p.profiles?.username ?? "?"} size="lg" rank={ranks[idx]} />
+                    <p className="text-sm font-semibold text-ink">{p.profiles?.username ?? "?"}</p>
+                    <p className="text-xs text-ink-muted">
+                      {p.points} pts · {(p.response_ms / 1000).toFixed(1)}s
+                    </p>
+                    <div
+                      className={`w-24 ${heights[idx]} rounded-t-xl bg-gradient-to-b ${
+                        ranks[idx] === 1
+                          ? "from-amber-500/35 to-amber-500/5 border-t border-amber-400/40"
+                          : ranks[idx] === 2
+                            ? "from-gray-400/30 to-gray-400/5 border-t border-gray-400/30"
+                            : "from-orange-700/30 to-orange-700/5 border-t border-orange-600/30"
+                      } flex flex-col items-center justify-start pt-3`}
+                    >
+                      <span className="font-display text-2xl font-bold text-ink">#{ranks[idx]}</span>
+                      <span className="text-[11px] font-bold text-accent mt-1">
+                        {formatNaira(p.prize)}
+                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </section>
           )}
 
-          {/* Full Standings Table */}
-          <section className="rounded-xl border border-[#222631] bg-[#111318] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-[#222631] bg-[#0D0F14] text-left font-mono text-[10px] uppercase tracking-wider text-[#8A92A6]">
-                    <th className="py-3 pl-5 pr-3">Rank</th>
-                    <th className="py-3 pr-3">Player</th>
-                    <th className="py-3 pr-3 text-right">Points</th>
-                    <th className="py-3 pr-3 text-right hidden sm:table-cell">Speed</th>
-                    <th className="py-3 pr-5 text-right">Payout</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#222631]">
-                  {displayRows.map((row) => {
-                    const isMe = row.user_id === user?.id;
-                    return (
-                      <tr
-                        key={row.user_id}
-                        className={isMe ? "bg-[#F7911B]/10" : "hover:bg-[#171A21]/40"}
-                      >
-                        <td className="py-3 pl-5 pr-3 font-mono text-xs font-semibold text-[#8A92A6] tabular-nums">
+          {/* Full table */}
+          <section className="rounded-card border border-rule bg-paper-2 p-6">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-rule text-left text-xs font-medium uppercase tracking-wider text-ink-muted">
+                  <th className="pb-3 pr-4">Rank</th>
+                  <th className="pb-3 pr-4">Player</th>
+                  <th className="pb-3 pr-4 text-right">Points</th>
+                  <th className="pb-3 pr-4 text-right hidden sm:table-cell">Speed</th>
+                  <th className="pb-3 text-right">Prize</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayRows.map((row) => {
+                  const isMe = row.user_id === user?.id;
+                  return (
+                    <tr
+                      key={row.user_id}
+                      className={`border-b border-rule/50 last:border-0 ${
+                        isMe ? "bg-accent-muted/30" : ""
+                      }`}
+                    >
+                      <td className="py-3 pr-4">
+                        <span
+                          className={`font-display font-bold text-xs rounded-md px-2 py-1 ${
+                            row.rank <= 3
+                              ? "bg-amber-500/15 text-amber-400"
+                              : "bg-paper-3 text-ink"
+                          }`}
+                        >
                           #{row.rank}
-                        </td>
-                        <td className="py-3 pr-3">
-                          <div className="flex items-center gap-2.5">
-                            <Avatar name={row.profiles?.username ?? "?"} size="sm" rank={row.rank} />
-                            <span className={`font-medium ${isMe ? "text-[#F7911B]" : "text-[#F4F5F8]"}`}>
-                              @{row.profiles?.username ?? "player"} {isMe && "(You)"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 pr-3 text-right font-mono text-[#C8CDD8] tabular-nums">
-                          {row.points.toLocaleString()}
-                        </td>
-                        <td className="py-3 pr-3 text-right font-mono text-xs text-[#8A92A6] hidden sm:table-cell tabular-nums">
-                          {(row.response_ms / 1000).toFixed(1)}s
-                        </td>
-                        <td className="py-3 pr-5 text-right font-mono font-semibold text-[#10B981] tabular-nums">
-                          {row.prize > 0 ? formatNaira(row.prize) : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={row.profiles?.username ?? "?"} size="sm" rank={row.rank} />
+                          <span className={`font-medium ${isMe ? "text-accent" : "text-ink"}`}>
+                            {row.profiles?.username ?? "Unknown"} {isMe && "(You)"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-right font-medium text-ink-2">
+                        {row.points.toLocaleString()}
+                      </td>
+                      <td className="py-3 pr-4 text-right text-emerald-400 font-mono text-xs hidden sm:table-cell">
+                        {(row.response_ms / 1000).toFixed(1)}s
+                      </td>
+                      <td className="py-3 text-right font-semibold text-accent">
+                        {row.prize > 0 ? formatNaira(row.prize) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </section>
         </>
       )}
 
-      {/* ── Division Standings Mode (Cities, Campuses, Pan-African) ── */}
+      {/* ── Turf Wars Mode (Cities, Campuses, Pan-African) ── */}
       {(boardMode === "cities" || boardMode === "campus" || boardMode === "africa") && (
         <section className="space-y-4">
-          <div className="rounded-xl border border-[#222631] bg-[#111318] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="rounded-card border border-[#F7911B]/35 bg-gradient-to-r from-[#19131d] via-paper-2 to-[#121723] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[#F7911B]">
-                {boardMode === "cities"
-                  ? "NIGERIAN CITY & STATE DIVISIONS"
-                  : boardMode === "campus"
-                    ? "UNIVERSITY CAMPUS DIVISIONS"
-                    : "PAN-AFRICAN DIVISIONS"}
-              </span>
-              <h2 className="text-lg font-semibold text-[#F4F5F8]">
-                Assigned Division: <span className="text-[#F7911B]">{userTurf}</span>
+              <div className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-[#F7911B]">
+                <FlameIcon className="size-4" />
+                <span>
+                  {boardMode === "cities"
+                    ? "Nigerian City & State Turf Wars"
+                    : boardMode === "campus"
+                      ? "University Campus Squad Clash"
+                      : "Pan-African Prediction Clash"}
+                </span>
+              </div>
+              <h2 className="font-display text-xl font-bold text-white">
+                You are repping <span className="text-[#F7911B]">{userTurf}</span>
               </h2>
-              <p className="text-xs text-[#8A92A6]">
-                Every session point scored by a division member increments the live aggregate.
+              <p className="text-xs text-ink-muted">
+                Every session point scored by a squad member adds to your Turf&apos;s live total!
               </p>
             </div>
             <Button size="sm" href="/play">
-              Add Points for {userTurf.split(" ")[0]}
+              Score Points for {userTurf.split(" ")[0]}
             </Button>
           </div>
 
-          <div className="rounded-xl border border-[#222631] bg-[#111318] divide-y divide-[#222631] overflow-hidden">
+          <div className="grid gap-3">
             {filteredTurfs.map((turf, idx) => {
               const isMyTurf = turf.name === userTurf;
               return (
                 <div
                   key={turf.id}
-                  className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    isMyTurf ? "bg-[#171A21]" : ""
+                  className={`rounded-card border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+                    isMyTurf
+                      ? "border-[#F7911B] bg-[#F7911B]/10 shadow-lg"
+                      : "border-rule bg-paper-2"
                   }`}
                 >
-                  <div className="flex items-center gap-3.5">
-                    <span className="font-mono text-xs font-semibold text-[#8A92A6] w-6 tabular-nums">
-                      0{idx + 1}
-                    </span>
-                    <span className="grid size-10 place-items-center rounded-lg border border-[#2E3442] bg-[#090A0D] font-mono text-xs font-bold text-[#F7911B] shrink-0">
-                      {turf.emoji}
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`grid size-11 place-items-center rounded-2xl font-display text-base font-black ${
+                        idx === 0
+                          ? "bg-gradient-to-br from-[#F7911B] to-[#FF0400] text-white"
+                          : "bg-paper-3 text-ink"
+                      }`}
+                    >
+                      #{idx + 1}
+                    </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm sm:text-base font-semibold text-[#F4F5F8]">
+                        <span className="text-lg">{turf.emoji}</span>
+                        <h3 className="font-display text-lg font-bold text-white">
                           {turf.name}
                         </h3>
-                        {isMyTurf && <Badge variant="gold">YOUR DIVISION</Badge>}
+                        {isMyTurf && <Badge variant="active">Your Turf</Badge>}
                       </div>
-                      <p className="font-mono text-[11px] text-[#8A92A6] mt-0.5 tabular-nums">
-                        {turf.basePlayers.toLocaleString()} players · Lead: @{turf.topPlayer}
+                      <p className="text-xs text-ink-muted mt-0.5">
+                        {turf.slogan} · <strong className="text-ink-2">{turf.basePlayers.toLocaleString()}</strong> active players · MVP{" "}
+                        <span className="text-[#F7911B]">@{turf.topPlayer}</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-1 font-mono tabular-nums">
-                    <p className="text-base font-semibold text-[#F4F5F8]">
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-1">
+                    <p className="font-display text-xl font-black text-[#F7911B]">
                       {turf.basePoints.toLocaleString()} pts
                     </p>
-                    <span className="text-xs text-[#10B981]">
-                      {turf.weeklyDelta}
+                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
+                      {turf.weeklyDelta} this week
                     </span>
                   </div>
                 </div>
@@ -346,26 +363,26 @@ export default function LeaderboardPage() {
         </section>
       )}
 
-      {/* ── Post-Session Vote Distribution Mode ── */}
+      {/* ── Post-Session Crowd Vote Reveal Mode ── */}
       {boardMode === "breakdown" && (
         <section className="space-y-4">
-          <div className="rounded-xl border border-[#222631] bg-[#111318] p-5">
-            <h2 className="text-base font-semibold text-[#F4F5F8]">
-              Post-Session Consensus Distribution
+          <div className="rounded-card border border-rule bg-paper-2 p-5">
+            <h2 className="font-display text-lg font-bold text-white">
+              📊 Completed Session Crowd Breakdown
             </h2>
-            <p className="text-xs text-[#8A92A6] mt-1">
-              Exact percentage of entries recorded per option after pool close.
+            <p className="text-xs text-ink-muted mt-1">
+              Once a session closes, the vault opens! See the exact percentage of players that voted for each option and the points awarded.
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             {breakdownQuestions.map((q, qIdx) => (
-              <div key={qIdx} className="rounded-xl border border-[#222631] bg-[#111318] p-5 space-y-3">
-                <div className="flex items-center justify-between font-mono text-[11px] text-[#8A92A6]">
-                  <span className="text-[#F7911B] font-semibold">MARKET 0{qIdx + 1}</span>
-                  <span>RANK #1 = 10 PTS</span>
+              <div key={qIdx} className="rounded-card border border-rule bg-paper-2 p-5 space-y-3">
+                <div className="flex items-center justify-between text-xs text-ink-muted">
+                  <span className="font-bold text-[#F7911B]">QUESTION {qIdx + 1}</span>
+                  <span>10 pts for #1 Majority Pick</span>
                 </div>
-                <h3 className="text-sm sm:text-base font-semibold text-[#F4F5F8] leading-snug">
+                <h3 className="font-display text-base font-bold text-white leading-snug">
                   {q.title}
                 </h3>
                 <div className="space-y-2 pt-1">
@@ -374,28 +391,31 @@ export default function LeaderboardPage() {
                     return (
                       <div
                         key={opt.option_id}
-                        className={`relative overflow-hidden rounded-lg border p-3 ${
+                        className={`relative overflow-hidden rounded-xl border p-3 ${
                           isTop
-                            ? "border-[#F7911B]/50 bg-[#171A21]"
-                            : "border-[#222631] bg-[#090A0D]"
+                            ? "border-[#F7911B]/60 bg-[#F7911B]/10"
+                            : "border-rule bg-paper-3"
                         }`}
                       >
                         <div
                           className={`absolute inset-y-0 left-0 ${
-                            isTop ? "bg-[#F7911B]/15" : "bg-white/[0.03]"
+                            isTop
+                              ? "bg-gradient-to-r from-[#F7911B]/30 to-[#FF0400]/30"
+                              : "bg-white/5"
                           }`}
                           style={{ width: `${opt.percentage}%` }}
                         />
                         <div className="relative z-10 flex items-center justify-between gap-2 text-xs">
                           <div>
-                            <p className="font-medium text-[#F4F5F8]">
+                            <p className="font-bold text-white">
+                              {isTop ? "👑 " : ""}
                               {opt.option_label}
                             </p>
-                            <p className="font-mono text-[10px] text-[#8A92A6] mt-0.5 tabular-nums">
-                              +{opt.points_awarded} PTS · {opt.picks.toLocaleString()} ENTRIES
+                            <p className="text-[11px] text-[#F7911B] font-semibold">
+                              +{opt.points_awarded} pts · {opt.picks.toLocaleString()} votes
                             </p>
                           </div>
-                          <span className="font-mono text-sm font-semibold text-[#F4F5F8] tabular-nums">
+                          <span className="font-display text-base font-black text-white">
                             {opt.percentage}%
                           </span>
                         </div>

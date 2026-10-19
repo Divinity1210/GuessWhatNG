@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Avatar, Badge, Button } from "@/components/ui";
-import { ArrowRightIcon } from "@/components/ui/Icons";
+import { Avatar, Badge, StatCard, Button } from "@/components/ui";
+import { TrophyIcon, FlameIcon, CoinsIcon, ArrowRightIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { getPlayerStats, getMyEntries, type SessionEntryRow } from "@/lib/supabase/queries";
+import { getPlayerStats, getUserWallet, getMyEntries, type SessionEntryRow } from "@/lib/supabase/queries";
 
 function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
@@ -20,19 +20,21 @@ export default function ProfilePage() {
     wins: number;
     totalPrizes: number;
   } | null>(null);
+  const [coinBalance, setCoinBalance] = useState(0);
   const [recentEntries, setRecentEntries] = useState<SessionEntryRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     async function load() {
       try {
-        const [playerStats, entries] = await Promise.all([
+        const [playerStats, wallet, entries] = await Promise.all([
           getPlayerStats(user!.id),
+          getUserWallet(user!.id),
           getMyEntries(user!.id, 5),
         ]);
         setStats(playerStats);
+        setCoinBalance(wallet.coin_balance);
         setRecentEntries(entries);
       } catch (err) {
         console.error("Profile load error:", err);
@@ -46,7 +48,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="size-6 animate-spin rounded-full border-2 border-[#F7911B] border-t-transparent" />
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
@@ -54,136 +56,96 @@ export default function ProfilePage() {
   const username = profile?.username ?? "Player";
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* ── Profile Header ── */}
-      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Avatar name={username} size="xl" rank={stats?.bestRank ?? undefined} />
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-display text-xl sm:text-2xl font-bold text-[#F4F5F8]">
-                  @{username}
-                </h1>
-                <Badge variant="gold">{profile?.turf ?? "Lagos (Eko)"}</Badge>
-              </div>
-              <p className="mt-0.5 text-xs text-[#8A92A6]">{user?.email}</p>
-              <p className="mt-1 font-mono text-[11px] text-[#5E6678]">
-                Joined{" "}
-                {new Date(user?.created_at ?? Date.now()).toLocaleDateString("en-NG", {
-                  month: "short",
-                  year: "numeric",
-                })}
-              </p>
+    <div className="space-y-6 animate-fade-in">
+      {/* ── Profile header ── */}
+      <section className="relative overflow-hidden rounded-card border border-rule bg-paper-2 p-6 md:p-8">
+        <div className="absolute inset-0 gradient-glow opacity-40" />
+        <div className="relative z-10 flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-6">
+          <Avatar name={username} size="xl" rank={stats?.bestRank ?? undefined} />
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="font-display text-2xl font-bold">{username}</h1>
+            <p className="mt-1 text-sm text-ink-muted">{user?.email}</p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 md:justify-start">
+              <Badge variant={profile?.role === "player" ? "info" : "active"}>
+                {profile?.role ?? "player"}
+              </Badge>
+              {stats && stats.gamesPlayed > 0 && (
+                <Badge variant="default">
+                  {stats.gamesPlayed} games played
+                </Badge>
+              )}
             </div>
-          </div>
-          <Button variant="secondary" size="sm" href="/settings">
-            Account Settings
-          </Button>
-        </div>
-
-        {/* Unified Career Telemetry Strip */}
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#222631] rounded-lg border border-[#222631] bg-[#090A0D]">
-          <div className="p-3.5">
-            <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Career Yield</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-[#F4F5F8] tabular-nums">
-              {(stats?.totalPoints ?? 0).toLocaleString()} pts
+            <p className="mt-2 text-xs text-ink-muted">
+              Member since {new Date(user?.created_at ?? Date.now()).toLocaleDateString("en-NG", { month: "long", year: "numeric" })}
             </p>
           </div>
-          <div className="p-3.5">
-            <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Pools Entered</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-[#F4F5F8] tabular-nums">
-              {stats?.gamesPlayed ?? 0}
-            </p>
-          </div>
-          <div className="p-3.5">
-            <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Highest Rank</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-[#F7911B] tabular-nums">
-              {stats?.bestRank ? `#${stats.bestRank}` : "—"}
-            </p>
-          </div>
-          <div className="p-3.5">
-            <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Settled Prizes</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-[#10B981] tabular-nums">
-              {formatNaira(stats?.totalPrizes ?? 0)}
-            </p>
-          </div>
+          <Button variant="secondary" size="sm" href="/settings">Edit Profile</Button>
         </div>
       </section>
 
-      {/* ── Referral Code Strip ── */}
-      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F5F8]">
-            Referral Code
-          </h2>
-          <p className="mt-0.5 text-xs text-[#8A92A6]">
-            Earn +50 GW Coins for every verified account registered with your code.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <span className="rounded-lg border border-[#222631] bg-[#090A0D] px-4 py-2 font-mono text-sm font-semibold tracking-wider text-[#F7911B]">
+      {/* ── Stats grid ── */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <StatCard label="Games Played" value={stats?.gamesPlayed.toString() ?? "0"} />
+        <StatCard label="Total Points" value={stats?.totalPoints.toLocaleString() ?? "0"} />
+        <StatCard label="Best Rank" value={stats?.bestRank ? `#${stats.bestRank}` : "—"} icon={<TrophyIcon className="size-5 text-amber-400" />} />
+        <StatCard label="Win Rate" value={`${Math.round((stats?.winRate ?? 0) * 100)}%`} />
+        <StatCard label="Wins" value={stats?.wins.toString() ?? "0"} icon={<FlameIcon className="size-5 text-orange-400" />} />
+        <StatCard label="Prizes Won" value={formatNaira(stats?.totalPrizes ?? 0)} icon={<CoinsIcon className="size-5 text-[#F7911B]" />} />
+      </section>
+
+      {/* ── Referral code ── */}
+      <section className="rounded-card border border-rule bg-paper-2 p-6">
+        <h2 className="font-display text-lg font-bold">Referral Code</h2>
+        <p className="mt-1 text-sm text-ink-muted">Share your code and earn bonus coins when friends join.</p>
+        <div className="mt-4 flex items-center gap-3">
+          <div className="flex-1 rounded-[var(--radius-sm)] border border-accent/30 bg-accent-muted px-4 py-3 text-center font-display text-lg font-bold tracking-widest text-accent">
             {profile?.referral_code ?? "—"}
-          </span>
+          </div>
           <Button
             variant="secondary"
             size="sm"
             onClick={() => {
               if (profile?.referral_code) {
                 navigator.clipboard.writeText(profile.referral_code);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
               }
             }}
           >
-            {copied ? "Copied" : "Copy"}
+            Copy
           </Button>
         </div>
       </section>
 
-      {/* ── Recent Entries Log ── */}
-      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5">
-        <div className="flex items-center justify-between border-b border-[#222631] pb-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F5F8]">
-            Recent Session Entries
-          </h2>
+      {/* ── Recent game history ── */}
+      <section className="rounded-card border border-rule bg-paper-2 p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold">Recent Games</h2>
           <Button variant="ghost" size="sm" href="/sessions">
-            <span>All Sessions</span>
-            <ArrowRightIcon className="size-3.5" />
+            View All <ArrowRightIcon className="ml-1 size-3.5" />
           </Button>
         </div>
         {recentEntries.length > 0 ? (
-          <div className="divide-y divide-[#222631]">
+          <div className="mt-4 space-y-3">
             {recentEntries.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex items-center justify-between py-3.5 first:pt-4 last:pb-0"
-              >
+              <div key={entry.id} className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-[#F4F5F8]">
-                    {entry.game_sessions?.name ?? "Session Pool"}
-                  </p>
-                  <p className="font-mono text-[11px] text-[#8A92A6] tabular-nums">
-                    {new Date(entry.joined_at).toLocaleDateString("en-NG")}
-                  </p>
+                  <p className="text-sm font-medium text-ink">{entry.game_sessions?.name ?? "Session"}</p>
+                  <p className="text-xs text-ink-muted">{new Date(entry.joined_at).toLocaleDateString("en-NG")}</p>
                 </div>
-                <div className="text-right font-mono tabular-nums">
+                <div className="text-right">
                   {entry.final_rank ? (
-                    <p className="text-sm font-semibold text-[#F4F5F8]">#{entry.final_rank}</p>
+                    <p className="font-display text-sm font-bold text-ink">#{entry.final_rank}</p>
                   ) : (
-                    <Badge variant="upcoming">OPEN</Badge>
+                    <Badge variant="upcoming" className="text-xs">In progress</Badge>
                   )}
                   {entry.total_score !== null && (
-                    <p className="text-xs text-[#8A92A6] mt-0.5">{entry.total_score} pts</p>
+                    <p className="text-xs text-ink-muted">{entry.total_score} pts</p>
                   )}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="py-8 text-center text-xs text-[#8A92A6]">
-            No session entries recorded yet.
-          </p>
+          <p className="mt-6 text-center text-sm text-ink-muted">No games played yet. Jump into a session to get started!</p>
         )}
       </section>
     </div>

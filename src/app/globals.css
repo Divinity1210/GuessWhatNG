@@ -1,47 +1,49 @@
 @import "tailwindcss";
 
 /*
-  GUESS WHAT — Matte Carbon & Precision Ledger Design System
-  Crafted mobile-first consumer fintech & prediction arena
+  GUESS WHAT — Design System Tokens
+  Source of truth: guess-what-player-prototype/colors_and_type.css
+  Brand: Candy Apple Red → Deep Orange → Princeton Orange
+  Theme: Dark (paper/ink), glassmorphic cards, glow accents
 */
 @theme {
-  /* ── Surfaces (Matte Carbon Hierarchy) ─────────── */
-  --color-paper: #090a0d;
-  --color-paper-2: #111318;
-  --color-paper-3: #171a21;
-  --color-paper-4: #1f242d;
+  /* ── Surfaces ──────────────────────────────────── */
+  --color-paper: #0f1117;
+  --color-paper-2: #151925;
+  --color-paper-3: #1b2030;
+  --color-paper-4: #242c3f;
 
-  /* ── Text (High-Contrast Editorial Ink) ────────── */
-  --color-ink: #f4f5f8;
-  --color-ink-2: #c8cdd8;
-  --color-ink-3: #8a92a6;
-  --color-ink-muted: #5e6678;
+  /* ── Text ──────────────────────────────────────── */
+  --color-ink: #ffffff;
+  --color-ink-2: #d5d9e6;
+  --color-ink-3: #9ea6ba;
+  --color-ink-muted: #778099;
 
-  /* ── Rules & Hairline Borders ──────────────────── */
-  --color-rule: #222631;
-  --color-rule-2: #2e3442;
-  --color-neutral: #5e6678;
+  /* ── Rules & Borders ───────────────────────────── */
+  --color-rule: #2a3142;
+  --color-rule-2: #394158;
+  --color-neutral: #697389;
 
-  /* ── Brand & Signal Accents (No Neon Purple) ───── */
+  /* ── Brand accent ──────────────────────────────── */
   --color-accent: #f7911b;
-  --color-accent-hover: #ffa236;
-  --color-accent-muted: rgba(247, 145, 27, 0.12);
-  --color-accent-2: #e07f0e;
-  --color-accent-3: #d94e1f;
-  --color-accent-purple: #8a92a6;
-  --color-accent-purple-soft: rgba(138, 146, 166, 0.12);
+  --color-accent-hover: #ff9f1c;
+  --color-accent-muted: rgba(247, 145, 27, 0.18);
+  --color-accent-2: #ff5a1f;
+  --color-accent-3: #ff0400;
+  --color-accent-purple: #6c4cff;
+  --color-accent-purple-soft: rgba(108, 76, 255, 0.18);
 
-  /* ── Surface boost ─────────────────────────────── */
-  --color-surface-boost: rgba(255, 255, 255, 0.03);
+  /* ── Surface boost (glass) ─────────────────────── */
+  --color-surface-boost: rgba(255, 255, 255, 0.04);
 
-  /* ── Semantic (Financial & Arena Signals) ──────── */
-  --color-success: #10b981;
+  /* ── Semantic ──────────────────────────────────── */
+  --color-success: #22c55e;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
-  --color-info: #38bdf8;
-  --color-focus: #f7911b;
+  --color-info: #3b82f6;
+  --color-focus: #ffb95b;
 
-  /* ── Legacy aliases ────────────────────────────── */
+  /* ── Legacy aliases (Tailwind usage) ───────────── */
   --color-bg: var(--color-paper);
   --color-sidebar: var(--color-paper-2);
   --color-card: var(--color-paper-3);
@@ -52,19 +54,19 @@
   --color-brand-orange-soft: var(--color-accent-hover);
 
   /* ── Typography ────────────────────────────────── */
-  --font-display: "Poppins", "Inter", system-ui, sans-serif;
+  --font-display: var(--font-baloo), "Poppins", system-ui, sans-serif;
   --font-heading: "Poppins", "Inter", system-ui, sans-serif;
-  --font-body: var(--font-body-face), "Inter", system-ui, sans-serif;
+  --font-body: var(--font-body-face), system-ui, sans-serif;
 
-  /* ── Radii (Crisp Hardware Geometry) ───────────── */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1rem;
+  /* ── Radii ─────────────────────────────────────── */
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.5rem;
   --radius-pill: 999px;
-  --radius-btn: 0.5rem;
-  --radius-card: 0.75rem;
-  --radius-modal: 1rem;
+  --radius-btn: var(--radius-sm);
+  --radius-card: var(--radius-lg);
+  --radius-modal: var(--radius-xl);
 }
 
 /* ── Global body ───────────────────────────────────── */
@@ -72,52 +74,52 @@ body {
   background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
 }
 
-/* ── Solid Signal Surfaces (Replaces AI Gradients) ─── */
+/* ── Gradients ─────────────────────────────────────── */
 .gradient-brand {
-  background-color: var(--color-accent);
-  color: #090a0d;
+  background-image: linear-gradient(135deg, #ff0400 0%, #ff6a1a 46%, #f7911b 100%);
 }
 
 .gradient-brand-soft {
-  background-color: rgba(247, 145, 27, 0.08);
+  background-image: linear-gradient(135deg, rgba(255, 4, 0, 0.22) 0%, rgba(247, 145, 27, 0.2) 100%);
 }
 
 .gradient-panel {
-  background-color: var(--color-paper-2);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
 }
 
 .gradient-glow {
-  background-color: var(--color-paper-2);
+  background-image:
+    radial-gradient(circle at top right, rgba(247, 145, 27, 0.2), transparent 44%),
+    radial-gradient(circle at left center, rgba(255, 4, 0, 0.1), transparent 40%);
 }
 
 .text-gradient-brand {
-  color: var(--color-accent);
+  background-image: linear-gradient(135deg, #ff0400 0%, #ff6a1a 46%, #f7911b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-/* ── Precision Shadows ─────────────────────────────── */
+/* ── Shadows ───────────────────────────────────────── */
 .shadow-soft {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
 }
 
 .shadow-card {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.34);
 }
 
 .shadow-glow {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 18px 50px rgba(255, 92, 25, 0.18);
 }
 
-/* ── Matte Card Surface ────────────────────────────── */
+/* ── Card glass border effect ──────────────────────── */
 .card-glow {
   position: relative;
   background: var(--color-paper-2);
@@ -126,9 +128,17 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
 }
 
-/* ── Framed Border Wrapper ─────────────────────────── */
+.card-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  pointer-events: none;
+}
+
+/* ── Gradient border wrapper ───────────────────────── */
 .gradient-border {
-  background: var(--color-rule-2);
+  background: linear-gradient(135deg, #ff0400 0%, #ff6a1a 46%, #f7911b 100%);
   padding: 1px;
   border-radius: var(--radius-card);
 }
@@ -138,15 +148,10 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: calc(var(--radius-card) - 1px);
 }
 
-/* ── Tabular Numerals Utility ──────────────────────── */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
-
 /* ── Scrollbar ─────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -162,10 +167,15 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--color-rule-2);
 }
 
-/* ── Tactile Motion ────────────────────────────────── */
+/* ── Animations ────────────────────────────────────── */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(247, 145, 27, 0.4); }
+  50% { box-shadow: 0 0 20px 4px rgba(247, 145, 27, 0.2); }
 }
 
 @keyframes shimmer {
@@ -174,29 +184,34 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .animate-fade-in {
-  animation: fade-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-pulse-glow {
-  /* Intentionally calm — no glowing pulse */
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 33%, rgba(255, 255, 255, 0.03) 50%, transparent 66%);
+  background: linear-gradient(90deg, transparent 33%, rgba(255, 255, 255, 0.05) 50%, transparent 66%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-.stagger > * { animation: fade-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Stagger children */
+.stagger > * { animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .stagger > *:nth-child(1) { animation-delay: 0ms; }
-.stagger > *:nth-child(2) { animation-delay: 30ms; }
-.stagger > *:nth-child(3) { animation-delay: 60ms; }
-.stagger > *:nth-child(4) { animation-delay: 90ms; }
-.stagger > *:nth-child(5) { animation-delay: 120ms; }
-.stagger > *:nth-child(6) { animation-delay: 150ms; }
+.stagger > *:nth-child(2) { animation-delay: 60ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 180ms; }
+.stagger > *:nth-child(5) { animation-delay: 240ms; }
+.stagger > *:nth-child(6) { animation-delay: 300ms; }
+.stagger > *:nth-child(7) { animation-delay: 360ms; }
+.stagger > *:nth-child(8) { animation-delay: 420ms; }
 
+/* ── Reduced motion ────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
+  .animate-pulse-glow,
   .animate-shimmer,
   .stagger > * {
     animation: none !important;

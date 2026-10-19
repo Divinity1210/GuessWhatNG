@@ -4,8 +4,12 @@ import { useEffect, useState } from "react";
 import { Button, Badge } from "@/components/ui";
 import {
   TimerIcon,
+  CoinsIcon,
+  TrophyIcon,
   CheckIcon,
   PlayIcon,
+  FlameIcon,
+  ZapIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getActiveSessions, getUserWallet, type SessionRow, type WalletRow } from "@/lib/supabase/queries";
@@ -62,11 +66,11 @@ export default function PlayPage() {
   const [liveQuestionMs, setLiveQuestionMs] = useState(0);
   const [timerStr, setTimerStr] = useState("");
 
-  // 2x Multiplier state — 1 allowed per session
+  // 2x Confidence Lock ("Sure Pick") state — 1 allowed per session
   const [arm2xLock, setArm2xLock] = useState(false);
   const [lockedQuestionId, setLockedQuestionId] = useState<string | null>(null);
 
-  // Practice Arena state
+  // Practice Arena state (when no DB session is active or user wants practice)
   const [practiceStep, setPracticeStep] = useState(0);
   const [practicePickedId, setPracticePickedId] = useState<string | null>(null);
   const [practiceScore, setPracticeScore] = useState(0);
@@ -75,6 +79,7 @@ export default function PlayPage() {
   const [practice2xUsedStep, setPractice2xUsedStep] = useState<number | null>(null);
   const [practiceDone, setPracticeDone] = useState(false);
 
+  // Session countdown timer
   useEffect(() => {
     if (!activeSession) return;
     setTimerStr(timeRemaining(activeSession.ends_at));
@@ -84,6 +89,7 @@ export default function PlayPage() {
     return () => clearInterval(interval);
   }, [activeSession]);
 
+  // Live millisecond speedometer during active question
   useEffect(() => {
     if (phase !== "playing" && phase !== "practice") return;
     if (selectedOption || practicePickedId || practiceDone) return;
@@ -94,6 +100,7 @@ export default function PlayPage() {
     return () => clearInterval(interval);
   }, [phase, questionStartTime, selectedOption, practicePickedId, practiceDone]);
 
+  // Load lobby
   useEffect(() => {
     if (!user) return;
     async function load() {
@@ -136,6 +143,7 @@ export default function PlayPage() {
     load();
   }, [user]);
 
+  // Join session handler
   const handleJoin = async () => {
     if (!activeSession) return;
     setJoining(true);
@@ -164,6 +172,7 @@ export default function PlayPage() {
     }
   };
 
+  // Submit answer handler
   const handleSubmitAnswer = async (optionId: string) => {
     if (!entryId || submitting) return;
     setSelectedOption(optionId);
@@ -184,7 +193,7 @@ export default function PlayPage() {
         [currentQ.question_id]: { optionId, responseMs, isLocked2x: apply2x },
       }));
 
-      await new Promise((r) => setTimeout(r, 350));
+      await new Promise((r) => setTimeout(r, 400));
 
       if (currentIndex < questions.length - 1) {
         setCurrentIndex((i) => i + 1);
@@ -205,6 +214,7 @@ export default function PlayPage() {
     }
   };
 
+  // Practice Arena handlers
   const startPracticeArena = () => {
     setPracticeStep(0);
     setPracticePickedId(null);
@@ -248,7 +258,7 @@ export default function PlayPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="size-6 animate-spin rounded-full border-2 border-[#F7911B] border-t-transparent" />
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
@@ -258,23 +268,24 @@ export default function PlayPage() {
     if (practiceDone) {
       const timeSec = (practiceTotalMs / 1000).toFixed(1);
       return (
-        <div className="mx-auto max-w-xl space-y-5 animate-fade-in py-4">
-          <div className="space-y-1">
-            <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#10B981]">
-              PRACTICE SLIP SETTLED · {practiceScore} / 60 PTS
+        <div className="mx-auto max-w-xl space-y-6 animate-fade-in py-4">
+          <div className="text-center space-y-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1 text-xs font-black text-emerald-400">
+              <CheckIcon className="size-4" />
+              <span>PRACTICE ARENA COMPLETE · {practiceScore} / 60 PTS</span>
             </span>
-            <h1 className="font-display text-2xl font-bold text-[#F4F5F8]">
-              {practiceScore} Points in {timeSec}s
+            <h1 className="font-display text-2xl sm:text-3xl font-bold">
+              You Scored {practiceScore} Points in {timeSec}s!
             </h1>
-            <p className="text-xs text-[#8A92A6]">
-              Share your verification receipt with your division to earn +50 GW Coins per verified signup.
+            <p className="text-sm text-ink-muted">
+              Share your score &amp; debate question with your WhatsApp squad to earn +50 Bonus Coins per signup!
             </p>
           </div>
 
           <ViralBragCard
             username={profile?.username ?? "Player"}
             turf={profile?.turf ?? "Lagos (Eko)"}
-            sessionName="Naija Consensus Practice Arena"
+            sessionName="Naija Street Practice Arena"
             prizePool={250_000}
             timeSeconds={timeSec}
             answeredCount={VIRAL_DEMO_QUESTIONS.length}
@@ -283,15 +294,15 @@ export default function PlayPage() {
             referralCode={profile?.referral_code ?? ""}
           />
 
-          <div className="flex flex-wrap gap-2.5">
-            <Button onClick={startPracticeArena}>New Practice Slip</Button>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button onClick={startPracticeArena}>Play Practice Again</Button>
             {activeSession && (
               <Button variant="secondary" onClick={() => setPhase("lobby")}>
-                Return to Live Cash Pool
+                Back to Live Cash Session
               </Button>
             )}
             <Button variant="ghost" href="/dashboard">
-              Overview
+              Dashboard
             </Button>
           </div>
         </div>
@@ -302,29 +313,30 @@ export default function PlayPage() {
     const progress = ((practiceStep + 1) / VIRAL_DEMO_QUESTIONS.length) * 100;
 
     return (
-      <div className="mx-auto max-w-2xl space-y-5 animate-fade-in">
-        {/* Progress & Millisecond Clock */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-1.5 rounded-full bg-[#171A21] overflow-hidden">
+      <div className="mx-auto max-w-2xl space-y-6 animate-fade-in">
+        {/* Progress & Live Speedometer */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 h-2.5 rounded-full bg-paper-3 overflow-hidden">
             <div
-              className="h-full bg-[#F7911B] transition-all duration-300"
+              className="h-full bg-gradient-to-r from-[#FF0400] to-[#F7911B] rounded-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="font-mono text-xs text-[#8A92A6] tabular-nums">
-            0{practiceStep + 1} / 0{VIRAL_DEMO_QUESTIONS.length}
+          <span className="text-xs text-ink-muted font-bold whitespace-nowrap">
+            Q{practiceStep + 1} / {VIRAL_DEMO_QUESTIONS.length}
           </span>
-          <span className="rounded border border-[#222631] bg-[#111318] px-2.5 py-1 font-mono text-xs font-semibold text-[#10B981] tabular-nums">
-            {(liveQuestionMs / 1000).toFixed(1)}s
+          <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 font-mono text-xs font-black text-emerald-400 flex items-center gap-1">
+            <ZapIcon className="size-3.5" />
+            <span>{(liveQuestionMs / 1000).toFixed(1)}s</span>
           </span>
         </div>
 
-        {/* Question Slip */}
-        <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-7 space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#222631] pb-3.5">
+        {/* Question Card */}
+        <section className="rounded-card border border-rule bg-paper-2 p-6 md:p-8 space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Badge variant="neutral">{pq.category}</Badge>
-              <span className="font-mono text-[11px] text-[#8A92A6]">PRACTICE MARKET</span>
+              <Badge variant="info">{pq.category}</Badge>
+              <span className="text-xs text-ink-muted">Street Practice Mode</span>
             </div>
 
             {practice2xUsedStep === null ? (
@@ -332,31 +344,29 @@ export default function PlayPage() {
                 type="button"
                 disabled={!!practicePickedId}
                 onClick={() => setPractice2xArmed((v) => !v)}
-                className={`rounded border px-3 py-1 font-mono text-[11px] font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-black transition-all ${
                   practice2xArmed
-                    ? "border-[#F7911B] bg-[#F7911B] text-[#090A0D]"
-                    : "border-[#2E3442] bg-[#171A21] text-[#C8CDD8] hover:border-[#F7911B]"
+                    ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-orange-500/30 scale-105"
+                    : "border border-[#F7911B]/40 bg-[#F7911B]/10 text-[#F7911B] hover:bg-[#F7911B]/20"
                 }`}
               >
-                {practice2xArmed ? "2X MULTIPLIER ARMED (MAX 20 PTS)" : "ARM 2X MULTIPLIER (1)"}
+                <FlameIcon className="size-4" />
+                <span>{practice2xArmed ? "🔥 2x SURE LOCK ARMED (20 PTS MAX)" : "Arm 2x Sure Lock (1 Per Game)"}</span>
               </button>
             ) : (
-              <span className="font-mono text-[11px] text-[#8A92A6]">
-                {practice2xUsedStep === practiceStep ? "2X MULTIPLIER ACTIVE" : "2X MULTIPLIER USED"}
+              <span className="text-xs font-bold text-[#F7911B]">
+                {practice2xUsedStep === practiceStep ? "🔥 2x Lock Applied!" : "2x Sure Lock Used"}
               </span>
             )}
           </div>
 
-          <h2 className="font-display text-lg sm:text-xl font-bold text-[#F4F5F8] leading-snug">
-            {pq.title}
-          </h2>
+          <h2 className="font-display text-xl font-bold md:text-2xl">{pq.title}</h2>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {pq.options.map((opt, idx) => {
               const isPicked = practicePickedId === opt.id;
               const isTop = opt.rank === 1;
               const mult = practice2xUsedStep === practiceStep ? 2 : 1;
-              const letter = String.fromCharCode(65 + idx);
 
               return (
                 <button
@@ -364,18 +374,20 @@ export default function PlayPage() {
                   type="button"
                   disabled={!!practicePickedId}
                   onClick={() => handlePracticePick(opt.id)}
-                  className={`w-full text-left relative overflow-hidden rounded-lg border p-3.5 transition-colors ${
+                  className={`w-full text-left relative overflow-hidden rounded-[var(--radius)] border px-5 py-4 transition-all duration-200 ${
                     practicePickedId
                       ? isPicked
-                        ? "border-[#F7911B] bg-[#171A21]"
-                        : "border-[#222631] bg-[#090A0D]/70 opacity-80"
-                      : "border-[#222631] bg-[#171A21]/70 hover:border-[#2E3442] hover:bg-[#171A21]"
+                        ? "border-accent bg-accent-muted shadow-md"
+                        : "border-rule bg-paper-3/70"
+                      : "border-rule bg-paper-3 hover:border-accent/60 hover:bg-paper-2"
                   }`}
                 >
                   {practicePickedId && (
                     <div
-                      className={`absolute inset-y-0 left-0 transition-all duration-500 ${
-                        isTop ? "bg-[#F7911B]/15" : "bg-white/[0.03]"
+                      className={`absolute inset-y-0 left-0 transition-all duration-700 ${
+                        isTop
+                          ? "bg-gradient-to-r from-[#F7911B]/30 to-[#FF0400]/30"
+                          : "bg-white/5"
                       }`}
                       style={{ width: `${opt.crowdPct}%` }}
                     />
@@ -383,28 +395,27 @@ export default function PlayPage() {
                   <div className="relative z-10 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span
-                        className={`grid size-7 place-items-center rounded border font-mono text-xs font-semibold shrink-0 ${
+                        className={`grid size-8 place-items-center rounded-full text-xs font-bold shrink-0 ${
                           isPicked
-                            ? "border-[#F7911B] bg-[#F7911B] text-[#090A0D]"
-                            : "border-[#2E3442] bg-[#090A0D] text-[#8A92A6]"
+                            ? "bg-accent text-white"
+                            : "bg-paper-2 text-ink-muted border border-rule"
                         }`}
                       >
-                        {isPicked ? <CheckIcon className="size-3.5" /> : letter}
+                        {isPicked ? <CheckIcon className="size-4" /> : String.fromCharCode(65 + idx)}
                       </span>
                       <div>
-                        <span className="text-sm font-medium text-[#F4F5F8]">
+                        <span className={`font-semibold ${isPicked ? "text-white" : "text-ink"}`}>
                           {opt.label}
                         </span>
                         {practicePickedId && (
-                          <p className="font-mono text-[11px] text-[#8A92A6] mt-0.5">
-                            {isTop ? "RANK #1 CONSENSUS" : `RANK #${opt.rank}`} · +
-                            {opt.points * (isPicked ? mult : 1)} PTS
+                          <p className="text-xs text-[#F7911B] font-bold mt-0.5">
+                            {isTop ? "👑 #1 Crowd Pick" : `Rank #${opt.rank}`} · +{opt.points * (isPicked ? mult : 1)} pts
                           </p>
                         )}
                       </div>
                     </div>
                     {practicePickedId && (
-                      <span className="font-mono text-base font-semibold text-[#F4F5F8] tabular-nums">
+                      <span className="font-display text-lg font-black text-white">
                         {opt.crowdPct}%
                       </span>
                     )}
@@ -415,12 +426,12 @@ export default function PlayPage() {
           </div>
 
           {practicePickedId && (
-            <div className="pt-3.5 border-t border-[#222631] flex items-center justify-between">
-              <span className="font-mono text-xs text-[#8A92A6] tabular-nums">
-                RUNNING YIELD: <strong className="text-[#F4F5F8]">{practiceScore} PTS</strong>
+            <div className="pt-3 border-t border-rule flex items-center justify-between">
+              <span className="text-sm text-ink-2">
+                Running Score: <strong className="text-accent">{practiceScore} pts</strong>
               </span>
-              <Button size="sm" onClick={handlePracticeNext}>
-                {practiceStep < VIRAL_DEMO_QUESTIONS.length - 1 ? "Next Question →" : "Settle Slip →"}
+              <Button onClick={handlePracticeNext}>
+                {practiceStep < VIRAL_DEMO_QUESTIONS.length - 1 ? "Next Question →" : "Finish & Get Receipt →"}
               </Button>
             </div>
           )}
@@ -429,28 +440,28 @@ export default function PlayPage() {
     );
   }
 
-  // ── No Active DB Session → Open Practice Market Card ──
+  // ── No active session → Offer instant Street Practice Arena ──
   if (!activeSession) {
     return (
-      <div className="mx-auto max-w-xl py-8 animate-fade-in">
-        <div className="rounded-xl border border-[#222631] bg-[#111318] p-6 sm:p-8 space-y-5">
-          <div className="flex items-center justify-between">
-            <Badge variant="active" dot>PRACTICE ARENA OPEN</Badge>
-            <span className="font-mono text-xs text-[#8A92A6]">ZERO FEE</span>
+      <div className="mx-auto max-w-xl py-10 text-center space-y-6 animate-fade-in">
+        <div className="rounded-card border border-[#F7911B]/35 bg-paper-2 p-8 space-y-5">
+          <div className="mx-auto grid size-16 place-items-center rounded-full bg-accent-muted">
+            <FlameIcon className="size-8 text-accent" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-[#F4F5F8]">
-            Naija Consensus Practice Arena
+          <Badge variant="active" dot>Free Practice Arena Live</Badge>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">
+            Warm Up in the Naija Street Arena!
           </h1>
-          <p className="text-xs sm:text-sm text-[#8A92A6] leading-relaxed">
-            Test your crowd read, 2x Multiplier timing, and cumulative response speed across 5 cultural questions while the next 72-hour cash session prepares to open.
+          <p className="text-sm text-ink-2 max-w-md mx-auto">
+            While the next 72-hour cash session prepares to open, test your crowd intuition, 2x Sure Lock power-up, and tiebreaker speed on 5 hot cultural questions.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
             <Button size="lg" onClick={startPracticeArena}>
-              <PlayIcon className="size-4 fill-current" />
-              <span>Start 5-Question Slip</span>
+              <PlayIcon className="size-5 fill-current" />
+              <span>Launch 5-Question Street Arena (Free)</span>
             </Button>
             <Button variant="secondary" size="lg" href="/sessions">
-              View Pool Schedule
+              View Session Schedule
             </Button>
           </div>
         </div>
@@ -458,89 +469,84 @@ export default function PlayPage() {
     );
   }
 
-  // ── Lobby (Pre-Entry Ticket) ──
+  // ── Lobby (pre-join) ──
   if (phase === "lobby") {
     const notEnoughCoins = (wallet?.coin_balance ?? 0) < activeSession.entry_fee_coins;
 
     return (
-      <div className="mx-auto max-w-lg space-y-5 animate-fade-in">
-        <section className="rounded-xl border border-[#222631] bg-[#111318] p-6 space-y-5">
-          <div className="flex items-center justify-between border-b border-[#222631] pb-3.5">
-            <Badge variant="active" dot>LIVE SESSION POOL</Badge>
-            <span className="font-mono text-[11px] font-semibold text-[#F7911B]">
-              1X MULTIPLIER INCLUDED
-            </span>
-          </div>
-
-          <div>
-            <h1 className="font-display text-2xl font-bold text-[#F4F5F8]">{activeSession.name}</h1>
-            <p className="mt-1 text-xs text-[#8A92A6]">
-              Lock in your predictions across all session questions. Fastest consensus wins ties.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 font-mono tabular-nums">
-            <div className="rounded-lg border border-[#222631] bg-[#090A0D] p-3.5">
-              <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Guaranteed Pool</p>
-              <p className="mt-1 text-lg font-semibold text-[#10B981]">
-                {formatNaira(activeSession.prize_pool)}
-              </p>
+      <div className="mx-auto max-w-lg space-y-6 animate-fade-in">
+        <section className="relative overflow-hidden rounded-card border border-rule bg-paper-2">
+          <div className="absolute inset-0 gradient-glow opacity-50" />
+          <div className="relative z-10 p-6 md:p-8 space-y-5">
+            <div className="flex items-center justify-between">
+              <Badge variant="active" dot>Live Now</Badge>
+              <span className="rounded-full bg-[#F7911B]/15 border border-[#F7911B]/30 px-3 py-1 text-xs font-bold text-[#F7911B]">
+                🔥 Includes 1x Sure Lock (2x Points)
+              </span>
             </div>
-            <div className="rounded-lg border border-[#222631] bg-[#090A0D] p-3.5">
-              <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Entry Allocation</p>
-              <p className="mt-1 text-lg font-semibold text-[#F4F5F8]">
-                {activeSession.entry_fee_coins} GW
-              </p>
-            </div>
-            <div className="rounded-lg border border-[#222631] bg-[#090A0D] p-3.5">
-              <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Closes In</p>
-              <p className="mt-1 text-lg font-semibold text-[#F7911B]">{timerStr}</p>
-            </div>
-            <div className="rounded-lg border border-[#222631] bg-[#090A0D] p-3.5">
-              <p className="text-[10px] uppercase tracking-wider text-[#8A92A6]">Available Balance</p>
-              <p className="mt-1 text-lg font-semibold text-[#F4F5F8]">
-                {(wallet?.coin_balance ?? 0).toLocaleString()} GW
-              </p>
-            </div>
-          </div>
 
-          {joinError && (
-            <div className="rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3.5 py-2.5 text-xs text-[#EF4444]">
-              {joinError}
+            <h1 className="font-display text-2xl font-bold">{activeSession.name}</h1>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 p-3 text-center">
+                <TrophyIcon className="size-5 text-amber-400 mx-auto mb-1" />
+                <p className="text-xs text-ink-muted">Prize Pool</p>
+                <p className="font-display font-bold text-accent">{formatNaira(activeSession.prize_pool)}</p>
+              </div>
+              <div className="rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 p-3 text-center">
+                <CoinsIcon className="size-5 text-[#F7911B] mx-auto mb-1" />
+                <p className="text-xs text-ink-muted">Entry Fee</p>
+                <p className="font-display font-bold text-ink">{activeSession.entry_fee_coins} coins</p>
+              </div>
+              <div className="rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 p-3 text-center">
+                <TimerIcon className="size-5 text-gray-400 mx-auto mb-1" />
+                <p className="text-xs text-ink-muted">Ends In</p>
+                <p className="font-display font-bold text-ink">{timerStr}</p>
+              </div>
+              <div className="rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 p-3 text-center">
+                <p className="text-xs text-ink-muted mt-1">Your Balance</p>
+                <p className="font-display font-bold text-ink">{wallet?.coin_balance.toLocaleString() ?? 0} coins</p>
+              </div>
             </div>
-          )}
 
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={handleJoin}
-            disabled={joining || notEnoughCoins}
-          >
-            {joining
-              ? "Authorizing Entry..."
-              : notEnoughCoins
-                ? "Insufficient GW Coins"
-                : `Confirm Entry — ${activeSession.entry_fee_coins} GW Coins`}
-          </Button>
+            {joinError && (
+              <div className="rounded-[var(--radius-sm)] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {joinError}
+              </div>
+            )}
 
-          {notEnoughCoins && (
             <Button
-              variant="secondary"
               className="w-full"
-              onClick={() => setShowTopup(true)}
+              size="lg"
+              onClick={handleJoin}
+              disabled={joining || notEnoughCoins}
             >
-              Top Up via Airtime VAS (MTN / Airtel / Glo / 9mobile)
+              {joining
+                ? "Joining..."
+                : notEnoughCoins
+                  ? "Not enough coins"
+                  : `Join for ${activeSession.entry_fee_coins} coins`}
             </Button>
-          )}
 
-          <div className="pt-3 border-t border-[#222631] text-center">
-            <button
-              type="button"
-              onClick={startPracticeArena}
-              className="text-xs font-medium text-[#8A92A6] hover:text-[#F7911B]"
-            >
-              Warm up first in the Free 5-Question Practice Arena →
-            </button>
+            {notEnoughCoins && (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => setShowTopup(true)}
+              >
+                ⚡ Instant Airtime Top-Up (MTN / Airtel / Glo / 9mobile)
+              </Button>
+            )}
+
+            <div className="pt-2 border-t border-rule text-center">
+              <button
+                type="button"
+                onClick={startPracticeArena}
+                className="text-xs font-semibold text-[#F7911B] hover:underline"
+              >
+                Want to warm up first? Play Free 5-Question Street Practice Arena →
+              </button>
+            </div>
           </div>
         </section>
 
@@ -558,69 +564,73 @@ export default function PlayPage() {
     );
   }
 
-  // ── Live Session Playing ──
+  // ── Playing ──
   if (phase === "playing" && questions.length > 0) {
     const currentQ = questions[currentIndex];
     const q = currentQ.questions;
     const progress = (currentIndex / questions.length) * 100;
 
     return (
-      <div className="mx-auto max-w-2xl space-y-5 animate-fade-in">
-        {/* Telemetry Bar */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-1.5 rounded-full bg-[#171A21] overflow-hidden">
+      <div className="mx-auto max-w-2xl space-y-6 animate-fade-in">
+        {/* Progress bar & Live Speedometer */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 h-2.5 rounded-full bg-paper-3 overflow-hidden">
             <div
-              className="h-full bg-[#F7911B] transition-all duration-300"
+              className="h-full bg-gradient-to-r from-accent to-[#F7911B] rounded-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="font-mono text-xs text-[#8A92A6] tabular-nums">
+          <span className="text-xs text-ink-muted font-medium whitespace-nowrap">
             {currentIndex + 1} / {questions.length}
           </span>
-          <span className="rounded border border-[#222631] bg-[#111318] px-2.5 py-1 font-mono text-xs font-semibold text-[#10B981] tabular-nums">
-            {(liveQuestionMs / 1000).toFixed(1)}s
+          <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 font-mono text-xs font-bold text-emerald-400 flex items-center gap-1">
+            <ZapIcon className="size-3.5" />
+            <span>{(liveQuestionMs / 1000).toFixed(1)}s</span>
           </span>
-          <span className="font-mono text-xs text-[#8A92A6] hidden sm:flex items-center gap-1 tabular-nums">
+          <span className="text-xs text-ink-muted hidden sm:flex items-center gap-1">
             <TimerIcon className="size-3.5" /> {timerStr}
           </span>
         </div>
 
-        {/* Question Slip */}
-        <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-7">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#222631] pb-3.5 mb-4">
+        {/* Question card */}
+        <section className="rounded-card border border-rule bg-paper-2 p-6 md:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
-              <Badge variant="neutral">{q.category}</Badge>
-              <span className="font-mono text-xs text-[#8A92A6]">MARKET #{currentIndex + 1}</span>
+              <Badge variant="info">{q.category}</Badge>
+              <span className="text-xs text-ink-muted">Question {currentIndex + 1}</span>
             </div>
 
+            {/* 2x Confidence Lock ("Sure Pick") Power-Up Button */}
             {!lockedQuestionId ? (
               <button
                 type="button"
                 disabled={submitting}
                 onClick={() => setArm2xLock((v) => !v)}
-                className={`rounded border px-3 py-1 font-mono text-[11px] font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-black transition-all ${
                   arm2xLock
-                    ? "border-[#F7911B] bg-[#F7911B] text-[#090A0D]"
-                    : "border-[#2E3442] bg-[#171A21] text-[#C8CDD8] hover:border-[#F7911B]"
+                    ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-orange-500/30 scale-105"
+                    : "border border-[#F7911B]/40 bg-[#F7911B]/10 text-[#F7911B] hover:bg-[#F7911B]/20"
                 }`}
               >
-                {arm2xLock ? "2X MULTIPLIER ARMED" : "ARM 2X MULTIPLIER (1)"}
+                <FlameIcon className="size-4" />
+                <span>
+                  {arm2xLock ? "🔥 2x SURE LOCK ARMED (Double Points!)" : "Arm 2x Sure Lock (1 per session)"}
+                </span>
               </button>
             ) : (
-              <span className="font-mono text-[11px] text-[#8A92A6]">
-                2X MULTIPLIER USED
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs font-semibold text-ink-muted">
+                <FlameIcon className="size-3.5 text-[#F7911B]" />
+                <span>2x Lock Used</span>
               </span>
             )}
           </div>
 
-          <h2 className="font-display text-lg sm:text-xl font-bold text-[#F4F5F8] leading-snug">
-            {q.title}
-          </h2>
-          <p className="mt-1 text-xs text-[#8A92A6]">
-            Select the option you expect the majority of session entries to lock in:
+          <h2 className="font-display text-xl font-bold md:text-2xl">{q.title}</h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            Pick the option you predict <strong className="text-white">most players</strong> in this session will choose.
           </p>
 
-          <div className="mt-5 space-y-2.5">
+          <div className="mt-6 space-y-3">
             {q.question_options.map((opt) => {
               const isSelected = selectedOption === opt.id;
               const isAnswered = !!answers[q.id];
@@ -629,30 +639,30 @@ export default function PlayPage() {
                   key={opt.id}
                   onClick={() => handleSubmitAnswer(opt.id)}
                   disabled={submitting || isAnswered}
-                  className={`w-full text-left rounded-lg border p-3.5 transition-colors ${
+                  className={`w-full text-left rounded-[var(--radius)] border px-5 py-4 transition-all duration-200 ${
                     isSelected
-                      ? "border-[#F7911B] bg-[#171A21]"
-                      : "border-[#222631] bg-[#171A21]/70 hover:border-[#2E3442] hover:bg-[#171A21]"
+                      ? "border-accent bg-accent-muted shadow-md scale-[1.01]"
+                      : "border-rule bg-paper-3 hover:border-rule-2 hover:bg-paper-2"
                   } ${submitting && !isSelected ? "opacity-50" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span
-                        className={`grid size-7 place-items-center rounded border font-mono text-xs font-semibold ${
+                        className={`grid size-8 place-items-center rounded-full text-xs font-bold ${
                           isSelected
-                            ? "border-[#F7911B] bg-[#F7911B] text-[#090A0D]"
-                            : "border-[#2E3442] bg-[#090A0D] text-[#8A92A6]"
+                            ? "bg-accent text-white"
+                            : "bg-paper-2 text-ink-muted border border-rule"
                         }`}
                       >
-                        {isSelected ? <CheckIcon className="size-3.5" /> : String.fromCharCode(65 + opt.position)}
+                        {isSelected ? <CheckIcon className="size-4" /> : String.fromCharCode(65 + opt.position)}
                       </span>
-                      <span className="text-sm font-medium text-[#F4F5F8]">
+                      <span className={`font-medium ${isSelected ? "text-accent" : "text-ink"}`}>
                         {opt.label}
                       </span>
                     </div>
                     {arm2xLock && !lockedQuestionId && (
-                      <span className="rounded border border-[#F7911B]/30 bg-[#F7911B]/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-[#F7911B]">
-                        2X
+                      <span className="rounded-full bg-[#F7911B]/20 px-2.5 py-0.5 text-[10px] font-black text-[#F7911B]">
+                        2x PTS
                       </span>
                     )}
                   </div>
@@ -665,7 +675,7 @@ export default function PlayPage() {
     );
   }
 
-  // ── Completed: Verification Receipt ──
+  // ── Completed: Viral Lock-In Receipt & WhatsApp Squad Challenge ──
   if (phase === "completed") {
     const answerValues = Object.values(answers);
     const answeredCount = answerValues.length || (questions.length > 0 ? questions.length : 10);
@@ -676,16 +686,16 @@ export default function PlayPage() {
       "Which Nigerian meal will be chosen by the majority?";
 
     return (
-      <div className="mx-auto max-w-xl space-y-5 animate-fade-in py-4">
-        <div className="space-y-1">
-          <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#10B981]">
-            ENTRY SEALED · TIEBREAKER TIME {totalSeconds}S
-          </span>
-          <h1 className="font-display text-2xl font-bold text-[#F4F5F8]">
-            Predictions Locked In
+      <div className="mx-auto max-w-xl text-center space-y-6 animate-fade-in py-6">
+        <div className="space-y-2">
+          <div className="mx-auto grid size-16 place-items-center rounded-full bg-green-500/15">
+            <CheckIcon className="size-8 text-green-400" />
+          </div>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">
+            Predictions Locked In!
           </h1>
-          <p className="text-xs text-[#8A92A6]">
-            Your picks are recorded in the session ledger. Challenge your group while the pool is open.
+          <p className="text-sm text-ink-muted max-w-md mx-auto">
+            Your answers and speed tiebreaker ({totalSeconds}s) are sealed in the vault. Challenge your WhatsApp group while the pot is live!
           </p>
         </div>
 
@@ -701,13 +711,13 @@ export default function PlayPage() {
           referralCode={profile?.referral_code ?? ""}
         />
 
-        <div className="flex flex-wrap gap-2.5 pt-1">
-          <Button onClick={startPracticeArena}>Practice Arena</Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center pt-2">
+          <Button onClick={startPracticeArena}>Play Free Street Arena</Button>
           <Button variant="secondary" href="/leaderboard">
-            Standings
+            Turf &amp; Session Ranks
           </Button>
           <Button variant="ghost" href="/dashboard">
-            Overview
+            Dashboard
           </Button>
         </div>
       </div>

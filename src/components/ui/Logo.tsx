@@ -11,11 +11,12 @@ export function Logo({
   href = "/",
   className = "",
 }: LogoProps) {
+  /* Height-based sizing — the official lockup is 463×189 (wide horizontal) */
   const heightMap = {
-    xs: 34,
-    sm: 40,
-    md: 56,
-    lg: 76,
+    xs: 50,   // navbar / tight header
+    sm: 52,   // sidebar
+    md: 72,   // standard display
+    lg: 96,   // hero / auth pages
   };
 
   const h = heightMap[size];
@@ -35,7 +36,7 @@ export function Logo({
 
   if (href) {
     return (
-      <Link href={href} className="inline-flex items-center">
+      <Link href={href} className="inline-block">
         {content}
       </Link>
     );

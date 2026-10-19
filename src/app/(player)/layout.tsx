@@ -19,30 +19,31 @@ import {
   ZapIcon,
 } from "@/components/ui/Icons";
 
+/* ── Navigation structure from Sidebar Content IA ── */
 const navGroups = [
   {
-    label: "Arena",
+    label: "Main",
     items: [
-      { label: "Overview", href: "/dashboard", Icon: TrendingUpIcon },
-      { label: "Live Arena", href: "/play", Icon: PlayIcon },
-      { label: "Schedule", href: "/sessions", Icon: CalendarIcon },
-      { label: "Standings", href: "/leaderboard", Icon: TrophyIcon },
+      { label: "Dashboard", href: "/dashboard", Icon: TrendingUpIcon },
+      { label: "Play Now", href: "/play", Icon: PlayIcon },
+      { label: "Sessions", href: "/sessions", Icon: CalendarIcon },
+      { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon },
     ],
   },
   {
-    label: "Ledger",
+    label: "Finance",
     items: [
       { label: "Wallet", href: "/wallet", Icon: CoinsIcon },
-      { label: "Payouts", href: "/rewards", Icon: GiftIcon },
-      { label: "Squad & Turf", href: "/referrals", Icon: UsersIcon },
+      { label: "Rewards", href: "/rewards", Icon: GiftIcon },
+      { label: "Referrals", href: "/referrals", Icon: UsersIcon },
     ],
   },
   {
     label: "Account",
     items: [
+      { label: "Support", href: "/support", Icon: HelpCircleIcon },
       { label: "Profile", href: "/profile", Icon: TargetIcon },
       { label: "Settings", href: "/settings", Icon: ZapIcon },
-      { label: "Support", href: "/support", Icon: HelpCircleIcon },
     ],
   },
 ];
@@ -70,42 +71,22 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   };
 
   return (
-    <div className="flex min-h-screen bg-[#090A0D] text-[#F4F5F8]">
-      {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex md:w-60 lg:w-64 flex-col border-r border-[#222631] bg-[#090A0D] fixed inset-y-0 left-0 z-40">
-        <div className="flex items-center justify-between px-5 h-16 border-b border-[#222631]">
-          <Logo size="sm" href="/dashboard" />
-          <span className="rounded border border-[#222631] bg-[#111318] px-1.5 py-0.5 font-mono text-[10px] font-medium text-[#8A92A6]">
-            NGN
-          </span>
+    <div className="flex min-h-screen bg-[#07090e] text-slate-100">
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden md:flex md:w-64 lg:w-72 flex-col border-r border-white/5 bg-[#0b0e17]/90 backdrop-blur-2xl fixed inset-y-0 left-0 z-40">
+        {/* Logo */}
+        <div className="px-6 py-5 border-b border-white/5">
+          <Logo size="sm" />
         </div>
 
-        {/* Compact Balance Strip */}
-        <div className="border-b border-[#222631] bg-[#111318] px-5 py-3.5">
-          <div className="flex items-center justify-between text-[11px] text-[#8A92A6]">
-            <span>Cash Balance</span>
-            <Link href="/wallet" className="text-[#F7911B] hover:underline font-medium">
-              Top up
-            </Link>
-          </div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="font-mono text-base font-semibold text-[#F4F5F8] tabular-nums">
-              ₦{(wallet?.withdrawable_balance ?? 0).toLocaleString()}
-            </span>
-            <span className="font-mono text-xs font-medium text-[#F7911B] tabular-nums">
-              {(wallet?.coin_balance ?? 0).toLocaleString()} GW
-            </span>
-          </div>
-        </div>
-
-        {/* Navigation Groups */}
-        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+        {/* Nav groups */}
+        <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
           {navGroups.map((group) => (
             <div key={group.label} className="space-y-1">
-              <p className="px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5E6678]">
+              <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
                 {group.label}
               </p>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {group.items.map((item) => {
                   const active =
                     pathname === item.href ||
@@ -114,13 +95,13 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs transition-colors duration-150 ${
+                        className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-all duration-200 ${
                           active
-                            ? "bg-[#171A21] text-[#F4F5F8] font-semibold border border-[#2E3442]"
-                            : "text-[#8A92A6] hover:bg-[#111318] hover:text-[#F4F5F8] border border-transparent"
+                            ? "bg-accent-muted text-accent font-semibold border border-accent/30 shadow-md shadow-accent/10"
+                            : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
                         }`}
                       >
-                        <item.Icon className={`size-4 ${active ? "text-[#F7911B]" : "text-[#8A92A6]"}`} />
+                        <item.Icon className="size-4.5" />
                         <span>{item.label}</span>
                       </Link>
                     </li>
@@ -131,17 +112,17 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           ))}
         </nav>
 
-        {/* User Footer */}
-        <div className="border-t border-[#222631] px-4 py-3.5">
-          <div className="flex items-center gap-2.5">
-            <div className="grid size-8 place-items-center rounded-lg bg-[#171A21] border border-[#2E3442] font-mono text-xs font-semibold text-[#F4F5F8]">
+        {/* User section at bottom */}
+        <div className="border-t border-white/5 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="grid size-9 place-items-center rounded-xl bg-accent font-display text-xs font-bold text-white shadow-md">
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-xs font-semibold text-[#F4F5F8]">@{displayName}</p>
+              <p className="truncate text-sm font-semibold text-white">{displayName}</p>
               <button
                 onClick={handleSignOut}
-                className="text-[11px] text-[#8A92A6] hover:text-[#EF4444] transition-colors"
+                className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
               >
                 Sign out
               </button>
@@ -150,63 +131,55 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         </div>
       </aside>
 
-      {/* ── Main Content Column ── */}
-      <main className="flex-1 md:ml-60 lg:ml-64 min-w-0 flex flex-col">
-        {/* Mobile Top Bar */}
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[#222631] bg-[#090A0D]/95 px-4 backdrop-blur-md md:hidden">
-          <div className="flex items-center gap-2.5">
+      {/* ── Main content ── */}
+      <main className="flex-1 md:ml-64 lg:ml-72 min-w-0 flex flex-col">
+        {/* Top bar (mobile view WIMBF redesign) */}
+        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/5 bg-[#0b0e17]/85 px-4 py-3 backdrop-blur-2xl md:hidden">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              aria-label="Open menu"
-              className="grid size-8 place-items-center rounded-lg border border-[#222631] bg-[#111318] text-[#C8CDD8]"
+              className="p-2 rounded-xl bg-white/5 text-slate-300 hover:text-white"
             >
-              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 7h16M4 12h16M4 17h10" />
-              </svg>
+              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
-            <Logo size="xs" href="/dashboard" />
+            <Logo size="sm" />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <Link
               href="/wallet"
-              className="flex items-center gap-2 rounded-lg border border-[#222631] bg-[#111318] px-2.5 py-1 text-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-400 shadow-sm"
             >
-              <span className="font-mono font-semibold text-[#10B981] tabular-nums">
-                ₦{(wallet?.withdrawable_balance ?? 0).toLocaleString()}
-              </span>
-              <span className="h-3 w-[1px] bg-[#222631]" />
-              <span className="font-mono font-medium text-[#F7911B] tabular-nums">
-                {(wallet?.coin_balance ?? 0).toLocaleString()}c
-              </span>
+              <CoinsIcon className="size-3.5" />
+              <span>{wallet?.coin_balance.toLocaleString() ?? 0}</span>
             </Link>
 
             <Link
               href="/profile"
-              className="grid size-8 place-items-center rounded-lg border border-[#2E3442] bg-[#171A21] font-mono text-[11px] font-semibold text-[#F4F5F8]"
+              className="grid size-8 place-items-center rounded-xl bg-accent text-xs font-bold text-white shadow-md"
             >
               {initials}
             </Link>
           </div>
         </header>
 
-        {/* Mobile Drawer */}
+        {/* Full Mobile Navigation Menu Drawer */}
         {menuOpen && (
-          <div className="fixed inset-0 z-50 bg-[#090A0D] md:hidden flex flex-col p-5 space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-[#222631] pb-4">
-              <Logo size="xs" href="/dashboard" />
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl md:hidden flex flex-col p-6 space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <Logo size="sm" />
               <button
                 onClick={() => setMenuOpen(false)}
-                className="grid size-8 place-items-center rounded-lg border border-[#222631] bg-[#111318] text-xs text-[#8A92A6]"
+                className="p-2 text-slate-400 hover:text-white text-lg"
               >
-                ESC
+                ✕
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-5">
+            <div className="flex-1 overflow-y-auto space-y-6">
               {navGroups.map((group) => (
                 <div key={group.label} className="space-y-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5E6678]">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     {group.label}
                   </p>
                   <div className="grid grid-cols-2 gap-2">
@@ -215,9 +188,9 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                         key={item.href}
                         href={item.href}
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2.5 rounded-lg border border-[#222631] bg-[#111318] p-3 text-xs font-medium text-[#F4F5F8] hover:border-[#2E3442]"
+                        className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-sm font-semibold text-slate-200"
                       >
-                        <item.Icon className="size-4 text-[#F7911B]" />
+                        <item.Icon className="size-4 text-accent" />
                         <span>{item.label}</span>
                       </Link>
                     ))}
@@ -226,14 +199,14 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
               ))}
             </div>
 
-            <div className="pt-4 border-t border-[#222631] flex items-center justify-between">
+            <div className="pt-4 border-t border-white/5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-[#F4F5F8]">@{displayName}</p>
-                <p className="text-[11px] text-[#8A92A6]">{user?.email}</p>
+                <p className="text-sm font-bold text-white">{displayName}</p>
+                <p className="text-xs text-slate-400">{user?.email}</p>
               </div>
               <button
                 onClick={handleSignOut}
-                className="rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-1.5 text-xs font-medium text-[#EF4444]"
+                className="px-4 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold"
               >
                 Sign out
               </button>
@@ -241,12 +214,12 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           </div>
         )}
 
-        <div className="mx-auto max-w-6xl px-4 py-5 md:px-8 md:py-7 pb-24 md:pb-10 flex-1 w-full">
+        <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8 pb-28 md:pb-8 flex-1 w-full">
           {children}
         </div>
       </main>
 
-      {/* ── Mobile Bottom Tab Bar ── */}
+      {/* ── Mobile WIMBF Floating Dock Nav ── */}
       <MobileNav />
     </div>
   );

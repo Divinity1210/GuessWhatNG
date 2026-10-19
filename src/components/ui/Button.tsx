@@ -22,25 +22,25 @@ type Props = ButtonProps | LinkButtonProps;
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    "bg-[#F7911B] text-[#090A0D] font-semibold hover:bg-[#FFA236] active:translate-y-[0.5px]",
+    "gradient-brand text-white font-semibold shadow-glow hover:brightness-110 active:brightness-95",
   secondary:
-    "bg-[#171A21] text-[#F4F5F8] border border-[#222631] hover:bg-[#1F242D] hover:border-[#2E3442]",
+    "bg-paper-3 text-ink border border-rule hover:bg-paper-4 hover:border-rule-2",
   outline:
-    "border border-[#222631] bg-transparent text-[#C8CDD8] hover:border-[#F7911B] hover:text-[#F4F5F8]",
+    "border border-rule bg-transparent text-ink-2 hover:border-accent hover:text-ink",
   ghost:
-    "bg-transparent text-[#8A92A6] hover:bg-white/[0.04] hover:text-[#F4F5F8]",
+    "bg-transparent text-ink-3 hover:bg-surface-boost hover:text-ink",
   danger:
-    "bg-[#EF4444]/12 text-[#EF4444] border border-[#EF4444]/25 hover:bg-[#EF4444]/20",
+    "bg-danger/15 text-danger border border-danger/25 hover:bg-danger/25",
 };
 
 const sizeStyles: Record<Size, string> = {
-  sm: "px-3 py-1.5 text-xs rounded-lg font-medium",
-  md: "px-4 py-2.5 text-sm rounded-lg font-semibold",
-  lg: "px-6 py-3 text-sm rounded-lg font-semibold tracking-tight",
+  sm: "px-3.5 py-1.5 text-sm rounded-[var(--radius-sm)]",
+  md: "px-5 py-2.5 text-sm rounded-[var(--radius-sm)] font-medium",
+  lg: "px-8 py-3.5 text-base rounded-[var(--radius-md)] font-bold font-display",
 };
 
 export function Button({ variant = "primary", size = "md", className = "", children, ...rest }: Props) {
-  const classes = `inline-flex items-center justify-center gap-2 transition-colors duration-150 select-none disabled:opacity-45 disabled:pointer-events-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+  const classes = `inline-flex items-center justify-center gap-2 transition-all duration-200 select-none disabled:opacity-50 disabled:pointer-events-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
 
   if ("href" in rest && rest.href) {
     return (
