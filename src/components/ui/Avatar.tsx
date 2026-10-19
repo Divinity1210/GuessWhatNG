@@ -8,18 +8,10 @@ interface AvatarProps {
 
 const sizeMap = {
   sm: "size-8 text-xs",
-  md: "size-10 text-sm",
-  lg: "size-14 text-lg",
-  xl: "size-20 text-2xl",
+  md: "size-10 text-xs",
+  lg: "size-12 text-sm",
+  xl: "size-16 text-lg",
 };
-
-const colors = [
-  "from-accent-3 to-accent",
-  "from-accent-purple to-info",
-  "from-success to-info",
-  "from-warning to-accent",
-  "from-danger to-accent-2",
-];
 
 function getInitials(name: string) {
   return name
@@ -31,34 +23,32 @@ function getInitials(name: string) {
 }
 
 export function Avatar({ name, src, size = "md", rank, className = "" }: AvatarProps) {
-  const colorIndex = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
-
   return (
     <div className={`relative inline-flex shrink-0 ${className}`}>
       {src ? (
         <img
           src={src}
           alt={name}
-          className={`${sizeMap[size]} rounded-full object-cover ring-2 ring-rule`}
+          className={`${sizeMap[size]} rounded-lg object-cover border border-[#2E3442]`}
         />
       ) : (
         <div
-          className={`${sizeMap[size]} grid place-items-center rounded-full bg-gradient-to-br ${colors[colorIndex]} font-display font-bold text-white`}
+          className={`${sizeMap[size]} grid place-items-center rounded-lg border border-[#2E3442] bg-[#171A21] font-mono font-semibold text-[#F4F5F8]`}
         >
           {getInitials(name)}
         </div>
       )}
       {rank !== undefined && rank <= 3 && (
         <span
-          className={`absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full text-[10px] font-black font-display text-white border border-paper shadow-sm ${
+          className={`absolute -bottom-1 -right-1 grid size-4.5 place-items-center rounded border border-[#090A0D] font-mono text-[9px] font-bold ${
             rank === 1
-              ? "bg-amber-500"
+              ? "bg-[#F7911B] text-[#090A0D]"
               : rank === 2
-              ? "bg-slate-400"
-              : "bg-amber-700"
+              ? "bg-[#C8CDD8] text-[#090A0D]"
+              : "bg-[#2E3442] text-[#F4F5F8]"
           }`}
         >
-          #{rank}
+          {rank}
         </span>
       )}
     </div>

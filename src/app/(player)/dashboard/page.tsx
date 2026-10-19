@@ -1,17 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, StatCard, Badge, Avatar } from "@/components/ui";
+import Link from "next/link";
+import { Button, Badge, Avatar } from "@/components/ui";
 import {
-  TrophyIcon,
-  CoinsIcon,
-  TimerIcon,
   PlayIcon,
-  TrendingUpIcon,
-  GiftIcon,
+  TimerIcon,
   ArrowRightIcon,
-  FlameIcon,
-  UsersIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
@@ -29,7 +24,7 @@ import {
 } from "@/lib/supabase/queries";
 import { LiveFomoTicker } from "@/components/viral/LiveFomoTicker";
 import { DailyStreetHeatCard } from "@/components/viral/DailyStreetHeatCard";
-import { VasTopupModal } from "@/components/viral/WalletModals";
+import { VasTopupModal, WithdrawalModal } from "@/components/viral/WalletModals";
 import { TURF_SQUADS, buildWhatsAppShareUrl } from "@/lib/game/viral-engine";
 
 function timeRemaining(endsAt: string): string {
@@ -62,6 +57,7 @@ export default function DashboardPage() {
   const [upcomingSessions, setUpcomingSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTopup, setShowTopup] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const [selectedTurf, setSelectedTurf] = useState<string>("Lagos (Eko)");
 
   useEffect(() => {
@@ -129,7 +125,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        <div className="size-6 animate-spin rounded-full border-2 border-[#F7911B] border-t-transparent" />
       </div>
     );
   }
@@ -145,106 +141,124 @@ export default function DashboardPage() {
     prizePool: activeSession?.prize_pool ?? 250_000,
   });
 
-  const statCards = [
-    {
-      label: "Total Points",
-      value: stats?.totalPoints.toLocaleString() ?? "0",
-      icon: <TrendingUpIcon className="size-5 text-accent" />,
-    },
-    {
-      label: "Coin Balance",
-      value: wallet?.coin_balance.toLocaleString() ?? "0",
-      icon: <CoinsIcon className="size-5 text-[#F7911B]" />,
-    },
-    {
-      label: "Games Played",
-      value: stats?.gamesPlayed.toString() ?? "0",
-    },
-    {
-      label: "Win Rate",
-      value: `${Math.round((stats?.winRate ?? 0) * 100)}%`,
-    },
-    {
-      label: "Best Rank",
-      value: stats?.bestRank ? `#${stats.bestRank}` : "—",
-      icon: <TrophyIcon className="size-5 text-amber-400" />,
-    },
-    {
-      label: "Total Prizes",
-      value: formatNaira(stats?.totalPrizes ?? 0),
-      icon: <GiftIcon className="size-5 text-green-400" />,
-    },
-  ];
-
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* ── Live Social Proof FOMO Ticker ── */}
+    <div className="space-y-5 animate-fade-in">
+      {/* ── Live Market Activity Feed ── */}
       <LiveFomoTicker />
 
-      {/* ── Hero session banner ── */}
+      {/* ── Unified Financial & Performance Ledger Strip ── */}
+      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-8 flex-1">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-[#8A92A6]">
+                Withdrawable Cash
+              </p>
+              <p className="mt-1 font-mono text-2xl font-semibold text-[#10B981] tabular-nums">
+                {formatNaira(wallet?.withdrawable_balance ?? 0)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-[#8A92A6]">
+                GW Coin Balance
+              </p>
+              <p className="mt-1 font-mono text-2xl font-semibold text-[#F7911B] tabular-nums">
+                {(wallet?.coin_balance ?? 0).toLocaleString()} <span className="text-xs text-[#8A92A6]">GW</span>
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-[#8A92A6]">
+                Career Yield
+              </p>
+              <p className="mt-1 font-mono text-2xl font-semibold text-[#F4F5F8] tabular-nums">
+                {(stats?.totalPoints ?? 0).toLocaleString()} <span className="text-xs text-[#8A92A6]">pts</span>
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-[#8A92A6]">
+                Sessions / Best Rank
+              </p>
+              <p className="mt-1 font-mono text-2xl font-semibold text-[#F4F5F8] tabular-nums">
+                {stats?.gamesPlayed ?? 0} <span className="text-xs text-[#8A92A6]">/ {stats?.bestRank ? `#${stats.bestRank}` : "—"}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#222631]">
+            <Button size="sm" onClick={() => setShowTopup(true)}>
+              + Top Up Coins (VAS)
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowWithdraw(true)}>
+              Withdraw Cash
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Primary Live Session Ticket ── */}
       {activeSession ? (
-        <section className="relative overflow-hidden rounded-card border border-rule bg-paper-2">
-          <div className="absolute inset-0 gradient-glow opacity-60" />
-          <div className="relative z-10 flex flex-col gap-6 p-6 md:flex-row md:items-center md:justify-between md:p-8">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Badge variant="active" dot>Live Now</Badge>
-                <span className="text-xs text-ink-muted">
-                  {Math.max(playerCount, 1420).toLocaleString()} players competing
+        <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="active" dot>LIVE MARKET</Badge>
+                <span className="font-mono text-xs text-[#8A92A6] tabular-nums">
+                  {Math.max(playerCount, 1420).toLocaleString()} ENTRIES
                 </span>
-                <span className="rounded-full bg-[#F7911B]/15 border border-[#F7911B]/30 px-2.5 py-0.5 text-[11px] font-bold text-[#F7911B]">
-                  🔥 2x Sure Lock Enabled
+                <span className="rounded border border-[#F7911B]/30 bg-[#F7911B]/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-[#F7911B]">
+                  2X MULTIPLIER AVAILABLE
                 </span>
               </div>
-              <h1 className="font-display text-2xl font-bold md:text-3xl">{activeSession.name}</h1>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-ink-3">
-                <span className="flex items-center gap-1.5">
-                  <TrophyIcon className="size-4 text-amber-400" />
-                  <span>Prize: <span className="font-semibold text-accent">{formatNaira(activeSession.prize_pool)}</span></span>
+              <h1 className="font-display text-xl sm:text-2xl font-bold text-[#F4F5F8]">
+                {activeSession.name}
+              </h1>
+              <div className="flex flex-wrap items-center gap-5 font-mono text-xs text-[#8A92A6] tabular-nums">
+                <span>
+                  POOL: <strong className="text-[#10B981]">{formatNaira(activeSession.prize_pool)}</strong>
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <CoinsIcon className="size-4 text-[#F7911B]" />
-                  <span>Entry: <span className="font-semibold text-ink">{activeSession.entry_fee_coins} coins</span></span>
+                <span>
+                  ENTRY: <strong className="text-[#F4F5F8]">{activeSession.entry_fee_coins} GW</strong>
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <TimerIcon className="size-4 text-gray-400" />
-                  <span>Ends in: <span className="font-semibold text-ink">{timeRemaining(activeSession.ends_at)}</span></span>
+                <span>
+                  CLOSES IN: <strong className="text-[#F7911B]">{timeRemaining(activeSession.ends_at)}</strong>
                 </span>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button size="lg" href="/play" className="inline-flex items-center gap-2">
-                <PlayIcon className="size-5 fill-current" />
-                <span>Play Now</span>
+            <div className="shrink-0">
+              <Button size="lg" href="/play" className="w-full md:w-auto">
+                <PlayIcon className="size-4 fill-current" />
+                <span>Enter Live Arena</span>
               </Button>
             </div>
           </div>
         </section>
       ) : (
-        <section className="relative overflow-hidden rounded-card border border-[#F7911B]/35 bg-paper-2 p-6 md:p-8">
-          <div className="absolute inset-0 gradient-glow opacity-50" />
-          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-2">
+        <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <Badge variant="active" dot>Street Practice Arena Live</Badge>
-                <span className="text-xs text-[#F7911B] font-bold">🔥 2x Sure Lock Ready</span>
+                <Badge variant="active" dot>OPEN PRACTICE MARKET</Badge>
+                <span className="font-mono text-[11px] text-[#F7911B]">2X MULTIPLIER ENABLED</span>
               </div>
-              <h2 className="font-display text-2xl font-bold">
-                Naija Crowd Showdown · Practice &amp; Speed Arena
+              <h2 className="font-display text-xl font-bold text-[#F4F5F8]">
+                Naija Consensus Practice Arena (5 Questions)
               </h2>
-              <p className="text-sm text-ink-2 max-w-xl">
-                Warm up your crowd intuition and speed tiebreaker with 5 iconic Nigerian &amp; African questions while the next cash session prepares to launch.
+              <p className="text-xs sm:text-sm text-[#8A92A6] max-w-xl">
+                Calibrate your crowd read and response speed on 5 cultural prediction markets while the next guaranteed cash pool opens.
               </p>
             </div>
-            <Button size="lg" href="/play" className="inline-flex items-center gap-2 shrink-0">
-              <PlayIcon className="size-5 fill-current" />
-              <span>Play Street Arena Now</span>
+            <Button size="lg" href="/play" className="w-full md:w-auto shrink-0">
+              <PlayIcon className="size-4 fill-current" />
+              <span>Launch Arena</span>
             </Button>
           </div>
         </section>
       )}
 
-      {/* ── Daily Street Heat Free Poll + Flame Streak ── */}
+      {/* ── Daily Consensus Poll + Streak ── */}
       {user && (
         <DailyStreetHeatCard
           userId={user.id}
@@ -259,29 +273,29 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ── Rep Your Turf / Squad Pride Bar ── */}
-      <section className="rounded-card border border-rule bg-paper-2 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* ── Division Assignment & Syndicate Bar ── */}
+      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3.5">
-          <div className="grid size-12 place-items-center rounded-2xl bg-[#F7911B]/15 border border-[#F7911B]/30 text-2xl shrink-0">
+          <div className="grid size-11 place-items-center rounded-lg border border-[#2E3442] bg-[#171A21] font-mono text-xs font-bold text-[#F7911B] shrink-0">
             {currentTurfObj.emoji}
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-[#F7911B]">
-                YOUR TURF SQUAD
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[#8A92A6]">
+                ACTIVE DIVISION
               </span>
-              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                {currentTurfObj.weeklyDelta} this week
+              <span className="font-mono text-[11px] font-medium text-[#10B981]">
+                {currentTurfObj.weeklyDelta} WEEKLY
               </span>
             </div>
-            <h3 className="font-display text-lg font-bold text-white mt-0.5">
+            <h3 className="text-base font-semibold text-[#F4F5F8] mt-0.5">
               {currentTurfObj.name} ·{" "}
-              <span className="text-[#F7911B]">
+              <span className="font-mono text-[#F7911B] tabular-nums">
                 {(currentTurfObj.basePoints + (stats?.totalPoints ?? 0)).toLocaleString()} pts
               </span>
             </h3>
-            <p className="text-xs text-ink-muted">
-              {currentTurfObj.slogan} · {currentTurfObj.basePlayers.toLocaleString()} squad members
+            <p className="text-xs text-[#8A92A6]">
+              {currentTurfObj.slogan} · {currentTurfObj.basePlayers.toLocaleString()} active players
             </p>
           </div>
         </div>
@@ -290,12 +304,12 @@ export default function DashboardPage() {
           <select
             value={selectedTurf}
             onChange={(e) => handleTurfChange(e.target.value)}
-            aria-label="Switch your Turf Squad"
-            className="rounded-xl border border-rule bg-paper-3 px-3 py-2 text-xs font-semibold text-ink focus:border-accent focus:outline-none"
+            aria-label="Switch Division"
+            className="rounded-lg border border-[#222631] bg-[#090A0D] px-3 py-2 text-xs font-medium text-[#F4F5F8] focus:border-[#F7911B] focus:outline-none"
           >
             {TURF_SQUADS.map((t) => (
               <option key={t.id} value={t.name}>
-                {t.emoji} {t.name}
+                [{t.emoji}] {t.name}
               </option>
             ))}
           </select>
@@ -304,168 +318,123 @@ export default function DashboardPage() {
             href={waSquadInvite}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-black text-slate-950 transition-all"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2E3442] bg-[#171A21] hover:bg-[#1F242D] px-3.5 py-2 text-xs font-semibold text-[#F4F5F8] transition-colors"
           >
-            <UsersIcon className="size-3.5" />
-            <span>Recruit on WhatsApp (+50 Coins)</span>
+            <span>Invite to Division (+50 GW)</span>
           </a>
         </div>
       </section>
 
-      {/* ── Quick stats grid ── */}
-      <section className="stagger grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        {statCards.map((stat) => (
-          <StatCard
-            key={stat.label}
-            label={stat.label}
-            value={stat.value}
-            icon={stat.icon}
-          />
-        ))}
-      </section>
-
-      {/* ── Quick actions ── */}
-      <section className="flex flex-wrap gap-3">
-        <Button href="/play" className="inline-flex items-center gap-2">
-          <PlayIcon className="size-4 fill-current" />
-          <span>Play Now</span>
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => setShowTopup(true)}
-          className="inline-flex items-center gap-2"
-        >
-          <CoinsIcon className="size-4 text-[#F7911B]" />
-          <span>Buy Coins (Airtime)</span>
-        </Button>
-        <Button variant="outline" href="/leaderboard" className="inline-flex items-center gap-2">
-          <TrophyIcon className="size-4 text-amber-400" />
-          <span>Turf &amp; Player Ranks</span>
-        </Button>
-        <Button variant="ghost" href="/referrals" className="inline-flex items-center gap-2">
-          <FlameIcon className="size-4 text-accent" />
-          <span>Invite Squad (+50 Coins)</span>
-        </Button>
-      </section>
-
-      {/* ── Two column layout: Recent winners ── */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Wallet summary */}
-        <section className="rounded-card border border-rule bg-paper-2 p-6 lg:col-span-1">
-          <h2 className="font-display text-lg font-bold">Wallet</h2>
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-ink-3">Coins</span>
-              <span className="font-display font-bold text-ink">{wallet?.coin_balance.toLocaleString() ?? 0}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-ink-3">Rewards</span>
-              <span className="font-display font-bold text-accent">{formatNaira(wallet?.reward_balance ?? 0)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-ink-3">Withdrawable</span>
-              <span className="font-display font-bold text-green-400">{formatNaira(wallet?.withdrawable_balance ?? 0)}</span>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Button variant="primary" size="sm" onClick={() => setShowTopup(true)}>
-              + Top Up
-            </Button>
-            <Button variant="secondary" size="sm" href="/wallet">
-              Wallet
-            </Button>
-          </div>
-        </section>
-
-        {/* Recent winners */}
-        <section className="rounded-card border border-rule bg-paper-2 p-6 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">Recent Winners</h2>
-            <Button variant="ghost" size="sm" href="/leaderboard">View All</Button>
+      {/* ── Two-Column Bottom Grid: Settled Winners & Upcoming Schedule ── */}
+      <div className="grid gap-5 lg:grid-cols-12">
+        {/* Recent Settled Winners */}
+        <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 lg:col-span-7">
+          <div className="flex items-center justify-between border-b border-[#222631] pb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F5F8]">
+              Recent Pool Settlements
+            </h2>
+            <Link href="/leaderboard" className="text-xs font-medium text-[#F7911B] hover:underline">
+              Full Standings →
+            </Link>
           </div>
           {recentWinners.length > 0 ? (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-rule text-left text-xs font-medium uppercase tracking-wider text-ink-muted">
-                    <th className="pb-3 pr-4">Rank</th>
-                    <th className="pb-3 pr-4">Player</th>
-                    <th className="pb-3 pr-4 text-right">Points</th>
-                    <th className="pb-3 text-right">Prize</th>
+                  <tr className="border-b border-[#222631] text-left font-mono text-[10px] uppercase tracking-wider text-[#8A92A6]">
+                    <th className="pb-2.5 pr-3">Rank</th>
+                    <th className="pb-2.5 pr-3">Player</th>
+                    <th className="pb-2.5 pr-3 text-right">Points</th>
+                    <th className="pb-2.5 text-right">Payout</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[#222631]">
                   {recentWinners.map((w) => (
-                    <tr key={w.user_id} className="border-b border-rule/50 last:border-0">
-                      <td className="py-3 pr-4">
-                        <span className="font-display font-bold text-xs rounded-md bg-paper-3 px-2 py-1 text-ink">
-                          #{w.rank}
-                        </span>
+                    <tr key={w.user_id}>
+                      <td className="py-2.5 pr-3 font-mono font-semibold text-[#8A92A6] tabular-nums">
+                        #{w.rank}
                       </td>
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2.5">
+                      <td className="py-2.5 pr-3">
+                        <div className="flex items-center gap-2">
                           <Avatar name={w.profiles?.username ?? "?"} size="sm" rank={w.rank} />
-                          <span className="font-medium text-ink">{w.profiles?.username ?? "Unknown"}</span>
+                          <span className="font-medium text-[#F4F5F8]">@{w.profiles?.username ?? "player"}</span>
                         </div>
                       </td>
-                      <td className="py-3 pr-4 text-right font-medium text-ink-2">{w.points.toLocaleString()}</td>
-                      <td className="py-3 text-right font-semibold text-accent">{formatNaira(w.prize)}</td>
+                      <td className="py-2.5 pr-3 text-right font-mono text-[#C8CDD8] tabular-nums">
+                        {w.points.toLocaleString()}
+                      </td>
+                      <td className="py-2.5 text-right font-mono font-semibold text-[#10B981] tabular-nums">
+                        {formatNaira(w.prize)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="mt-6 text-center text-sm text-ink-muted">No completed sessions yet. Play to be the first winner!</p>
+            <p className="py-8 text-center text-xs text-[#8A92A6]">
+              No settled sessions recorded yet. Enter the active pool to claim the top rank.
+            </p>
+          )}
+        </section>
+
+        {/* Upcoming Schedule */}
+        <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 lg:col-span-5">
+          <div className="flex items-center justify-between border-b border-[#222631] pb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F5F8]">
+              Upcoming Pools
+            </h2>
+            <Link href="/sessions" className="inline-flex items-center gap-1 text-xs font-medium text-[#F7911B] hover:underline">
+              <span>Schedule</span>
+              <ArrowRightIcon className="size-3" />
+            </Link>
+          </div>
+
+          {upcomingSessions.length > 0 ? (
+            <div className="mt-3 divide-y divide-[#222631]">
+              {upcomingSessions.slice(0, 3).map((s) => (
+                <div key={s.id} className="py-3 first:pt-1 last:pb-0 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-[#F4F5F8]">{s.name}</p>
+                    <p className="mt-0.5 font-mono text-[11px] text-[#8A92A6] flex items-center gap-1">
+                      <TimerIcon className="size-3" />
+                      <span>
+                        {new Date(s.starts_at).toLocaleDateString("en-NG", {
+                          weekday: "short",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="text-right font-mono tabular-nums">
+                    <p className="text-xs font-semibold text-[#10B981]">{formatNaira(s.prize_pool)}</p>
+                    <p className="text-[11px] text-[#8A92A6]">{s.entry_fee_coins} GW</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-xs text-[#8A92A6]">
+              Next 72-hour pool schedule will be published shortly.
+            </p>
           )}
         </section>
       </div>
-
-      {/* ── Upcoming sessions ── */}
-      <section>
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold">Upcoming Sessions</h2>
-          <Button variant="ghost" size="sm" href="/sessions">
-            <span>View All</span>
-            <ArrowRightIcon className="size-3.5 ml-1" />
-          </Button>
-        </div>
-        {upcomingSessions.length > 0 ? (
-          <div className="mt-4 stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {upcomingSessions.map((s) => (
-              <div key={s.id} className="rounded-card border border-rule bg-paper-2 p-5 transition-all duration-200 hover:border-rule-2 hover:shadow-soft">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-display font-semibold text-ink">{s.name}</h3>
-                    <p className="mt-1 text-xs text-ink-muted flex items-center gap-1">
-                      <TimerIcon className="size-3.5" />
-                      <span>{new Date(s.starts_at).toLocaleDateString("en-NG", { weekday: "short", hour: "numeric", minute: "2-digit" })}</span>
-                    </p>
-                  </div>
-                  <Badge variant="upcoming">Upcoming</Badge>
-                </div>
-                <div className="mt-4 flex items-center justify-between text-sm">
-                  <span className="text-ink-3 flex items-center gap-1">
-                    <TrophyIcon className="size-4 text-amber-400" />
-                    <span className="font-semibold text-accent">{formatNaira(s.prize_pool)}</span>
-                  </span>
-                  <span className="text-ink-3 flex items-center gap-1">
-                    <CoinsIcon className="size-4 text-[#F7911B]" />
-                    <span>{s.entry_fee_coins} coins</span>
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-4 text-center text-sm text-ink-muted">No upcoming sessions scheduled yet.</p>
-        )}
-      </section>
 
       {showTopup && user && (
         <VasTopupModal
           userId={user.id}
           onClose={() => setShowTopup(false)}
+          onSuccess={loadWalletAndStats}
+        />
+      )}
+
+      {showWithdraw && user && (
+        <WithdrawalModal
+          userId={user.id}
+          maxAmount={wallet?.withdrawable_balance ?? 0}
+          onClose={() => setShowWithdraw(false)}
           onSuccess={loadWalletAndStats}
         />
       )}

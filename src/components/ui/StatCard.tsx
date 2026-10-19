@@ -8,19 +8,19 @@ interface StatCardProps {
 
 export function StatCard({ label, value, icon, trend, className = "" }: StatCardProps) {
   return (
-    <div className={`rounded-card border border-rule bg-paper-2 p-5 ${className}`}>
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">{label}</p>
+    <div className={`rounded-xl border border-[#222631] bg-[#111318] p-4 ${className}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#8A92A6]">{label}</p>
         {icon && (
-          <span className="grid size-8 place-items-center rounded-[var(--radius-sm)] bg-accent-muted text-accent">
+          <span className="text-[#8A92A6]">
             {icon}
           </span>
         )}
       </div>
-      <p className="mt-2 font-display text-2xl font-bold text-ink">{value}</p>
+      <p className="mt-2 font-mono text-xl font-semibold tracking-tight text-[#F4F5F8] tabular-nums">{value}</p>
       {trend && (
-        <p className={`mt-1 text-xs font-medium ${trend.positive ? "text-success" : "text-danger"}`}>
-          {trend.positive ? "↑" : "↓"} {trend.value}
+        <p className={`mt-1 text-[11px] font-medium tabular-nums ${trend.positive ? "text-[#10B981]" : "text-[#EF4444]"}`}>
+          {trend.positive ? "+" : "-"} {trend.value}
         </p>
       )}
     </div>

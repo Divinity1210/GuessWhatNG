@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getTodaysStreetPoll, buildWhatsAppShareUrl } from "@/lib/game/viral-engine";
 import { claimDailyPollBonus } from "@/lib/supabase/queries";
-import { FlameIcon, CoinsIcon, UsersIcon, CheckIcon } from "@/components/ui/Icons";
+import { CheckIcon } from "@/components/ui/Icons";
 
 interface DailyStreetHeatCardProps {
   userId: string;
@@ -69,42 +69,46 @@ export function DailyStreetHeatCard({
   });
 
   return (
-    <section className="relative overflow-hidden rounded-card border border-[#F7911B]/35 bg-gradient-to-br from-[#19141d] via-paper-2 to-[#131824] p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
-        <div className="flex items-center gap-2.5">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F7911B]/15 border border-[#F7911B]/35 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-[#F7911B]">
-            <FlameIcon className="size-3.5" />
-            <span>DAILY STREET HEAT · {poll.tag}</span>
+    <section className="rounded-xl border border-[#222631] bg-[#111318] p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#222631] pb-3.5">
+        <div className="flex items-center gap-2">
+          <span className="rounded border border-[#F7911B]/30 bg-[#F7911B]/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#F7911B]">
+            {poll.tag}
           </span>
-          <span className="text-xs text-ink-muted hidden sm:inline">
-            Free Daily Warm-Up
+          <span className="text-xs text-[#8A92A6] hidden sm:inline">
+            Daily Consensus Warm-Up
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-bold text-amber-300">
-            <FlameIcon className="size-3.5 text-orange-400" />
-            <span>{streakDays}-Day Flame Streak</span>
+        <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums">
+          <span className="rounded border border-[#222631] bg-[#171A21] px-2 py-0.5 text-[#C8CDD8]">
+            STREAK: {streakDays}D
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-xs font-bold text-emerald-300">
-            <CoinsIcon className="size-3.5" />
-            <span>{selectedOptionId ? "Claimed" : "+25 Free Coins"}</span>
+          <span
+            className={`rounded border px-2 py-0.5 font-semibold ${
+              selectedOptionId
+                ? "border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]"
+                : "border-[#F7911B]/30 bg-[#F7911B]/10 text-[#F7911B]"
+            }`}
+          >
+            {selectedOptionId ? "SETTLED" : "+25 GW"}
           </span>
         </div>
       </div>
 
       <div className="mt-4">
-        <h3 className="font-display text-lg md:text-xl font-bold text-white leading-snug">
+        <h3 className="text-base font-semibold text-[#F4F5F8] leading-snug">
           {poll.question}
         </h3>
-        <p className="mt-1 text-xs text-ink-muted">
-          Predict what the majority of Nigerians are picking today to keep your Flame Streak alive!
+        <p className="mt-1 text-xs text-[#8A92A6]">
+          Lock in today&apos;s majority outcome to maintain your daily streak multiplier.
         </p>
 
-        <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+        <div className="mt-3.5 grid gap-2 sm:grid-cols-2">
           {poll.options.map((opt, idx) => {
             const isChosen = selectedOptionId === opt.id;
             const isWinner = idx === 0;
+            const letter = String.fromCharCode(65 + idx);
 
             return (
               <button
@@ -112,44 +116,53 @@ export function DailyStreetHeatCard({
                 type="button"
                 disabled={!!selectedOptionId}
                 onClick={() => handleVote(opt.id)}
-                className={`relative overflow-hidden rounded-xl border p-3.5 text-left transition-all ${
+                className={`relative overflow-hidden rounded-lg border p-3 text-left transition-colors ${
                   selectedOptionId
                     ? isChosen
-                      ? "border-[#F7911B] bg-[#F7911B]/15 shadow-md"
-                      : "border-white/10 bg-paper-3/70"
-                    : "border-rule bg-paper-3 hover:border-[#F7911B]/50 hover:bg-paper-4 cursor-pointer"
+                      ? "border-[#F7911B] bg-[#171A21]"
+                      : "border-[#222631] bg-[#090A0D]/60 opacity-80"
+                    : "border-[#222631] bg-[#171A21]/70 hover:border-[#2E3442] hover:bg-[#171A21] cursor-pointer"
                 }`}
               >
                 {selectedOptionId && (
                   <div
-                    className={`absolute inset-y-0 left-0 transition-all duration-700 ${
-                      isWinner
-                        ? "bg-gradient-to-r from-[#F7911B]/30 to-[#FF0400]/30"
-                        : "bg-white/10"
+                    className={`absolute inset-y-0 left-0 transition-all duration-500 ${
+                      isWinner ? "bg-[#F7911B]/15" : "bg-white/[0.03]"
                     }`}
                     style={{ width: `${opt.pct}%` }}
                   />
                 )}
 
-                <div className="relative z-10 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-bold text-white truncate">
-                      {opt.label}
-                    </p>
-                    {selectedOptionId && (
-                      <p className="mt-0.5 text-[11px] font-semibold text-[#F7911B]">
-                        {isWinner ? "👑 Crowd #1 Pick" : isChosen ? "Your Pick" : `Rank #${idx + 1}`}
+                <div className="relative z-10 flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={`grid size-5 shrink-0 place-items-center rounded border font-mono text-[10px] font-semibold ${
+                        isChosen
+                          ? "border-[#F7911B] bg-[#F7911B] text-[#090A0D]"
+                          : "border-[#2E3442] bg-[#090A0D] text-[#8A92A6]"
+                      }`}
+                    >
+                      {letter}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-[#F4F5F8] truncate">
+                        {opt.label}
                       </p>
-                    )}
+                      {selectedOptionId && (
+                        <p className="mt-0.5 font-mono text-[10px] text-[#8A92A6]">
+                          {isWinner ? "RANK #1 CONSENSUS" : isChosen ? "YOUR PICK" : `RANK #${idx + 1}`}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {selectedOptionId ? (
-                    <span className="font-display text-base font-black text-white shrink-0">
+                    <span className="font-mono text-xs font-semibold text-[#F4F5F8] tabular-nums shrink-0">
                       {opt.pct}%
                     </span>
                   ) : (
-                    <span className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-bold text-ink-2 shrink-0">
-                      Vote
+                    <span className="font-mono text-[11px] text-[#8A92A6] shrink-0">
+                      Pick
                     </span>
                   )}
                 </div>
@@ -158,18 +171,15 @@ export function DailyStreetHeatCard({
           })}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-ink-3">
-            <UsersIcon className="size-4 text-[#F7911B]" />
-            <span>
-              <strong className="text-white">
-                {(poll.totalVotes + (selectedOptionId ? 1 : 0)).toLocaleString()}
-              </strong>{" "}
-              players voted today
+        <div className="mt-4 pt-3 border-t border-[#222631] flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-[#8A92A6]">
+            <span className="font-mono text-[#F4F5F8] font-medium tabular-nums">
+              {(poll.totalVotes + (selectedOptionId ? 1 : 0)).toLocaleString()}
             </span>
+            <span>entries recorded today</span>
             {bonusEarned && bonusEarned > 0 ? (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-emerald-300 font-bold animate-fade-in">
-                <CheckIcon className="size-3" /> +{bonusEarned} Coins Added!
+              <span className="ml-1 inline-flex items-center gap-1 rounded border border-[#10B981]/30 bg-[#10B981]/10 px-2 py-0.5 font-mono text-[11px] text-[#10B981] font-medium">
+                <CheckIcon className="size-3" /> +{bonusEarned} GW
               </span>
             ) : null}
           </div>
@@ -178,9 +188,9 @@ export function DailyStreetHeatCard({
             href={waShareUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+            className="text-xs font-medium text-[#F7911B] hover:underline"
           >
-            <span>📲 Spark Debate on WhatsApp (+50 Coins/Invite)</span>
+            Share poll on WhatsApp (+50 GW/invite) →
           </a>
         </div>
       </div>

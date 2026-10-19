@@ -1,20 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { StatCard, Button, TabGroup } from "@/components/ui";
-import { CoinsIcon, GiftIcon } from "@/components/ui/Icons";
+import { Button, TabGroup } from "@/components/ui";
+import { CoinsIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getUserWallet, getWalletTransactions, type WalletRow, type WalletTxnRow } from "@/lib/supabase/queries";
 import { VasTopupModal, WithdrawalModal } from "@/components/viral/WalletModals";
 
 const TXN_LABELS: Record<string, string> = {
   subscription_grant: "Airtime VAS Coin Purchase",
-  session_entry: "Session Entry",
-  reward: "Prize Reward",
-  referral_bonus: "Squad Referral Bonus",
-  promo: "Daily Streak / Welcome Bonus",
-  withdrawal: "Bank / OPay Withdrawal",
-  adjustment: "Adjustment",
+  session_entry: "Session Pool Entry",
+  reward: "Session Pool Settlement",
+  referral_bonus: "Referral Credit",
+  promo: "Daily Streak / Welcome Credit",
+  withdrawal: "NIP Bank / OPay Transfer",
+  adjustment: "Ledger Adjustment",
 };
 
 function formatNaira(amount: number) {
@@ -53,7 +53,7 @@ export default function WalletPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        <div className="size-6 animate-spin rounded-full border-2 border-[#F7911B] border-t-transparent" />
       </div>
     );
   }
@@ -67,61 +67,78 @@ export default function WalletPage() {
         });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold">Wallet &amp; Airtime VAS</h1>
-          <p className="text-xs text-ink-muted mt-0.5">
-            Instant coin top-ups via MTN, Airtel, Glo &amp; 9mobile airtime · Cash withdrawals to OPay, PalmPay &amp; Nigerian banks
+          <h1 className="font-display text-2xl font-bold text-[#F4F5F8]">
+            Wallet &amp; Settlement Ledger
+          </h1>
+          <p className="text-xs text-[#8A92A6] mt-0.5">
+            Direct airtime billing (MTN, Airtel, Glo, 9mobile) and instant NIP payouts to OPay, PalmPay, Moniepoint, and commercial banks.
           </p>
         </div>
       </div>
 
-      {/* ── Balance cards ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard
-          label="Coin Balance"
-          value={wallet?.coin_balance.toLocaleString() ?? "0"}
-          icon={<CoinsIcon className="size-5 text-[#F7911B]" />}
-        />
-        <StatCard
-          label="Reward Balance"
-          value={formatNaira(wallet?.reward_balance ?? 0)}
-          icon={<GiftIcon className="size-5 text-accent" />}
-        />
-        <StatCard
-          label="Withdrawable"
-          value={formatNaira(wallet?.withdrawable_balance ?? 0)}
-          icon={
-            <div className="size-5 grid place-items-center rounded-full bg-green-500/20 text-green-400 text-xs font-bold">
-              ₦
-            </div>
-          }
-        />
-      </div>
+      {/* ── Unified Financial Ledger Card ── */}
+      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-6">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 sm:divide-x divide-[#222631]">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-[#8A92A6]">
+              Withdrawable Cash (NGN)
+            </p>
+            <p className="mt-1.5 font-mono text-2xl sm:text-3xl font-semibold text-[#10B981] tabular-nums">
+              {formatNaira(wallet?.withdrawable_balance ?? 0)}
+            </p>
+            <p className="mt-1 text-[11px] text-[#8A92A6]">
+              Available for immediate NIP transfer
+            </p>
+          </div>
 
-      {/* ── Quick actions ── */}
-      <div className="flex flex-wrap gap-3">
-        <Button className="inline-flex items-center gap-2" onClick={() => setShowTopup(true)}>
-          <CoinsIcon className="size-4" />
-          <span>Buy Coins (Airtime VAS)</span>
-        </Button>
-        <Button
-          variant="secondary"
-          className="inline-flex items-center gap-2"
-          onClick={() => setShowWithdraw(true)}
-        >
-          <span>Withdraw to Bank / OPay</span>
-        </Button>
-      </div>
+          <div className="sm:pl-6">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-[#8A92A6]">
+              GW Coin Allocation
+            </p>
+            <p className="mt-1.5 font-mono text-2xl sm:text-3xl font-semibold text-[#F7911B] tabular-nums">
+              {(wallet?.coin_balance ?? 0).toLocaleString()} <span className="text-sm text-[#8A92A6]">GW</span>
+            </p>
+            <p className="mt-1 text-[11px] text-[#8A92A6]">
+              100 GW = 1 standard session entry
+            </p>
+          </div>
 
-      {/* ── Transaction history ── */}
-      <section className="rounded-card border border-rule bg-paper-2 p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-bold">Transaction History</h2>
+          <div className="sm:pl-6">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-[#8A92A6]">
+              Lifetime Pool Earnings
+            </p>
+            <p className="mt-1.5 font-mono text-2xl sm:text-3xl font-semibold text-[#F4F5F8] tabular-nums">
+              {formatNaira(wallet?.reward_balance ?? 0)}
+            </p>
+            <p className="mt-1 text-[11px] text-[#8A92A6]">
+              Cumulative settled prize volume
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-[#222631] flex flex-wrap gap-3">
+          <Button onClick={() => setShowTopup(true)}>
+            <CoinsIcon className="size-4" />
+            <span>+ Top Up Coins (Airtime VAS)</span>
+          </Button>
+          <Button variant="secondary" onClick={() => setShowWithdraw(true)}>
+            <span>Withdraw Cash to Bank / OPay</span>
+          </Button>
+        </div>
+      </section>
+
+      {/* ── Transaction Ledger ── */}
+      <section className="rounded-xl border border-[#222631] bg-[#111318] p-5 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#222631] pb-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F5F8]">
+            Transaction Statement
+          </h2>
           <TabGroup
             tabs={[
-              { label: "All", value: "all" },
+              { label: "All Entries", value: "all" },
               { label: "Credits", value: "credits" },
               { label: "Debits", value: "debits" },
             ]}
@@ -131,27 +148,29 @@ export default function WalletPage() {
         </div>
 
         {filteredTxns.length > 0 ? (
-          <div className="mt-4 space-y-2">
+          <div className="divide-y divide-[#222631]">
             {filteredTxns.map((txn) => {
               const isCredit = txn.coin_delta > 0 || txn.reward_delta > 0;
               return (
                 <div
                   key={txn.id}
-                  className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3"
+                  className="flex items-center justify-between py-3.5 first:pt-4 last:pb-0"
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`grid size-9 place-items-center rounded-full text-xs font-bold ${
-                        isCredit ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+                    <span
+                      className={`grid size-8 place-items-center rounded-lg border font-mono text-xs font-semibold ${
+                        isCredit
+                          ? "border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]"
+                          : "border-[#2E3442] bg-[#171A21] text-[#8A92A6]"
                       }`}
                     >
-                      {isCredit ? "+" : "−"}
-                    </div>
+                      {isCredit ? "CR" : "DR"}
+                    </span>
                     <div>
-                      <p className="text-sm font-medium text-ink">
+                      <p className="text-xs sm:text-sm font-medium text-[#F4F5F8]">
                         {txn.note || TXN_LABELS[txn.type] || txn.type}
                       </p>
-                      <p className="text-xs text-ink-muted">
+                      <p className="font-mono text-[11px] text-[#8A92A6] tabular-nums">
                         {new Date(txn.created_at).toLocaleDateString("en-NG", {
                           day: "numeric",
                           month: "short",
@@ -162,19 +181,23 @@ export default function WalletPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right font-mono tabular-nums">
                     {txn.coin_delta !== 0 && (
                       <p
-                        className={`text-sm font-semibold ${
-                          isCredit ? "text-green-400" : "text-red-400"
+                        className={`text-xs sm:text-sm font-semibold ${
+                          isCredit ? "text-[#F7911B]" : "text-[#C8CDD8]"
                         }`}
                       >
                         {isCredit ? "+" : ""}
-                        {txn.coin_delta.toLocaleString()} coins
+                        {txn.coin_delta.toLocaleString()} GW
                       </p>
                     )}
                     {txn.reward_delta !== 0 && (
-                      <p className={`text-xs ${isCredit ? "text-green-400" : "text-red-400"}`}>
+                      <p
+                        className={`text-xs sm:text-sm font-semibold ${
+                          isCredit ? "text-[#10B981]" : "text-[#C8CDD8]"
+                        }`}
+                      >
                         {isCredit ? "+" : ""}
                         {formatNaira(txn.reward_delta)}
                       </p>
@@ -185,8 +208,8 @@ export default function WalletPage() {
             })}
           </div>
         ) : (
-          <p className="mt-8 text-center text-sm text-ink-muted">
-            No transactions yet. Top up coins with airtime or play the Daily Street Heat poll!
+          <p className="py-10 text-center text-xs text-[#8A92A6]">
+            No ledger entries recorded yet. Top up via Airtime VAS or complete today&apos;s consensus poll.
           </p>
         )}
       </section>
