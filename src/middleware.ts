@@ -11,9 +11,9 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   const { pathname } = request.nextUrl;
 
-  // Fast-path public & static routes without any network call
+  // Fast-path public, static & API routes without any network call
   const publicPaths = ["/", "/how-to-play", "/leaderboard", "/auth/callback"];
-  if (publicPaths.includes(pathname)) {
+  if (publicPaths.includes(pathname) || pathname.startsWith("/api/")) {
     return supabaseResponse;
   }
 
