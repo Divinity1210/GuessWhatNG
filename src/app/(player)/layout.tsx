@@ -13,7 +13,6 @@ import {
   HelpCircleIcon,
   TargetIcon,
   ZapIcon,
-  InfoIcon,
 } from "@/components/ui/Icons";
 
 const navGroups = [
@@ -30,7 +29,7 @@ const navGroups = [
     items: [
       { label: "Profile", href: "/profile", Icon: TargetIcon },
       { label: "Referrals", href: "/referrals", Icon: UsersIcon },
-      { label: "How to Play", href: "/how-to-play", Icon: InfoIcon },
+      { label: "How to Play", href: "/how-to-play", Icon: HelpCircleIcon },
       { label: "Support", href: "/support", Icon: HelpCircleIcon },
       { label: "Settings", href: "/settings", Icon: ZapIcon },
     ],
