@@ -124,15 +124,17 @@ export function VasTopupModal({
           return;
         }
 
-        // Instant sandbox mode: sync client ledger as well
-        await topupCoinsVas({
-          userId,
-          coins: selectedPlan.coins,
-          plan: selectedPlan.id,
-          msisdn: gateway.toUpperCase(),
-          carrier: gateway,
-          priceNgn: selectedPlan.priceNgn,
-        });
+        // Instant sandbox mode: sync client ledger only if DB was not already updated server-side
+        if (!data.dbSynced) {
+          await topupCoinsVas({
+            userId,
+            coins: selectedPlan.coins,
+            plan: selectedPlan.id,
+            msisdn: gateway.toUpperCase(),
+            carrier: gateway,
+            priceNgn: selectedPlan.priceNgn,
+          });
+        }
         setReceiptRef(data.reference || `${gateway.toUpperCase()}_${Date.now()}`);
         setStep("done");
         onSuccess();
@@ -196,14 +198,16 @@ export function VasTopupModal({
         throw new Error(data.error || "Invalid OTP code. Enter 0000 in sandbox mode.");
       }
 
-      await topupCoinsVas({
-        userId,
-        coins: selectedPlan.coins,
-        plan: selectedPlan.id,
-        msisdn: phone,
-        carrier: carrier.key,
-        priceNgn: selectedPlan.priceNgn,
-      });
+      if (!data.dbSynced) {
+        await topupCoinsVas({
+          userId,
+          coins: selectedPlan.coins,
+          plan: selectedPlan.id,
+          msisdn: phone,
+          carrier: carrier.key,
+          priceNgn: selectedPlan.priceNgn,
+        });
+      }
       setReceiptRef(data.providerRef || providerRef);
       setStep("done");
       onSuccess();
@@ -215,7 +219,12 @@ export function VasTopupModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vas-topup-title"
+    >
       <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-[#121622] p-6 md:p-8 shadow-2xl space-y-5">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-2.5">
@@ -223,7 +232,7 @@ export function VasTopupModal({
               <CoinsIcon className="size-5" />
             </div>
             <div>
-              <h2 className="font-display text-xl font-bold text-white">
+              <h2 id="vas-topup-title" className="font-display text-xl font-bold text-white">
                 Instant Coin Top-Up
               </h2>
               <p className="text-xs text-ink-muted">
@@ -412,11 +421,15 @@ export function VasTopupModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-ink-muted mb-1.5">
+              <label htmlFor="vas-otp-input" className="block text-xs font-bold uppercase tracking-wider text-ink-muted mb-1.5">
                 Enter 4-Digit SMS OTP
               </label>
               <input
+                id="vas-otp-input"
+                name="otp"
                 type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 maxLength={4}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
@@ -558,15 +571,17 @@ export function WithdrawalModal({
         throw new Error(data.error || "Failed to initiate bank transfer");
       }
 
-      await requestRewardWithdrawal({
-        userId,
-        amount: numAmount,
-        bankName,
-        accountNumber,
-        accountName: accountName || "VERIFIED PLAYER",
-      });
+      if (!data.dbSynced) {
+        await requestRewardWithdrawal({
+          userId,
+          amount: numAmount,
+          bankName,
+          accountNumber,
+          accountName: accountName || "VERIFIED PLAYER",
+        });
+      }
 
-      setTransferRef(data.transferReference || "");
+      setTransferRef(data.transferReference || data.reference || "");
       setDone(true);
       onSuccess();
     } catch (err) {
@@ -577,11 +592,16 @@ export function WithdrawalModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="withdraw-modal-title"
+    >
       <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-[#121622] p-6 md:p-8 shadow-2xl space-y-5">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div>
-            <h2 className="font-display text-xl font-bold text-white">
+            <h2 id="withdraw-modal-title" className="font-display text-xl font-bold text-white">
               Withdraw Cash Winnings
             </h2>
             <p className="text-xs text-ink-muted">
@@ -619,10 +639,12 @@ export function WithdrawalModal({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-ink-muted mb-1.5">
+              <label htmlFor="withdraw-bank-select" className="block text-xs font-bold uppercase tracking-wider text-ink-muted mb-1.5">
                 Select Bank / Wallet
               </label>
               <select
+                id="withdraw-bank-select"
+                name="bankName"
                 value={bankName}
                 onChange={(e) => handleBankChange(e.target.value)}
                 className="w-full rounded-xl border border-rule bg-paper-3 px-4 py-3 text-sm text-white focus:border-[#F7911B] focus:outline-none"
@@ -636,11 +658,14 @@ export function WithdrawalModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-ink-muted mb-1.5">
+              <label htmlFor="withdraw-nuban-input" className="block text-xs font-bold uppercase tracking-wider text-ink-muted mb-1.5">
                 10-Digit Account Number (NUBAN)
               </label>
               <input
+                id="withdraw-nuban-input"
+                name="accountNumber"
                 type="text"
+                inputMode="numeric"
                 value={accountNumber}
                 onChange={(e) => handleAccountChange(e.target.value)}
                 placeholder="0123456789"

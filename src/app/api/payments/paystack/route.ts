@@ -1,96 +1,44 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  initiatePaystackCheckout,
-  verifyPaystackSignature,
-} from "@/lib/billing/paystack";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
-/**
- * Paystack & Flutterwave Payment Gateway Route (`POST /api/payments/paystack`)
- *
- * Supports:
- * 1. Client Checkout Initialization (`action: "initialize"`) for Card, Bank Transfer, USSD & OPay
- * 2. Paystack Webhook processing (`x-paystack-signature` header present)
- */
+export interface PaystackPack {
+  id: string;
+  name: string;
+  coins: number;
+  priceNgn: number;
+}
+
+const PAYSTACK_PACKS: Record<string, PaystackPack> = {
+  starter: { id: "starter", name: "Starter Pack", coins: 100, priceNgn: 100 },
+  daily: { id: "daily", name: "Daily 100 Coins", coins: 100, priceNgn: 100 },
+  weekend: { id: "weekend", name: "Weekend Bundle", coins: 350, priceNgn: 300 },
+  weekly: { id: "weekly", name: "Weekly 350 Coins", coins: 350, priceNgn: 300 },
+  ballers: { id: "ballers", name: "Baller Vault", coins: 1000, priceNgn: 750 },
+  mega: { id: "mega", name: "Mega 750 Coins", coins: 750, priceNgn: 500 },
+};
+
 export async function POST(request: NextRequest) {
   try {
-    const rawBody = await request.text();
-    const signature = request.headers.get("x-paystack-signature");
-
-    // ─── Path A: Paystack Server Webhook ─────────────────────────────────────
-    if (signature) {
-      const isValid = verifyPaystackSignature(rawBody, signature);
-      if (!isValid) {
-        return NextResponse.json(
-          { ok: false, error: "Invalid Paystack webhook signature" },
-          { status: 401 },
-        );
-      }
-
-      const payload = JSON.parse(rawBody);
-      if (payload.event === "charge.success") {
-        const ref = String(payload.data?.reference ?? "");
-        const userId = String(payload.data?.metadata?.user_id ?? "");
-        const coins = Number(payload.data?.metadata?.coins ?? 0);
-        const amountNgn = Math.round(Number(payload.data?.amount ?? 0) / 100);
-
-        if (/^[0-9a-f-]{36}$/i.test(userId) && coins > 0) {
-          try {
-            const sb = createSupabaseServiceClient();
-            const { data: wallet } = await sb
-              .from("wallets")
-              .select("coin_balance, reward_balance")
-              .eq("user_id", userId)
-              .maybeSingle();
-
-            if (wallet) {
-              const nextCoins = Number(wallet.coin_balance ?? 0) + coins;
-              await sb
-                .from("wallets")
-                .update({ coin_balance: nextCoins, updated_at: new Date().toISOString() })
-                .eq("user_id", userId);
-
-              await sb.from("wallet_transactions").insert({
-                user_id: userId,
-                type: "promo",
-                coin_delta: coins,
-                reward_delta: 0,
-                coin_balance_after: nextCoins,
-                reward_balance_after: Number(wallet.reward_balance ?? 0),
-                reference: ref,
-                note: `Paystack Instant Checkout (₦${amountNgn.toLocaleString()})`,
-              });
-            }
-          } catch {
-            // Ignore if DB is paused
-          }
-        }
-      }
-
-      return NextResponse.json({ ok: true, received: true });
-    }
-
-    // ─── Path B: Client Checkout Initialization ──────────────────────────────
-    const body = JSON.parse(rawBody);
-    const userId = String(body.userId ?? "demo-naija-player");
+    const body = await request.json();
+    const packKey = String(body.packId ?? body.plan ?? "weekly");
+    const basePack = PAYSTACK_PACKS[packKey] ?? PAYSTACK_PACKS.weekly;
+    const coins = Number(body.coins ?? basePack.coins);
+    const priceNgn = Number(body.priceNgn ?? basePack.priceNgn);
+    const gateway = String(body.gateway ?? body.channel ?? "paystack");
+    const userId = String(body.userId ?? "");
     const email = String(body.email ?? "player@guesswhat.ng");
-    const planId = String(body.plan ?? "weekly");
-    const coins = Number(body.coins ?? 800);
-    const amountNgn = Number(body.priceNgn ?? 300);
-    const gateway = body.gateway === "flutterwave" ? "flutterwave" : "paystack";
 
-    const checkout = await initiatePaystackCheckout({
-      email,
-      amountNgn,
+    const pack: PaystackPack = {
+      id: packKey,
+      name: `${coins} Coins Pack`,
       coins,
-      planId,
-      userId,
-      gateway,
-      callbackUrl: body.callbackUrl,
-    });
+      priceNgn,
+    };
+    const reference = `${gateway.toUpperCase().slice(0, 3)}-${Date.now().toString(36).toUpperCase()}`;
 
-    // If running in instant_sandbox mode (no live secret key yet), credit DB ledger immediately
-    if (checkout.mode === "instant_sandbox" && /^[0-9a-f-]{36}$/i.test(userId)) {
+    let dbSynced = false;
+
+    if (userId && /^[0-9a-f-]{36}$/i.test(userId)) {
       try {
         const sb = createSupabaseServiceClient();
         const { data: wallet } = await sb
@@ -100,36 +48,44 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (wallet) {
-          const nextCoins = Number(wallet.coin_balance ?? 0) + coins;
-          await sb
+          const newCoinBalance = Number(wallet.coin_balance ?? 0) + coins;
+          const { error: wErr } = await sb
             .from("wallets")
-            .update({ coin_balance: nextCoins, updated_at: new Date().toISOString() })
+            .update({
+              coin_balance: newCoinBalance,
+              updated_at: new Date().toISOString(),
+            })
             .eq("user_id", userId);
 
-          await sb.from("wallet_transactions").insert({
-            user_id: userId,
-            type: "subscription_grant",
-            coin_delta: coins,
-            reward_delta: 0,
-            coin_balance_after: nextCoins,
-            reward_balance_after: Number(wallet.reward_balance ?? 0),
-            reference: checkout.reference,
-            note: `${gateway === "paystack" ? "Paystack" : "Flutterwave"} Checkout (₦${amountNgn.toLocaleString()})`,
-          });
+          if (!wErr) {
+            await sb.from("wallet_transactions").insert({
+              user_id: userId,
+              type: "topup",
+              coin_delta: coins,
+              reward_delta: 0,
+              coin_balance_after: newCoinBalance,
+              reward_balance_after: Number(wallet.reward_balance ?? 0),
+              reference,
+              note: `${gateway.toUpperCase()} Instant Top-Up (+${coins} Coins · ₦${priceNgn})`,
+            });
+            dbSynced = true;
+          }
         }
       } catch {
-        // Handled by client hybrid fallback when DB is paused
+        // Hybrid client ledger handles offline fallback
       }
     }
 
     return NextResponse.json({
       ok: true,
-      reference: checkout.reference,
-      authorizationUrl: checkout.authorizationUrl,
-      mode: checkout.mode,
-      gateway,
-      coins,
-      amountNgn,
+      dbSynced,
+      reference,
+      channel: gateway,
+      email,
+      pack,
+      coinsCredited: coins,
+      amountNgn: priceNgn,
+      paidAt: new Date().toISOString(),
     });
   } catch (err: unknown) {
     return NextResponse.json(

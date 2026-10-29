@@ -541,14 +541,13 @@ export async function getReferredUsers(userId: string) {
 
 export async function getMyTickets(userId: string) {
   try {
-    const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase
-      .from("support_tickets")
-      .select("*")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
-
-    if (!error && data) return data as TicketRow[];
+    const res = await fetch(`/api/support?userId=${encodeURIComponent(userId)}`, {
+      cache: "no-store",
+    });
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.tickets)) {
+      return data.tickets as TicketRow[];
+    }
   } catch {
     // Fall through
   }
@@ -557,14 +556,13 @@ export async function getMyTickets(userId: string) {
 
 export async function getTicketMessages(ticketId: string) {
   try {
-    const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase
-      .from("ticket_messages")
-      .select("*, profiles(username, role)")
-      .eq("ticket_id", ticketId)
-      .order("created_at", { ascending: true });
-
-    if (!error && data) return data as TicketMessageRow[];
+    const res = await fetch(`/api/support?ticketId=${encodeURIComponent(ticketId)}`, {
+      cache: "no-store",
+    });
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.messages)) {
+      return data.messages as TicketMessageRow[];
+    }
   } catch {
     // Fall through
   }
@@ -572,31 +570,29 @@ export async function getTicketMessages(ticketId: string) {
 }
 
 export async function createTicket(userId: string, subject: string, body: string) {
-  const supabase = createSupabaseBrowserClient();
-
-  const { data: ticket, error: ticketErr } = await supabase
-    .from("support_tickets")
-    .insert({ user_id: userId, subject })
-    .select("id")
-    .single();
-
-  if (ticketErr) throw ticketErr;
-
-  const { error: msgErr } = await supabase
-    .from("ticket_messages")
-    .insert({ ticket_id: ticket.id, sender_id: userId, body });
-
-  if (msgErr) throw msgErr;
-  return ticket.id as string;
+  const res = await fetch("/api/support", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, subject, message: body }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to create ticket");
+  return data.ticket?.id as string;
 }
 
 export async function sendTicketMessage(ticketId: string, senderId: string, body: string) {
-  const supabase = createSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("ticket_messages")
-    .insert({ ticket_id: ticketId, sender_id: senderId, body });
-
-  if (error) throw error;
+  const res = await fetch("/api/support", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "reply",
+      ticketId,
+      userId: senderId,
+      message: body,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to send message");
 }
 
 // ─── Profile Update ──────────────────────────────────────────────────────────

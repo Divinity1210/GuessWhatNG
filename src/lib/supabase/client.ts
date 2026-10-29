@@ -3,14 +3,17 @@ import { createBrowserClient } from "@supabase/ssr";
 let supabaseOfflineUntil = 0;
 
 /**
- * Custom fetch with a fast 2.2s timeout + 60s circuit breaker.
- * Prevents the UI from hanging when the remote Supabase free-tier project is paused or unreachable.
+ * Custom fetch with a 10s timeout (15s for auth) and non-blocking fallback.
+ * Auth requests (/auth/v1/) never get blocked by the data circuit breaker.
  */
 async function fastSupabaseFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
-  if (Date.now() < supabaseOfflineUntil) {
+  const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+  const isAuthRequest = urlStr.includes("/auth/v1/");
+
+  if (!isAuthRequest && Date.now() < supabaseOfflineUntil) {
     return new Response(
       JSON.stringify({ message: "Supabase offline circuit breaker active" }),
       { status: 503, headers: { "Content-Type": "application/json" } },
@@ -18,7 +21,8 @@ async function fastSupabaseFetch(
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 2200);
+  const timeoutMs = isAuthRequest ? 15000 : 10000;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(input, {
@@ -26,10 +30,15 @@ async function fastSupabaseFetch(
       signal: init?.signal ?? controller.signal,
     });
     clearTimeout(timer);
+    if (res.ok) {
+      supabaseOfflineUntil = 0;
+    }
     return res;
   } catch {
     clearTimeout(timer);
-    supabaseOfflineUntil = Date.now() + 60_000;
+    if (!isAuthRequest) {
+      supabaseOfflineUntil = Date.now() + 10_000;
+    }
     return new Response(
       JSON.stringify({ message: "Supabase connection timed out (offline fallback)" }),
       { status: 503, headers: { "Content-Type": "application/json" } },

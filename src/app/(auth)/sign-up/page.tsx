@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Logo } from "@/components/ui";
-import { CoinsIcon, FlameIcon } from "@/components/ui/Icons";
+import { CoinsIcon, FlameIcon, EyeIcon, EyeOffIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { TURF_SQUADS } from "@/lib/game/viral-engine";
 
@@ -15,6 +15,7 @@ export default function SignUpPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [turf, setTurf] = useState(TURF_SQUADS[0].name);
   const [error, setError] = useState<string | null>(null);
@@ -124,9 +125,15 @@ export default function SignUpPage() {
 
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
               <div>
-                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Username</label>
+                <label htmlFor="signup-username" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Username</label>
                 <input
+                  id="signup-username"
+                  name="username"
                   type="text"
+                  autoComplete="username"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   placeholder="e.g. ada_thinks"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -135,9 +142,12 @@ export default function SignUpPage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Email</label>
+                <label htmlFor="signup-email" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Email</label>
                 <input
+                  id="signup-email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -146,26 +156,47 @@ export default function SignUpPage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Password</label>
-                <input
-                  type="password"
-                  placeholder="Min 8 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={8}
-                  className="w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
-                />
+                <label htmlFor="signup-password" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Password</label>
+                <div className="relative">
+                  <input
+                    id="signup-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    placeholder="Min 8 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className="w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 pr-11 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+                  />
+                  <button
+                    type="button"
+                    aria-pressed={showPassword}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    title={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-md p-1.5 text-ink-muted transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    {showPassword ? (
+                      <EyeOffIcon className="size-4.5" />
+                    ) : (
+                      <EyeIcon className="size-4.5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="mb-1.5 flex items-center justify-between text-xs font-medium uppercase tracking-wider text-ink-muted">
+                <label htmlFor="signup-turf" className="mb-1.5 flex items-center justify-between text-xs font-medium uppercase tracking-wider text-ink-muted">
                   <span>Rep Your Turf / Campus Squad</span>
                   <span className="text-[#F7911B] flex items-center gap-1 font-bold">
                     <FlameIcon className="size-3" /> Turf Wars
                   </span>
                 </label>
                 <select
+                  id="signup-turf"
+                  name="turf"
                   value={turf}
                   onChange={(e) => setTurf(e.target.value)}
                   className="w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 text-sm text-ink focus:border-accent focus:outline-none"
@@ -195,11 +226,16 @@ export default function SignUpPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">
+                <label htmlFor="signup-referral" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">
                   Referral Code <span className="text-[#F7911B] font-semibold">(+50 Extra Coins)</span>
                 </label>
                 <input
+                  id="signup-referral"
+                  name="referralCode"
                   type="text"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
                   placeholder="Enter friend's referral code"
                   value={referralCode}
                   onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
