@@ -44,6 +44,10 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
 
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Player";
   const initials = displayName.slice(0, 2).toUpperCase();
+  const isAdmin =
+    profile?.role === "super_admin" ||
+    user?.email === "admin@guesswhat.ng" ||
+    user?.email === "master@guesswhat.ng";
 
   const handleSignOut = async () => {
     await signOut();
@@ -88,6 +92,23 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
               </ul>
             </div>
           ))}
+
+          {isAdmin && (
+            <div className="space-y-1 pt-2 border-t border-white/5">
+              <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+                Administration
+              </p>
+              <a
+                href="https://guesswhat-admin.vercel.app/admin"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+              >
+                <span>Admin Portal</span>
+                <span>↗</span>
+              </a>
+            </div>
+          )}
         </nav>
 
         <div className="border-t border-white/5 px-4 py-4">
@@ -177,6 +198,23 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                   </div>
                 </div>
               ))}
+
+              {isAdmin && (
+                <div className="space-y-2 pt-2 border-t border-white/5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                    Administration
+                  </p>
+                  <a
+                    href="https://guesswhat-admin.vercel.app/admin"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-sm font-bold text-amber-300"
+                  >
+                    <span>Open Admin Portal</span>
+                    <span>↗</span>
+                  </a>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t border-white/5 flex items-center justify-between">
