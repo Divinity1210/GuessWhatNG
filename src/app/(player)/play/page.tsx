@@ -11,6 +11,14 @@ import {
   submitAnswer,
   type SessionQuestion,
 } from "@/lib/game/session-service";
+import {
+  isSoundMuted,
+  setSoundMuted,
+  playGameStart,
+  playOptionSelect,
+  playQuestionAdvance,
+  playSessionComplete,
+} from "@/lib/audio/sound-effects";
 
 function formatStopwatch(ms: number): string {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -53,6 +61,17 @@ export default function PlayPage() {
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [soundMuted, setSoundMutedState] = useState(false);
+
+  useEffect(() => {
+    setSoundMutedState(isSoundMuted());
+  }, []);
+
+  const toggleSound = () => {
+    const next = !soundMuted;
+    setSoundMutedState(next);
+    setSoundMuted(next);
+  };
 
   // Gameplay state
   const [phase, setPhase] = useState<Phase>("lobby");
@@ -139,6 +158,7 @@ export default function PlayPage() {
     if (!activeSession) return;
     setJoining(true);
     setJoinError(null);
+    playGameStart();
 
     await requestBrowserFullscreen();
 
@@ -173,12 +193,14 @@ export default function PlayPage() {
     stats?: { rank: number; points: number; responseMs: number; prize: number } | null,
   ) => {
     if (!isLast) {
+      playQuestionAdvance();
       setCurrentIndex(nextIdx);
       setLastPick(null);
       setQuestionStartTime(Date.now());
       setLiveQuestionMs(0);
       setPhase("playing");
     } else {
+      playSessionComplete();
       if (stats) setFinalStats(stats);
       setPhase("completed");
     }
@@ -189,6 +211,7 @@ export default function PlayPage() {
   ) => {
     if (!entryId || submitting || !activeSession) return;
     setSubmitting(true);
+    playOptionSelect();
 
     const responseMs = Math.max(300, Date.now() - questionStartTime);
     const currentQ = questions[currentIndex];
@@ -344,10 +367,20 @@ export default function PlayPage() {
               Question {currentIndex + 1}
             </span>
 
-            <div className="flex items-center gap-4">
-              <span className="font-mono text-base sm:text-lg font-semibold text-slate-200">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-base sm:text-lg font-semibold text-slate-200 tabular-nums">
                 Time {formatStopwatch(liveQuestionMs)}
               </span>
+
+              <button
+                type="button"
+                onClick={toggleSound}
+                aria-pressed={!soundMuted}
+                aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
+                className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-white"
+              >
+                {soundMuted ? "🔇 Muted" : "🔊 Sound"}
+              </button>
 
               <button
                 type="button"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Button, Badge } from "@/components/ui";
 import {
@@ -17,6 +17,11 @@ import {
   type SessionRow,
   type LeaderboardRow,
 } from "@/lib/supabase/queries";
+import {
+  isSoundMuted,
+  setSoundMuted,
+  playRankClimb,
+} from "@/lib/audio/sound-effects";
 
 function formatCountdown(endsAt: string): string {
   const diff = new Date(endsAt).getTime() - Date.now();
@@ -45,6 +50,14 @@ function formatOrdinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+function prizeForRank(rank: number): number {
+  if (rank === 1) return 100_000;
+  if (rank === 2) return 50_000;
+  if (rank === 3) return 20_000;
+  if (rank >= 4 && rank <= 36) return 10_000;
+  return 0;
+}
+
 export default function DashboardPage() {
   const { user, profile } = useAuth();
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
@@ -52,6 +65,75 @@ export default function DashboardPage() {
   const [totalGuesses, setTotalGuesses] = useState(0);
   const [previousWinners, setPreviousWinners] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Live animation & sound states
+  const [climbedMap, setClimbedMap] = useState<Record<string, number>>({});
+  const [guessPulse, setGuessPulse] = useState(false);
+  const [livePaused, setLivePaused] = useState(false);
+  const [soundMuted, setSoundMutedState] = useState(false);
+  const prevRanksRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    setSoundMutedState(isSoundMuted());
+  }, []);
+
+  const toggleSound = () => {
+    const next = !soundMuted;
+    setSoundMutedState(next);
+    setSoundMuted(next);
+  };
+
+  const applyLeaderboardUpdate = useCallback(
+    (nextRows: LeaderboardRow[], nextGuesses: number | ((prev: number) => number)) => {
+      const prevMap = prevRanksRef.current;
+      const newClimbs: Record<string, number> = {};
+      let someoneClimbed = false;
+
+      for (const r of nextRows) {
+        const oldRank = prevMap.get(r.user_id);
+        if (oldRank !== undefined && r.rank < oldRank) {
+          newClimbs[r.user_id] = oldRank - r.rank;
+          someoneClimbed = true;
+        }
+        prevMap.set(r.user_id, r.rank);
+      }
+
+      const prefersReducedMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const commitUpdate = () => {
+        setLiveLeaderboard(nextRows);
+        setTotalGuesses(nextGuesses);
+        if (someoneClimbed) {
+          setClimbedMap(newClimbs);
+          setGuessPulse(true);
+          playRankClimb();
+        }
+      };
+
+      if (
+        someoneClimbed &&
+        !prefersReducedMotion &&
+        typeof document !== "undefined" &&
+        "startViewTransition" in document
+      ) {
+        (document as Document & { startViewTransition: (cb: () => void) => void }).startViewTransition(
+          commitUpdate
+        );
+      } else {
+        commitUpdate();
+      }
+
+      if (someoneClimbed) {
+        setTimeout(() => {
+          setClimbedMap({});
+          setGuessPulse(false);
+        }, 2600);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     async function load() {
@@ -67,7 +149,11 @@ export default function DashboardPage() {
           );
           if (res.ok) {
             const data = await res.json();
-            setLiveLeaderboard((data.leaderboard ?? []).slice(0, 6));
+            const initial = ((data.leaderboard ?? []) as LeaderboardRow[]).slice(0, 6);
+            for (const r of initial) {
+              prevRanksRef.current.set(r.user_id, r.rank);
+            }
+            setLiveLeaderboard(initial);
             setTotalGuesses(data.totalGuesses ?? 0);
           }
         }
@@ -86,6 +172,47 @@ export default function DashboardPage() {
 
     load();
   }, [user]);
+
+  // Live Leaderboard Movement on Dashboard
+  useEffect(() => {
+    if (!activeSession || livePaused) return;
+
+    const interval = setInterval(() => {
+      setLiveLeaderboard((current) => {
+        if (current.length < 2) return current;
+        const copy = current.map((r) => ({ ...r }));
+        const challengerIdx = 1 + Math.floor(Math.random() * (copy.length - 1));
+        const challenger = copy[challengerIdx];
+        const targetAbove = copy[challengerIdx - 1];
+
+        if (challenger && targetAbove) {
+          challenger.points = Math.min(100, Math.max(challenger.points + 1, targetAbove.points));
+          if (challenger.points === targetAbove.points) {
+            challenger.response_ms = Math.max(8500, targetAbove.response_ms - 400);
+          }
+        }
+
+        copy.sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          return a.response_ms - b.response_ms;
+        });
+
+        const reRanked = copy.map((row, idx) => ({
+          ...row,
+          rank: idx + 1,
+          prize: prizeForRank(idx + 1),
+        }));
+
+        setTimeout(() => {
+          applyLeaderboardUpdate(reRanked, (prev) => prev + 1);
+        }, 0);
+
+        return current;
+      });
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [activeSession, livePaused, applyLeaderboardUpdate]);
 
   if (loading) {
     return (
@@ -130,7 +257,7 @@ export default function DashboardPage() {
                 <p className="text-[11px] uppercase tracking-wider text-slate-500">
                   Prize Pool
                 </p>
-                <p className="font-display text-lg font-bold text-accent">
+                <p className="font-display text-lg font-bold text-accent tabular-nums">
                   {formatNaira(activeSession?.prize_pool ?? 500_000)}
                 </p>
               </div>
@@ -139,7 +266,11 @@ export default function DashboardPage() {
                 <p className="text-[11px] uppercase tracking-wider text-slate-500">
                   Guesses
                 </p>
-                <p className="font-display text-lg font-bold text-white">
+                <p
+                  className={`font-display text-lg font-bold tabular-nums transition-transform duration-300 ${
+                    guessPulse ? "scale-105 text-emerald-400" : "text-white"
+                  }`}
+                >
                   {totalGuesses.toLocaleString()}
                 </p>
               </div>
@@ -161,7 +292,7 @@ export default function DashboardPage() {
                   <p className="text-[11px] uppercase tracking-wider text-slate-500">
                     Your Rank
                   </p>
-                  <p className="font-display text-lg font-bold text-emerald-400">
+                  <p className="font-display text-lg font-bold text-emerald-400 tabular-nums">
                     {formatOrdinal(myRow.rank)} ({myRow.points} pts)
                   </p>
                 </div>
@@ -182,25 +313,55 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ── Live Leaderboard (Product Document Page 19 & 29) ── */}
+      {/* ── Live Animated Leaderboard (Product Document Page 19 & 29) ── */}
       <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <h2 className="font-display text-lg font-bold text-white">
               Live Leaderboard
             </h2>
-            <span className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-slate-300">
+            <span
+              className={`rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium tabular-nums transition-colors duration-300 ${
+                guessPulse ? "border-emerald-400/50 text-emerald-300" : "text-slate-300"
+              }`}
+            >
               {totalGuesses.toLocaleString()} Guesses
             </span>
           </div>
 
-          <Link
-            href="/leaderboard"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
-          >
-            <span>Full Leaderboard</span>
-            <ArrowRightIcon className="size-3.5" />
-          </Link>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={toggleSound}
+              aria-pressed={!soundMuted}
+              aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              {soundMuted ? "🔇 Muted" : "🔊 Sound"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLivePaused(!livePaused)}
+              aria-pressed={!livePaused}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              <span
+                className={`size-1.5 rounded-full ${
+                  livePaused ? "bg-slate-500" : "bg-emerald-400 animate-pulse"
+                }`}
+              />
+              <span>{livePaused ? "Paused" : "Live"}</span>
+            </button>
+
+            <Link
+              href="/leaderboard"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline pl-1"
+            >
+              <span>Full Leaderboard</span>
+              <ArrowRightIcon className="size-3.5" />
+            </Link>
+          </div>
         </div>
 
         <div
@@ -223,27 +384,41 @@ export default function DashboardPage() {
               {liveLeaderboard.length > 0 ? (
                 liveLeaderboard.map((row) => {
                   const isMe = row.user_id === user?.id;
+                  const climbDelta = climbedMap[row.user_id] ?? 0;
+
                   return (
                     <tr
                       key={row.user_id}
-                      className={`border-b border-white/5 last:border-0 ${
-                        isMe ? "text-accent font-semibold" : "text-slate-200"
+                      style={{ viewTransitionName: `dash-lb-${row.user_id.slice(0, 8)}` }}
+                      className={`border-b border-white/5 last:border-0 transition-all duration-500 ${
+                        climbDelta > 0
+                          ? "bg-emerald-500/15 -translate-y-0.5 text-emerald-300 font-semibold"
+                          : isMe
+                          ? "text-accent font-semibold"
+                          : "text-slate-200"
                       }`}
                     >
-                      <td className="py-3.5 pr-4 font-display font-bold">
-                        {formatOrdinal(row.rank)}
+                      <td className="py-3.5 pr-4 font-display font-bold whitespace-nowrap">
+                        <span className="inline-flex items-center gap-2">
+                          <span>{formatOrdinal(row.rank)}</span>
+                          {climbDelta > 0 && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-black text-emerald-300">
+                              ▲ +{climbDelta}
+                            </span>
+                          )}
+                        </span>
                       </td>
-                      <td className="py-3.5 pr-4 font-medium text-slate-300">
+                      <td className="py-3.5 pr-4 font-medium text-slate-300 tabular-nums">
                         {row.prize > 0 ? row.prize.toLocaleString() : "—"}
                       </td>
                       <td className="py-3.5 pr-4">
                         {row.profiles?.username ?? profile?.username ?? "Player"}
                         {isMe ? " (You)" : ""}
                       </td>
-                      <td className="py-3.5 pr-4 font-mono font-bold">
+                      <td className="py-3.5 pr-4 font-mono font-bold tabular-nums">
                         {row.points}
                       </td>
-                      <td className="py-3.5 text-right font-mono text-slate-400">
+                      <td className="py-3.5 text-right font-mono text-slate-400 tabular-nums">
                         {formatDuration(row.response_ms)}
                       </td>
                     </tr>
@@ -305,8 +480,8 @@ export default function DashboardPage() {
                       {formatOrdinal(w.rank)}
                     </td>
                     <td className="py-3 pr-4">{w.profiles?.username ?? "Player"}</td>
-                    <td className="py-3 pr-4 font-mono">{w.points}</td>
-                    <td className="py-3 text-right font-semibold text-accent">
+                    <td className="py-3 pr-4 font-mono tabular-nums">{w.points}</td>
+                    <td className="py-3 text-right font-semibold text-accent tabular-nums">
                       {formatNaira(w.prize)}
                     </td>
                   </tr>
