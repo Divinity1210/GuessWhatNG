@@ -14,6 +14,8 @@ import {
 import {
   isSoundMuted,
   setSoundMuted,
+  isBackgroundMusicPlaying,
+  toggleBackgroundMusic,
   playGameStart,
   playOptionSelect,
   playQuestionAdvance,
@@ -62,15 +64,27 @@ export default function PlayPage() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundMuted, setSoundMutedState] = useState(false);
+  const [musicPlaying, setMusicPlaying] = useState(false);
 
   useEffect(() => {
-    setSoundMutedState(isSoundMuted());
+    const syncAudio = () => {
+      setSoundMutedState(isSoundMuted());
+      setMusicPlaying(isBackgroundMusicPlaying());
+    };
+    syncAudio();
+    window.addEventListener("gw-audio-change", syncAudio);
+    return () => window.removeEventListener("gw-audio-change", syncAudio);
   }, []);
 
   const toggleSound = () => {
     const next = !soundMuted;
     setSoundMutedState(next);
     setSoundMuted(next);
+  };
+
+  const handleToggleMusic = () => {
+    const active = toggleBackgroundMusic();
+    setMusicPlaying(active);
   };
 
   // Gameplay state
@@ -367,10 +381,24 @@ export default function PlayPage() {
               Question {currentIndex + 1}
             </span>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <span className="font-mono text-base sm:text-lg font-semibold text-slate-200 tabular-nums">
                 Time {formatStopwatch(liveQuestionMs)}
               </span>
+
+              <button
+                type="button"
+                onClick={handleToggleMusic}
+                aria-pressed={musicPlaying}
+                aria-label={musicPlaying ? "Pause background music" : "Play background music"}
+                className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  musicPlaying
+                    ? "border-accent/40 bg-accent/15 text-accent"
+                    : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
+                }`}
+              >
+                {musicPlaying ? "🎵 Music On" : "🎵 Music Off"}
+              </button>
 
               <button
                 type="button"
@@ -379,7 +407,7 @@ export default function PlayPage() {
                 aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
                 className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-white"
               >
-                {soundMuted ? "🔇 Muted" : "🔊 Sound"}
+                {soundMuted ? "🔇 SFX Off" : "🔊 SFX"}
               </button>
 
               <button

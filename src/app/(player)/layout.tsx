@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MobileNav, Logo } from "@/components/ui";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
@@ -14,6 +14,12 @@ import {
   TargetIcon,
   ZapIcon,
 } from "@/components/ui/Icons";
+import {
+  isBackgroundMusicPlaying,
+  isMusicEnabled,
+  startBackgroundMusic,
+  toggleBackgroundMusic,
+} from "@/lib/audio/sound-effects";
 
 const navGroups = [
   {
@@ -41,6 +47,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [musicPlaying, setMusicPlaying] = useState(false);
 
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Player";
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -48,6 +55,37 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
     profile?.role === "super_admin" ||
     user?.email === "admin@guesswhat.ng" ||
     user?.email === "master@guesswhat.ng";
+
+  // Sync music state and auto-start on first user gesture if enabled
+  useEffect(() => {
+    const syncState = () => {
+      setMusicPlaying(isBackgroundMusicPlaying());
+    };
+    syncState();
+    window.addEventListener("gw-audio-change", syncState);
+
+    const unlockOnGesture = () => {
+      if (isMusicEnabled() && !isBackgroundMusicPlaying()) {
+        startBackgroundMusic();
+      }
+      window.removeEventListener("pointerdown", unlockOnGesture);
+      window.removeEventListener("keydown", unlockOnGesture);
+    };
+
+    window.addEventListener("pointerdown", unlockOnGesture, { passive: true });
+    window.addEventListener("keydown", unlockOnGesture, { passive: true });
+
+    return () => {
+      window.removeEventListener("gw-audio-change", syncState);
+      window.removeEventListener("pointerdown", unlockOnGesture);
+      window.removeEventListener("keydown", unlockOnGesture);
+    };
+  }, []);
+
+  const handleToggleMusic = () => {
+    const active = toggleBackgroundMusic();
+    setMusicPlaying(active);
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,8 +96,21 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
     <div className="flex min-h-screen bg-[#07090e] text-slate-100">
       {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex md:w-60 flex-col border-r border-white/5 bg-[#0b0e17] fixed inset-y-0 left-0 z-40">
-        <div className="px-6 py-5 border-b border-white/5">
+        <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
           <Logo size="sm" />
+          <button
+            type="button"
+            onClick={handleToggleMusic}
+            aria-pressed={musicPlaying}
+            aria-label={musicPlaying ? "Pause background music" : "Play background music"}
+            className={`rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors ${
+              musicPlaying
+                ? "border-accent/40 bg-accent/15 text-accent"
+                : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
+            }`}
+          >
+            {musicPlaying ? "🎵 On" : "🎵 Off"}
+          </button>
         </div>
 
         <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-6" aria-label="Main navigation">
@@ -151,15 +202,31 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             <Logo size="sm" />
           </div>
 
-          <Link
-            href="/profile"
-            className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-white"
-          >
-            <span className="grid size-6 place-items-center rounded-lg bg-accent text-[10px] font-bold text-white">
-              {initials}
-            </span>
-            <span className="max-w-24 truncate">{displayName}</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleToggleMusic}
+              aria-pressed={musicPlaying}
+              aria-label={musicPlaying ? "Pause background music" : "Play background music"}
+              className={`rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                musicPlaying
+                  ? "border-accent/40 bg-accent/15 text-accent"
+                  : "border-white/10 bg-white/[0.04] text-slate-400"
+              }`}
+            >
+              {musicPlaying ? "🎵 On" : "🎵 Off"}
+            </button>
+
+            <Link
+              href="/profile"
+              className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-white"
+            >
+              <span className="grid size-6 place-items-center rounded-lg bg-accent text-[10px] font-bold text-white">
+                {initials}
+              </span>
+              <span className="max-w-20 truncate">{displayName}</span>
+            </Link>
+          </div>
         </header>
 
         {/* Mobile Drawer */}
