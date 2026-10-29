@@ -15,6 +15,7 @@ import {
   isSoundMuted,
   setSoundMuted,
   isBackgroundMusicPlaying,
+  stopBackgroundMusic,
   toggleBackgroundMusic,
   playGameStart,
   playOptionSelect,
@@ -73,8 +74,18 @@ export default function PlayPage() {
     };
     syncAudio();
     window.addEventListener("gw-audio-change", syncAudio);
-    return () => window.removeEventListener("gw-audio-change", syncAudio);
+    return () => {
+      window.removeEventListener("gw-audio-change", syncAudio);
+      stopBackgroundMusic();
+    };
   }, []);
+
+  // Ensure background music stops whenever phase is not active question play
+  useEffect(() => {
+    if (phase === "lobby" || phase === "completed") {
+      stopBackgroundMusic();
+    }
+  }, [phase]);
 
   const toggleSound = () => {
     const next = !soundMuted;

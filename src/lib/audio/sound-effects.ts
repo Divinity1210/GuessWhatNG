@@ -305,7 +305,7 @@ export function stopBackgroundMusic(): void {
   }
 }
 
-/** Toggle background music on/off and persist preference */
+/** Toggle background music on/off during active gameplay and persist preference */
 export function toggleBackgroundMusic(): boolean {
   if (typeof window === "undefined") return false;
   if (bgmIsRunning) {
@@ -314,7 +314,6 @@ export function toggleBackgroundMusic(): boolean {
     return false;
   } else {
     window.localStorage.setItem(MUSIC_OFF_KEY, "0");
-    window.localStorage.setItem(SOUND_MUTE_KEY, "0");
     startBackgroundMusic();
     return true;
   }
@@ -376,8 +375,9 @@ export function playRankClimb(): void {
   playTone(880.0, 0.12, 0.18, "triangle", 0.1); // A5
 }
 
-/** Full fanfare chord sequence when completing all 10 questions */
+/** Full fanfare chord sequence when completing all 10 questions (stops background music first) */
 export function playSessionComplete(): void {
+  stopBackgroundMusic();
   playTone(523.25, 0.0, 0.15, "triangle", 0.13); // C5
   playTone(659.25, 0.09, 0.15, "triangle", 0.13); // E5
   playTone(783.99, 0.18, 0.15, "triangle", 0.13); // G5
