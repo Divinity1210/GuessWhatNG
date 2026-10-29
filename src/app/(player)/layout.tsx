@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { MobileNav, Logo } from "@/components/ui";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { playMenuClick } from "@/lib/audio/sound-effects";
 import {
   TrendingUpIcon,
   PlayIcon,
@@ -47,15 +48,29 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   const isAdmin =
     profile?.role === "super_admin" ||
     user?.email === "admin@guesswhat.ng" ||
-    user?.email === "master@guesswhat.ng";
+    user?.email === "master@guesswhat.ng" ||
+    user?.email === "muyiwa.a@gramefdigitalagency.com";
 
   const handleSignOut = async () => {
+    playMenuClick();
     await signOut();
     router.push("/");
   };
 
+  const handleDelegatedClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    const interactive = target.closest("a, button, [role='tab'], [role='menuitem']");
+    if (interactive) {
+      playMenuClick();
+    }
+  };
+
   return (
-    <div className="flex min-h-screen bg-[#07090e] text-slate-100">
+    <div
+      onClick={handleDelegatedClick}
+      className="flex min-h-screen bg-[#07090e] text-slate-100"
+    >
       {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex md:w-60 flex-col border-r border-white/5 bg-[#0b0e17] fixed inset-y-0 left-0 z-40">
         <div className="px-6 py-5 border-b border-white/5">
@@ -77,6 +92,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                     <li key={item.href}>
                       <Link
                         href={item.href}
+                        onClick={() => playMenuClick()}
                         className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors duration-200 ${
                           active
                             ? "bg-accent-muted text-accent font-semibold border border-accent/30"
@@ -102,6 +118,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                 href="https://guesswhat-admin.vercel.app/admin"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => playMenuClick()}
                 className="flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
               >
                 <span>Admin Portal</span>
@@ -115,6 +132,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           <div className="flex items-center gap-3">
             <Link
               href="/profile"
+              onClick={() => playMenuClick()}
               className="grid size-9 place-items-center rounded-xl bg-accent font-display text-xs font-bold text-white"
             >
               {initials}
@@ -140,7 +158,10 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setMenuOpen(!menuOpen)}
+              onClick={() => {
+                playMenuClick();
+                setMenuOpen(!menuOpen);
+              }}
               aria-label="Open menu"
               className="p-2 rounded-xl bg-white/5 text-slate-300 hover:text-white"
             >
@@ -153,6 +174,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
 
           <Link
             href="/profile"
+            onClick={() => playMenuClick()}
             className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-white"
           >
             <span className="grid size-6 place-items-center rounded-lg bg-accent text-[10px] font-bold text-white">
@@ -169,7 +191,10 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
               <Logo size="sm" />
               <button
                 type="button"
-                onClick={() => setMenuOpen(false)}
+                onClick={() => {
+                  playMenuClick();
+                  setMenuOpen(false);
+                }}
                 aria-label="Close menu"
                 className="p-2 text-slate-400 hover:text-white text-lg"
               >
@@ -188,7 +213,10 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                       <Link
                         key={item.href}
                         href={item.href}
-                        onClick={() => setMenuOpen(false)}
+                        onClick={() => {
+                          playMenuClick();
+                          setMenuOpen(false);
+                        }}
                         className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm font-medium text-slate-200"
                       >
                         <item.Icon className="size-4 text-accent" />
@@ -208,6 +236,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                     href="https://guesswhat-admin.vercel.app/admin"
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => playMenuClick()}
                     className="flex items-center justify-between p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-sm font-bold text-amber-300"
                   >
                     <span>Open Admin Portal</span>

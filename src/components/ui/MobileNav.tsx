@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { playMenuClick } from "@/lib/audio/sound-effects";
 import {
   TrendingUpIcon,
   PlayIcon,
@@ -36,6 +37,7 @@ export function MobileNav() {
                 <Link
                   key={tab.href}
                   href={tab.href}
+                  onClick={() => playMenuClick()}
                   className="relative -top-4 flex flex-col items-center group"
                 >
                   <div className="size-13 rounded-full bg-gradient-to-r from-[#FF0400] to-[#F7911B] flex items-center justify-center text-white shadow-lg shadow-[#F7911B]/25 group-hover:scale-105 transition-transform duration-200">
@@ -52,6 +54,7 @@ export function MobileNav() {
               <Link
                 key={tab.href}
                 href={tab.href}
+                onClick={() => playMenuClick()}
                 className={`relative flex flex-col items-center gap-1 px-3 py-2 text-[10px] font-medium transition-colors duration-200 rounded-2xl ${
                   active
                     ? "text-accent font-bold"

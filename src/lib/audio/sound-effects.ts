@@ -16,6 +16,7 @@ let bgmSchedulerTimer: ReturnType<typeof setInterval> | null = null;
 let bgmIsRunning = false;
 let currentStep = 0;
 let nextNoteTime = 0;
+let lastMenuClickMs = 0;
 
 // 106 BPM -> 16th note = ~0.1415s
 const BPM = 106;
@@ -348,8 +349,62 @@ function playTone(
   osc.stop(now + durationSec + 0.02);
 }
 
+/** Crisp, tactile wooden/kalimba UI click when navigating menus, tabs, and buttons */
+export function playMenuClick(): void {
+  if (isSoundMuted()) return;
+  const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (nowMs - lastMenuClickMs < 45) return; // Prevent double-firing on nested handlers
+  lastMenuClickMs = nowMs;
+
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const t = ctx.currentTime;
+
+  // Warm wooden body tap (quick pitch inflection 680Hz -> 920Hz)
+  const bodyOsc = ctx.createOscillator();
+  const bodyGain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+
+  bodyOsc.type = "triangle";
+  bodyOsc.frequency.setValueAtTime(680, t);
+  bodyOsc.frequency.exponentialRampToValueAtTime(920, t + 0.028);
+
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(2400, t);
+
+  bodyGain.gain.setValueAtTime(0.0001, t);
+  bodyGain.gain.linearRampToValueAtTime(0.11, t + 0.004);
+  bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.048);
+
+  bodyOsc.connect(filter);
+  filter.connect(bodyGain);
+  bodyGain.connect(ctx.destination);
+
+  bodyOsc.start(t);
+  bodyOsc.stop(t + 0.055);
+
+  // Subtle crisp harmonic overtone for tactile snap
+  const snapOsc = ctx.createOscillator();
+  const snapGain = ctx.createGain();
+
+  snapOsc.type = "sine";
+  snapOsc.frequency.setValueAtTime(1480, t);
+
+  snapGain.gain.setValueAtTime(0.0001, t);
+  snapGain.gain.linearRampToValueAtTime(0.055, t + 0.002);
+  snapGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.024);
+
+  snapOsc.connect(snapGain);
+  snapGain.connect(ctx.destination);
+
+  snapOsc.start(t);
+  snapOsc.stop(t + 0.03);
+}
+
 /** Crisp ascending chord when starting a 10-question game session + starts background music */
 export function playGameStart(): void {
+  lastMenuClickMs = typeof performance !== "undefined" ? performance.now() : Date.now();
   playTone(523.25, 0.0, 0.14, "triangle", 0.12); // C5
   playTone(659.25, 0.07, 0.14, "triangle", 0.12); // E5
   playTone(783.99, 0.14, 0.16, "triangle", 0.13); // G5
@@ -359,6 +414,7 @@ export function playGameStart(): void {
 
 /** Tactile two-tone pop when locking in an option choice */
 export function playOptionSelect(): void {
+  lastMenuClickMs = typeof performance !== "undefined" ? performance.now() : Date.now();
   playTone(587.33, 0.0, 0.09, "triangle", 0.13); // D5
   playTone(880.0, 0.055, 0.16, "sine", 0.14); // A5
 }
