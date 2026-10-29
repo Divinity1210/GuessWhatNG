@@ -1,139 +1,110 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button, Badge } from "@/components/ui";
-import {
-  TimerIcon,
-  CoinsIcon,
-  TrophyIcon,
-  CheckIcon,
-  PlayIcon,
-  FlameIcon,
-  ZapIcon,
-} from "@/components/ui/Icons";
+import { useEffect, useState, useRef } from "react";
+import { Button } from "@/components/ui";
+import { CheckIcon, PlayIcon, TrophyIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { getActiveSessions, getUserWallet, type SessionRow, type WalletRow } from "@/lib/supabase/queries";
+import { getActiveSessions, type SessionRow } from "@/lib/supabase/queries";
 import {
   joinSession,
   getSessionQuestions,
   submitAnswer,
-  getExistingEntry,
-  getMyAnswers,
   type SessionQuestion,
 } from "@/lib/game/session-service";
-import { VIRAL_DEMO_QUESTIONS } from "@/lib/game/viral-engine";
-import { ViralBragCard } from "@/components/viral/ViralBragModal";
-import { VasTopupModal } from "@/components/viral/WalletModals";
 
-function timeRemaining(endsAt: string): string {
-  const diff = new Date(endsAt).getTime() - Date.now();
-  if (diff <= 0) return "Ended";
-  const h = Math.floor(diff / 3_600_000);
-  const m = Math.floor((diff % 3_600_000) / 60_000);
-  const s = Math.floor((diff % 60_000) / 1000);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m ${s}s`;
+function formatStopwatch(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 function formatNaira(n: number) {
   return `₦${n.toLocaleString()}`;
 }
 
-type Phase = "lobby" | "playing" | "completed" | "practice";
+function formatOrdinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+const FALLBACK_COLORS = [
+  "#3B6FD8",
+  "#F07B22",
+  "#111111",
+  "#6BB343",
+  "#9CA3AF",
+  "#C8960C",
+  "#1E3A5F",
+  "#CC0000",
+  "#7030A0",
+  "#FF00CC",
+];
+
+type Phase = "lobby" | "playing" | "result_sample" | "completed";
 
 export default function PlayPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Lobby state
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
-  const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [showTopup, setShowTopup] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Game state
+  // Gameplay state
   const [phase, setPhase] = useState<Phase>("lobby");
   const [entryId, setEntryId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<SessionQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<
-    Record<string, { optionId: string; responseMs: number; isLocked2x?: boolean }>
-  >({});
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Unlimited count-up timer from 0 (Product Document Page 27)
   const [questionStartTime, setQuestionStartTime] = useState(0);
   const [liveQuestionMs, setLiveQuestionMs] = useState(0);
-  const [timerStr, setTimerStr] = useState("");
 
-  // 2x Confidence Lock ("Sure Pick") state — 1 allowed per session
-  const [arm2xLock, setArm2xLock] = useState(false);
-  const [lockedQuestionId, setLockedQuestionId] = useState<string | null>(null);
+  // Result Sample state after each pick (Product Document Page 8)
+  const [lastPick, setLastPick] = useState<{
+    option: SessionQuestion["questions"]["question_options"][0];
+    questionType: string;
+    tookMs: number;
+  } | null>(null);
 
-  // Practice Arena state (when no DB session is active or user wants practice)
-  const [practiceStep, setPracticeStep] = useState(0);
-  const [practicePickedId, setPracticePickedId] = useState<string | null>(null);
-  const [practiceScore, setPracticeScore] = useState(0);
-  const [practiceTotalMs, setPracticeTotalMs] = useState(0);
-  const [practice2xArmed, setPractice2xArmed] = useState(false);
-  const [practice2xUsedStep, setPractice2xUsedStep] = useState<number | null>(null);
-  const [practiceDone, setPracticeDone] = useState(false);
+  // Cumulative stats at completion
+  const [totalTimeMs, setTotalTimeMs] = useState(0);
+  const [finalStats, setFinalStats] = useState<{
+    rank: number;
+    points: number;
+    responseMs: number;
+    prize: number;
+  } | null>(null);
 
-  // Session countdown timer
   useEffect(() => {
-    if (!activeSession) return;
-    setTimerStr(timeRemaining(activeSession.ends_at));
-    const interval = setInterval(() => {
-      setTimerStr(timeRemaining(activeSession.ends_at));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [activeSession]);
+    const onFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
 
-  // Live millisecond speedometer during active question
+  // Stopwatch counting up from 0 during active question (Page 27)
   useEffect(() => {
-    if (phase !== "playing" && phase !== "practice") return;
-    if (selectedOption || practicePickedId || practiceDone) return;
+    if (phase !== "playing") return;
     const start = questionStartTime || Date.now();
     const interval = setInterval(() => {
       setLiveQuestionMs(Date.now() - start);
-    }, 100);
+    }, 200);
     return () => clearInterval(interval);
-  }, [phase, questionStartTime, selectedOption, practicePickedId, practiceDone]);
+  }, [phase, questionStartTime]);
 
-  // Load lobby
+  // Load active session
   useEffect(() => {
-    if (!user) return;
     async function load() {
       try {
-        const [sessions, w] = await Promise.all([
-          getActiveSessions(),
-          getUserWallet(user!.id),
-        ]);
-        setWallet(w);
-        const session = sessions[0] ?? null;
-        setActiveSession(session);
-
-        if (session) {
-          const existing = await getExistingEntry(session.id);
-          if (existing) {
-            const [qs, prevAnswers] = await Promise.all([
-              getSessionQuestions(session.id),
-              getMyAnswers(existing.id),
-            ]);
-            setEntryId(existing.id);
-            setQuestions(qs);
-            setAnswers(prevAnswers);
-
-            if (existing.completed_at) {
-              setPhase("completed");
-            } else {
-              const nextUnanswered = qs.findIndex((q) => !prevAnswers[q.question_id]);
-              setCurrentIndex(nextUnanswered >= 0 ? nextUnanswered : qs.length - 1);
-              setQuestionStartTime(Date.now());
-              setPhase("playing");
-            }
-          }
-        }
+        const sessions = await getActiveSessions();
+        setActiveSession(sessions[0] ?? null);
       } catch (err) {
         console.error("Play load error:", err);
       } finally {
@@ -143,296 +114,349 @@ export default function PlayPage() {
     load();
   }, [user]);
 
-  // Join session handler
-  const handleJoin = async () => {
+  const requestBrowserFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      // Ignore if blocked by browser policy
+    }
+  };
+
+  const exitBrowserFullscreen = async () => {
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // Ignore
+    }
+  };
+
+  // Start / Replay session (Page 31: projects fullscreen when PLAY is clicked)
+  const handleStartPlay = async () => {
     if (!activeSession) return;
     setJoining(true);
     setJoinError(null);
+
+    await requestBrowserFullscreen();
+
     try {
-      const eid = await joinSession(activeSession.id);
-      const qs = await getSessionQuestions(activeSession.id);
+      const [eid, qs] = await Promise.all([
+        joinSession(activeSession.id, true),
+        getSessionQuestions(activeSession.id),
+      ]);
       setEntryId(eid);
       setQuestions(qs);
       setCurrentIndex(0);
+      setTotalTimeMs(0);
+      setFinalStats(null);
+      setLastPick(null);
       setQuestionStartTime(Date.now());
       setLiveQuestionMs(0);
       setPhase("playing");
-      if (user) {
-        const w = await getUserWallet(user.id);
-        setWallet(w);
-      }
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "message" in err
           ? (err as { message: string }).message
-          : "Failed to join session";
+          : "Unable to start game. Please try again.";
       setJoinError(msg);
     } finally {
       setJoining(false);
     }
   };
 
-  // Submit answer handler
-  const handleSubmitAnswer = async (optionId: string) => {
-    if (!entryId || submitting) return;
-    setSelectedOption(optionId);
+  const advanceToNextQuestion = (
+    nextIdx: number,
+    isLast: boolean,
+    stats?: { rank: number; points: number; responseMs: number; prize: number } | null,
+  ) => {
+    if (!isLast) {
+      setCurrentIndex(nextIdx);
+      setLastPick(null);
+      setQuestionStartTime(Date.now());
+      setLiveQuestionMs(0);
+      setPhase("playing");
+    } else {
+      if (stats) setFinalStats(stats);
+      setPhase("completed");
+    }
+  };
+
+  const handleSelectOption = async (
+    opt: SessionQuestion["questions"]["question_options"][0],
+  ) => {
+    if (!entryId || submitting || !activeSession) return;
     setSubmitting(true);
 
     const responseMs = Math.max(300, Date.now() - questionStartTime);
     const currentQ = questions[currentIndex];
-    const apply2x = arm2xLock && !lockedQuestionId;
+    const isLast = currentIndex >= questions.length - 1;
+
+    setTotalTimeMs((prev) => prev + responseMs);
+    setLastPick({
+      option: opt,
+      questionType: currentQ.questions.type || "text",
+      tookMs: responseMs,
+    });
+    setPhase("result_sample");
 
     try {
-      await submitAnswer(entryId, currentQ.question_id, optionId, responseMs, apply2x);
-      if (apply2x) {
-        setLockedQuestionId(currentQ.question_id);
-        setArm2xLock(false);
-      }
-      setAnswers((prev) => ({
-        ...prev,
-        [currentQ.question_id]: { optionId, responseMs, isLocked2x: apply2x },
-      }));
+      const result = await submitAnswer(
+        entryId,
+        currentQ.question_id,
+        opt.id,
+        responseMs,
+        false,
+        activeSession.id,
+      );
 
-      await new Promise((r) => setTimeout(r, 400));
-
-      if (currentIndex < questions.length - 1) {
-        setCurrentIndex((i) => i + 1);
-        setSelectedOption(null);
-        setQuestionStartTime(Date.now());
-        setLiveQuestionMs(0);
-      } else {
-        setPhase("completed");
-      }
+      setTimeout(() => {
+        advanceToNextQuestion(currentIndex + 1, isLast, result.myStats ?? null);
+      }, 950);
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "message" in err
           ? (err as { message: string }).message
-          : "Failed to submit answer";
+          : "Failed to submit selection";
       setJoinError(msg);
+      setPhase("playing");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Practice Arena handlers
-  const startPracticeArena = () => {
-    setPracticeStep(0);
-    setPracticePickedId(null);
-    setPracticeScore(0);
-    setPracticeTotalMs(0);
-    setPractice2xArmed(false);
-    setPractice2xUsedStep(null);
-    setPracticeDone(false);
-    setQuestionStartTime(Date.now());
-    setLiveQuestionMs(0);
-    setPhase("practice");
-  };
-
-  const handlePracticePick = (optId: string) => {
-    if (practicePickedId) return;
-    const tookMs = Math.max(350, Date.now() - questionStartTime);
-    setPracticePickedId(optId);
-    const q = VIRAL_DEMO_QUESTIONS[practiceStep];
-    const opt = q.options.find((o) => o.id === optId);
-    const useLock = practice2xArmed && practice2xUsedStep === null;
-    if (useLock) {
-      setPractice2xUsedStep(practiceStep);
-      setPractice2xArmed(false);
-    }
-    const pts = (opt?.points ?? 7) * (useLock ? 2 : 1);
-    setPracticeScore((s) => s + pts);
-    setPracticeTotalMs((t) => t + tookMs);
-  };
-
-  const handlePracticeNext = () => {
-    if (practiceStep < VIRAL_DEMO_QUESTIONS.length - 1) {
-      setPracticeStep((s) => s + 1);
-      setPracticePickedId(null);
-      setQuestionStartTime(Date.now());
-      setLiveQuestionMs(0);
-    } else {
-      setPracticeDone(true);
-    }
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      <div className="flex items-center justify-center py-24">
+        <div className="size-7 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
 
-  // ── Practice Arena Mode ──
-  if (phase === "practice") {
-    if (practiceDone) {
-      const timeSec = (practiceTotalMs / 1000).toFixed(1);
-      return (
-        <div className="mx-auto max-w-xl space-y-6 animate-fade-in py-4">
-          <div className="text-center space-y-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1 text-xs font-black text-emerald-400">
-              <CheckIcon className="size-4" />
-              <span>PRACTICE ARENA COMPLETE · {practiceScore} / 60 PTS</span>
-            </span>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold">
-              You Scored {practiceScore} Points in {timeSec}s!
+  // ── 1. Clean Lobby Screen (Product Document Page 31) ──
+  if (phase === "lobby" || !activeSession) {
+    return (
+      <div
+        ref={containerRef}
+        className="mx-auto max-w-xl py-12 animate-fade-in"
+      >
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] px-6 py-14 sm:px-12 sm:py-16 text-center space-y-6">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-accent">
+              Think &amp; Win · Free to Play
+            </p>
+            <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
+              GUESS WHAT
             </h1>
-            <p className="text-sm text-ink-muted">
-              Share your score &amp; debate question with your WhatsApp squad to earn +50 Bonus Coins per signup!
+            <p className="text-sm text-slate-400 max-w-md mx-auto">
+              10 questions · 10 options each. Predict the option that will receive the
+              highest number of selections from other players in the shortest time.
             </p>
           </div>
 
-          <ViralBragCard
-            username={profile?.username ?? "Player"}
-            turf={profile?.turf ?? "Lagos (Eko)"}
-            sessionName="Naija Street Practice Arena"
-            prizePool={250_000}
-            timeSeconds={timeSec}
-            answeredCount={VIRAL_DEMO_QUESTIONS.length}
-            used2xLock={practice2xUsedStep !== null}
-            challengeQuestion={VIRAL_DEMO_QUESTIONS[0].title}
-            referralCode={profile?.referral_code ?? ""}
-          />
+          {joinError && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {joinError}
+            </div>
+          )}
 
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button onClick={startPracticeArena}>Play Practice Again</Button>
-            {activeSession && (
-              <Button variant="secondary" onClick={() => setPhase("lobby")}>
-                Back to Live Cash Session
-              </Button>
-            )}
-            <Button variant="ghost" href="/dashboard">
-              Dashboard
+          <div className="pt-2">
+            <Button
+              size="lg"
+              onClick={handleStartPlay}
+              disabled={joining || !activeSession}
+              className="px-14 py-4 text-base font-bold inline-flex items-center gap-2.5 shadow-lg"
+            >
+              <PlayIcon className="size-5 fill-current" />
+              <span>{joining ? "LOADING..." : "PLAY"}</span>
             </Button>
           </div>
-        </div>
-      );
-    }
 
-    const pq = VIRAL_DEMO_QUESTIONS[practiceStep];
-    const progress = ((practiceStep + 1) / VIRAL_DEMO_QUESTIONS.length) * 100;
+          {activeSession && (
+            <p className="text-xs text-slate-500">
+              Prize Pool: <strong className="text-slate-300">{formatNaira(activeSession.prize_pool)}</strong> · Free Entry
+            </p>
+          )}
+        </section>
+      </div>
+    );
+  }
 
+  // ── 2. Result Sample Interstitial (Product Document Page 8) ──
+  if (phase === "result_sample" && lastPick) {
     return (
-      <div className="mx-auto max-w-2xl space-y-6 animate-fade-in">
-        {/* Progress & Live Speedometer */}
-        <div className="flex items-center gap-4">
-          <div className="flex-1 h-2.5 rounded-full bg-paper-3 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-[#FF0400] to-[#F7911B] rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <span className="text-xs text-ink-muted font-bold whitespace-nowrap">
-            Q{practiceStep + 1} / {VIRAL_DEMO_QUESTIONS.length}
-          </span>
-          <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 font-mono text-xs font-black text-emerald-400 flex items-center gap-1">
-            <ZapIcon className="size-3.5" />
-            <span>{(liveQuestionMs / 1000).toFixed(1)}s</span>
-          </span>
-        </div>
-
-        {/* Question Card */}
-        <section className="rounded-card border border-rule bg-paper-2 p-6 md:p-8 space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="info">{pq.category}</Badge>
-              <span className="text-xs text-ink-muted">Street Practice Mode</span>
+      <div className="mx-auto max-w-3xl py-8 animate-fade-in">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] px-6 py-16 sm:px-12 sm:py-24">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-12 items-center text-center">
+            <div className="space-y-5">
+              <p className="font-display text-xl sm:text-2xl font-semibold text-white">
+                Your Selection
+              </p>
+              <div className="flex justify-center">
+                {lastPick.questionType === "color" ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <span
+                      className="size-16 rounded-full border-2 border-white shadow-lg"
+                      style={{
+                        backgroundColor: lastPick.option.media_url || "#F7911B",
+                      }}
+                    />
+                    <span className="text-xs font-medium text-slate-300">
+                      {lastPick.option.label}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="min-w-40 rounded-xl border border-white/20 bg-white/[0.04] px-6 py-3.5 text-base font-semibold text-white">
+                    {lastPick.option.label}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {practice2xUsedStep === null ? (
+            <div className="space-y-5">
+              <p className="font-display text-xl sm:text-2xl font-semibold text-white">
+                Your Time
+              </p>
+              <p className="font-mono text-2xl sm:text-3xl font-bold text-accent">
+                {formatStopwatch(lastPick.tookMs)}
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // ── 3. Active Question Display (Product Document Pages 7, 9, 10, 12, 13, 27, 28) ──
+  if (phase === "playing" && questions.length > 0) {
+    const currentQ = questions[currentIndex];
+    const q = currentQ.questions;
+    const qType = q.type || "text";
+
+    return (
+      <div className="mx-auto max-w-4xl py-2 sm:py-4 animate-fade-in">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 sm:p-10 space-y-10">
+          {/* Top Bar: Question Number (Left) & Unlimited Count-Up Time from 0 (Right) — Page 27 */}
+          <div className="flex items-center justify-between border-b border-white/5 pb-4">
+            <span className="font-display text-base sm:text-lg font-semibold text-slate-200">
+              Question {currentIndex + 1}
+            </span>
+
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-base sm:text-lg font-semibold text-slate-200">
+                Time {formatStopwatch(liveQuestionMs)}
+              </span>
+
               <button
                 type="button"
-                disabled={!!practicePickedId}
-                onClick={() => setPractice2xArmed((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-black transition-all ${
-                  practice2xArmed
-                    ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-orange-500/30 scale-105"
-                    : "border border-[#F7911B]/40 bg-[#F7911B]/10 text-[#F7911B] hover:bg-[#F7911B]/20"
-                }`}
+                onClick={isFullscreen ? exitBrowserFullscreen : requestBrowserFullscreen}
+                className="hidden sm:inline-flex rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-white"
               >
-                <FlameIcon className="size-4" />
-                <span>{practice2xArmed ? "🔥 2x SURE LOCK ARMED (20 PTS MAX)" : "Arm 2x Sure Lock (1 Per Game)"}</span>
+                {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
               </button>
-            ) : (
-              <span className="text-xs font-bold text-[#F7911B]">
-                {practice2xUsedStep === practiceStep ? "🔥 2x Lock Applied!" : "2x Sure Lock Used"}
-              </span>
-            )}
+            </div>
           </div>
 
-          <h2 className="font-display text-xl font-bold md:text-2xl">{pq.title}</h2>
+          {/* Question Title */}
+          <div className="text-center py-2">
+            <h2 className="font-display text-xl sm:text-2xl md:text-3xl font-semibold text-white">
+              {q.title}
+            </h2>
+          </div>
 
-          <div className="space-y-3">
-            {pq.options.map((opt, idx) => {
-              const isPicked = practicePickedId === opt.id;
-              const isTop = opt.rank === 1;
-              const mult = practice2xUsedStep === practiceStep ? 2 : 1;
-
-              return (
+          {/* 10 Options in a 5x2 Grid (2 columns on mobile, 5 columns on desktop) */}
+          {qType === "color" ? (
+            /* Colour Question Format (Page 9) */
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-8 justify-items-center py-4">
+              {q.question_options.map((opt, idx) => {
+                const hex =
+                  opt.media_url && opt.media_url.startsWith("#")
+                    ? opt.media_url
+                    : FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleSelectOption(opt)}
+                    aria-label={opt.label}
+                    className="group flex flex-col items-center gap-2 focus:outline-none"
+                  >
+                    <span
+                      className="size-16 sm:size-20 rounded-full border-2 border-white/80 shadow-md transition-transform duration-150 group-hover:scale-110 group-focus-visible:ring-2 group-focus-visible:ring-accent"
+                      style={{ backgroundColor: hex }}
+                    />
+                    <span className="text-xs font-medium text-slate-400 group-hover:text-white">
+                      {opt.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : qType === "number" ? (
+            /* Number Question Format (Page 10) */
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-6 max-w-2xl mx-auto py-4">
+              {q.question_options.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
-                  disabled={!!practicePickedId}
-                  onClick={() => handlePracticePick(opt.id)}
-                  className={`w-full text-left relative overflow-hidden rounded-[var(--radius)] border px-5 py-4 transition-all duration-200 ${
-                    practicePickedId
-                      ? isPicked
-                        ? "border-accent bg-accent-muted shadow-md"
-                        : "border-rule bg-paper-3/70"
-                      : "border-rule bg-paper-3 hover:border-accent/60 hover:bg-paper-2"
-                  }`}
+                  disabled={submitting}
+                  onClick={() => handleSelectOption(opt)}
+                  className="h-16 sm:h-20 rounded-xl border border-white/20 bg-white/[0.03] hover:border-accent hover:bg-accent/10 font-display text-xl sm:text-2xl font-bold text-white transition-all duration-150"
                 >
-                  {practicePickedId && (
-                    <div
-                      className={`absolute inset-y-0 left-0 transition-all duration-700 ${
-                        isTop
-                          ? "bg-gradient-to-r from-[#F7911B]/30 to-[#FF0400]/30"
-                          : "bg-white/5"
-                      }`}
-                      style={{ width: `${opt.crowdPct}%` }}
-                    />
-                  )}
-                  <div className="relative z-10 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`grid size-8 place-items-center rounded-full text-xs font-bold shrink-0 ${
-                          isPicked
-                            ? "bg-accent text-white"
-                            : "bg-paper-2 text-ink-muted border border-rule"
-                        }`}
-                      >
-                        {isPicked ? <CheckIcon className="size-4" /> : String.fromCharCode(65 + idx)}
-                      </span>
-                      <div>
-                        <span className={`font-semibold ${isPicked ? "text-white" : "text-ink"}`}>
-                          {opt.label}
-                        </span>
-                        {practicePickedId && (
-                          <p className="text-xs text-[#F7911B] font-bold mt-0.5">
-                            {isTop ? "👑 #1 Crowd Pick" : `Rank #${opt.rank}`} · +{opt.points * (isPicked ? mult : 1)} pts
-                          </p>
-                        )}
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          ) : qType === "image" ? (
+            /* Picture Question Format — Medium size for mobile & desktop (Pages 12, 13, 28) */
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-5">
+              {q.question_options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => handleSelectOption(opt)}
+                  className="group overflow-hidden rounded-xl border border-white/15 bg-white/[0.03] hover:border-accent transition-all duration-150 text-left flex flex-col"
+                >
+                  <div className="aspect-[4/3] w-full overflow-hidden bg-slate-900">
+                    {opt.media_url ? (
+                      <img
+                        src={opt.media_url}
+                        alt={opt.label}
+                        loading="eager"
+                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="h-full w-full grid place-items-center text-xs text-slate-500">
+                        {opt.label}
                       </div>
-                    </div>
-                    {practicePickedId && (
-                      <span className="font-display text-lg font-black text-white">
-                        {opt.crowdPct}%
-                      </span>
                     )}
                   </div>
+                  <div className="px-3 py-2 text-center">
+                    <span className="text-xs font-semibold text-slate-200 group-hover:text-accent line-clamp-1">
+                      {opt.label}
+                    </span>
+                  </div>
                 </button>
-              );
-            })}
-          </div>
-
-          {practicePickedId && (
-            <div className="pt-3 border-t border-rule flex items-center justify-between">
-              <span className="text-sm text-ink-2">
-                Running Score: <strong className="text-accent">{practiceScore} pts</strong>
-              </span>
-              <Button onClick={handlePracticeNext}>
-                {practiceStep < VIRAL_DEMO_QUESTIONS.length - 1 ? "Next Question →" : "Finish & Get Receipt →"}
-              </Button>
+              ))}
+            </div>
+          ) : (
+            /* Text Question Format (Page 7 & 15–16) */
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 sm:gap-4 py-2">
+              {q.question_options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => handleSelectOption(opt)}
+                  className="min-h-14 rounded-xl border border-white/20 bg-white/[0.03] hover:border-accent hover:bg-accent/10 px-4 py-3.5 text-center text-sm font-medium text-white transition-all duration-150"
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           )}
         </section>
@@ -440,286 +464,70 @@ export default function PlayPage() {
     );
   }
 
-  // ── No active session → Offer instant Street Practice Arena ──
-  if (!activeSession) {
-    return (
-      <div className="mx-auto max-w-xl py-10 text-center space-y-6 animate-fade-in">
-        <div className="rounded-card border border-[#F7911B]/35 bg-paper-2 p-8 space-y-5">
-          <div className="mx-auto grid size-16 place-items-center rounded-full bg-accent-muted">
-            <FlameIcon className="size-8 text-accent" />
-          </div>
-          <Badge variant="active" dot>Free Practice Arena Live</Badge>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold">
-            Warm Up in the Naija Street Arena!
-          </h1>
-          <p className="text-sm text-ink-2 max-w-md mx-auto">
-            While the next 72-hour cash session prepares to open, test your crowd intuition, 2x Sure Lock power-up, and tiebreaker speed on 5 hot cultural questions.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
-            <Button size="lg" onClick={startPracticeArena}>
-              <PlayIcon className="size-5 fill-current" />
-              <span>Launch 5-Question Street Arena (Free)</span>
-            </Button>
-            <Button variant="secondary" size="lg" href="/sessions">
-              View Session Schedule
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Lobby (pre-join) ──
-  if (phase === "lobby") {
-    const notEnoughCoins = (wallet?.coin_balance ?? 0) < activeSession.entry_fee_coins;
-
-    return (
-      <div className="mx-auto max-w-lg space-y-6 animate-fade-in">
-        <section className="relative overflow-hidden rounded-card border border-rule bg-paper-2">
-          <div className="absolute inset-0 gradient-glow opacity-50" />
-          <div className="relative z-10 p-6 md:p-8 space-y-5">
-            <div className="flex items-center justify-between">
-              <Badge variant="active" dot>Live Now</Badge>
-              <span className="rounded-full bg-[#F7911B]/15 border border-[#F7911B]/30 px-3 py-1 text-xs font-bold text-[#F7911B]">
-                🔥 Includes 1x Sure Lock (2x Points)
-              </span>
-            </div>
-
-            <h1 className="font-display text-2xl font-bold">{activeSession.name}</h1>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 p-3 text-center">
-                <TrophyIcon className="size-5 text-amber-400 mx-auto mb-1" />
-                <p className="text-xs text-ink-muted">Prize Pool</p>
-                <p className="font-display font-bold text-accent">{formatNaira(activeSession.prize_pool)}</p>
-              </div>
-              <div className="rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 p-3 text-center">
-                <CoinsIcon className="size-5 text-[#F7911B] mx-auto mb-1" />
-                <p className="text-xs text-ink-muted">Entry Fee</p>
-                <p className="font-display font-bold text-ink">{activeSession.entry_fee_coins} coins</p>
-              </div>
-              <div className="rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 p-3 text-center">
-                <TimerIcon className="size-5 text-gray-400 mx-auto mb-1" />
-                <p className="text-xs text-ink-muted">Ends In</p>
-                <p className="font-display font-bold text-ink">{timerStr}</p>
-              </div>
-              <div className="rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 p-3 text-center">
-                <p className="text-xs text-ink-muted mt-1">Your Balance</p>
-                <p className="font-display font-bold text-ink">{wallet?.coin_balance.toLocaleString() ?? 0} coins</p>
-              </div>
-            </div>
-
-            {joinError && (
-              <div className="rounded-[var(--radius-sm)] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {joinError}
-              </div>
-            )}
-
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleJoin}
-              disabled={joining || notEnoughCoins}
-            >
-              {joining
-                ? "Joining..."
-                : notEnoughCoins
-                  ? "Not enough coins"
-                  : `Join for ${activeSession.entry_fee_coins} coins`}
-            </Button>
-
-            {notEnoughCoins && (
-              <Button
-                variant="secondary"
-                className="w-full"
-                onClick={() => setShowTopup(true)}
-              >
-                ⚡ Instant Airtime Top-Up (MTN / Airtel / Glo / 9mobile)
-              </Button>
-            )}
-
-            <div className="pt-2 border-t border-rule text-center">
-              <button
-                type="button"
-                onClick={startPracticeArena}
-                className="text-xs font-semibold text-[#F7911B] hover:underline"
-              >
-                Want to warm up first? Play Free 5-Question Street Practice Arena →
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {showTopup && user && (
-          <VasTopupModal
-            userId={user.id}
-            onClose={() => setShowTopup(false)}
-            onSuccess={async () => {
-              const w = await getUserWallet(user.id);
-              setWallet(w);
-            }}
-          />
-        )}
-      </div>
-    );
-  }
-
-  // ── Playing ──
-  if (phase === "playing" && questions.length > 0) {
-    const currentQ = questions[currentIndex];
-    const q = currentQ.questions;
-    const progress = (currentIndex / questions.length) * 100;
-
-    return (
-      <div className="mx-auto max-w-2xl space-y-6 animate-fade-in">
-        {/* Progress bar & Live Speedometer */}
-        <div className="flex items-center gap-4">
-          <div className="flex-1 h-2.5 rounded-full bg-paper-3 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-accent to-[#F7911B] rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <span className="text-xs text-ink-muted font-medium whitespace-nowrap">
-            {currentIndex + 1} / {questions.length}
-          </span>
-          <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 font-mono text-xs font-bold text-emerald-400 flex items-center gap-1">
-            <ZapIcon className="size-3.5" />
-            <span>{(liveQuestionMs / 1000).toFixed(1)}s</span>
-          </span>
-          <span className="text-xs text-ink-muted hidden sm:flex items-center gap-1">
-            <TimerIcon className="size-3.5" /> {timerStr}
-          </span>
-        </div>
-
-        {/* Question card */}
-        <section className="rounded-card border border-rule bg-paper-2 p-6 md:p-8">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="info">{q.category}</Badge>
-              <span className="text-xs text-ink-muted">Question {currentIndex + 1}</span>
-            </div>
-
-            {/* 2x Confidence Lock ("Sure Pick") Power-Up Button */}
-            {!lockedQuestionId ? (
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => setArm2xLock((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-black transition-all ${
-                  arm2xLock
-                    ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-orange-500/30 scale-105"
-                    : "border border-[#F7911B]/40 bg-[#F7911B]/10 text-[#F7911B] hover:bg-[#F7911B]/20"
-                }`}
-              >
-                <FlameIcon className="size-4" />
-                <span>
-                  {arm2xLock ? "🔥 2x SURE LOCK ARMED (Double Points!)" : "Arm 2x Sure Lock (1 per session)"}
-                </span>
-              </button>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs font-semibold text-ink-muted">
-                <FlameIcon className="size-3.5 text-[#F7911B]" />
-                <span>2x Lock Used</span>
-              </span>
-            )}
-          </div>
-
-          <h2 className="font-display text-xl font-bold md:text-2xl">{q.title}</h2>
-          <p className="mt-1 text-xs text-ink-muted">
-            Pick the option you predict <strong className="text-white">most players</strong> in this session will choose.
-          </p>
-
-          <div className="mt-6 space-y-3">
-            {q.question_options.map((opt) => {
-              const isSelected = selectedOption === opt.id;
-              const isAnswered = !!answers[q.id];
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => handleSubmitAnswer(opt.id)}
-                  disabled={submitting || isAnswered}
-                  className={`w-full text-left rounded-[var(--radius)] border px-5 py-4 transition-all duration-200 ${
-                    isSelected
-                      ? "border-accent bg-accent-muted shadow-md scale-[1.01]"
-                      : "border-rule bg-paper-3 hover:border-rule-2 hover:bg-paper-2"
-                  } ${submitting && !isSelected ? "opacity-50" : ""}`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`grid size-8 place-items-center rounded-full text-xs font-bold ${
-                          isSelected
-                            ? "bg-accent text-white"
-                            : "bg-paper-2 text-ink-muted border border-rule"
-                        }`}
-                      >
-                        {isSelected ? <CheckIcon className="size-4" /> : String.fromCharCode(65 + opt.position)}
-                      </span>
-                      <span className={`font-medium ${isSelected ? "text-accent" : "text-ink"}`}>
-                        {opt.label}
-                      </span>
-                    </div>
-                    {arm2xLock && !lockedQuestionId && (
-                      <span className="rounded-full bg-[#F7911B]/20 px-2.5 py-0.5 text-[10px] font-black text-[#F7911B]">
-                        2x PTS
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  // ── Completed: Viral Lock-In Receipt & WhatsApp Squad Challenge ──
+  // ── 4. Session Complete Screen (Product Document Pages 6, 18, 19) ──
   if (phase === "completed") {
-    const answerValues = Object.values(answers);
-    const answeredCount = answerValues.length || (questions.length > 0 ? questions.length : 10);
-    const totalResponseMs = answerValues.reduce((sum, a) => sum + (a.responseMs || 2200), 0) || 21400;
-    const totalSeconds = (totalResponseMs / 1000).toFixed(1);
-    const featuredQuestion =
-      questions[0]?.questions?.title ??
-      "Which Nigerian meal will be chosen by the majority?";
-
     return (
-      <div className="mx-auto max-w-xl text-center space-y-6 animate-fade-in py-6">
-        <div className="space-y-2">
-          <div className="mx-auto grid size-16 place-items-center rounded-full bg-green-500/15">
-            <CheckIcon className="size-8 text-green-400" />
+      <div className="mx-auto max-w-xl py-10 animate-fade-in">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-8 sm:p-10 text-center space-y-6">
+          <div className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-500/15 border border-emerald-500/30">
+            <CheckIcon className="size-7 text-emerald-400" />
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold">
-            Predictions Locked In!
-          </h1>
-          <p className="text-sm text-ink-muted max-w-md mx-auto">
-            Your answers and speed tiebreaker ({totalSeconds}s) are sealed in the vault. Challenge your WhatsApp group while the pot is live!
-          </p>
-        </div>
 
-        <ViralBragCard
-          username={profile?.username ?? "Player"}
-          turf={profile?.turf ?? "Lagos (Eko)"}
-          sessionName={activeSession.name}
-          prizePool={activeSession.prize_pool}
-          timeSeconds={totalSeconds}
-          answeredCount={answeredCount}
-          used2xLock={!!lockedQuestionId || answerValues.some((a) => a.isLocked2x)}
-          challengeQuestion={featuredQuestion}
-          referralCode={profile?.referral_code ?? ""}
-        />
+          <div className="space-y-2">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
+              Session Complete
+            </h1>
+            <p className="text-sm text-slate-400">
+              Your 10 predictions have been added to the live session tally.
+            </p>
+          </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center pt-2">
-          <Button onClick={startPracticeArena}>Play Free Street Arena</Button>
-          <Button variant="secondary" href="/leaderboard">
-            Turf &amp; Session Ranks
-          </Button>
-          <Button variant="ghost" href="/dashboard">
-            Dashboard
-          </Button>
-        </div>
+          <div className="grid grid-cols-3 gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-slate-500">
+                Position
+              </p>
+              <p className="font-display text-xl font-bold text-accent mt-0.5">
+                {finalStats ? formatOrdinal(finalStats.rank) : "Live"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-slate-500">
+                Points
+              </p>
+              <p className="font-display text-xl font-bold text-white mt-0.5">
+                {finalStats ? finalStats.points : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-slate-500">
+                Total Time
+              </p>
+              <p className="font-mono text-xl font-bold text-white mt-0.5">
+                {formatStopwatch(finalStats?.responseMs || totalTimeMs)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+            <Button
+              size="lg"
+              href="/leaderboard"
+              onClick={exitBrowserFullscreen}
+              className="inline-flex items-center justify-center gap-2"
+            >
+              <TrophyIcon className="size-4" />
+              <span>View Leaderboard</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={handleStartPlay}
+            >
+              Try Again
+            </Button>
+          </div>
+        </section>
       </div>
     );
   }

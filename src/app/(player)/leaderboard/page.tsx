@@ -1,44 +1,89 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Avatar, Badge, Button, TabGroup } from "@/components/ui";
-import { TrophyIcon, FlameIcon, UsersIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
-  getSessionLeaderboard,
+  getActiveSessions,
   getCompletedSessions,
-  getSessionCrowdBreakdown,
+  getSessionLeaderboard,
   type LeaderboardRow,
   type SessionRow,
-  type CrowdBreakdownRow,
 } from "@/lib/supabase/queries";
-import {
-  TURF_SQUADS,
-  VIRAL_DEMO_QUESTIONS,
-  buildWhatsAppShareUrl,
-} from "@/lib/game/viral-engine";
-import { mockLeaderboard } from "@/lib/game/mock-data";
 
-function formatNaira(n: number) {
-  return `₦${n.toLocaleString()}`;
+function formatCountdownLong(endsAt: string): string {
+  const diff = new Date(endsAt).getTime() - Date.now();
+  if (diff <= 0) return "Session ended";
+  const days = Math.floor(diff / 86_400_000);
+  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+  const mins = Math.floor((diff % 3_600_000) / 60_000);
+  if (days > 0) return `${days} day${days > 1 ? "s" : ""} ${hours} hours`;
+  return `${hours} hours ${mins} mins`;
 }
 
+function formatDuration(ms: number): string {
+  const totalSec = Math.max(1, Math.round(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function formatOrdinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+const PRIZE_TIERS_36 = [
+  { position: "1st", prize: "100,000", total: "100,000" },
+  { position: "2nd", prize: "50,000", total: "50,000" },
+  { position: "3rd", prize: "20,000", total: "20,000" },
+  { position: "4th–36th", prize: "10,000", total: "330,000" },
+];
+
 export default function LeaderboardPage() {
-  const { user, profile } = useAuth();
-  const [boardMode, setBoardMode] = useState("players");
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
-  const [selectedSession, setSelectedSession] = useState<string | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
-  const [crowdBreakdown, setCrowdBreakdown] = useState<CrowdBreakdownRow[]>([]);
+  const { user } = useAuth();
+  const [tab, setTab] = useState<"live" | "winners">("live");
+  const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
+  const [liveRows, setLiveRows] = useState<LeaderboardRow[]>([]);
+  const [totalGuesses, setTotalGuesses] = useState(0);
+  const [countdownStr, setCountdownStr] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [completedSessions, setCompletedSessions] = useState<SessionRow[]>([]);
+  const [selectedCompletedId, setSelectedCompletedId] = useState<string>("");
+  const [completedWinners, setCompletedWinners] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const completed = await getCompletedSessions(10);
-        setSessions(completed);
-        if (completed.length > 0) {
-          setSelectedSession(completed[0].id);
+        const [activeList, completedList] = await Promise.all([
+          getActiveSessions(),
+          getCompletedSessions(10),
+        ]);
+
+        const active = activeList[0] ?? null;
+        setActiveSession(active);
+        setCompletedSessions(completedList);
+
+        if (active) {
+          setCountdownStr(formatCountdownLong(active.ends_at));
+          const res = await fetch(
+            `/api/game/session?sessionId=${encodeURIComponent(active.id)}`,
+            { cache: "no-store" },
+          );
+          if (res.ok) {
+            const data = await res.json();
+            setLiveRows(data.leaderboard ?? []);
+            setTotalGuesses(data.totalGuesses ?? 0);
+          }
+        }
+
+        if (completedList.length > 0) {
+          const firstId = completedList[0].id;
+          setSelectedCompletedId(firstId);
+          const lb = await getSessionLeaderboard(firstId, 50);
+          setCompletedWinners(lb);
         }
       } catch (err) {
         console.error("Leaderboard load error:", err);
@@ -50,383 +95,304 @@ export default function LeaderboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedSession) return;
-    async function loadLb() {
-      const [lb, breakdown] = await Promise.all([
-        getSessionLeaderboard(selectedSession!, 50),
-        getSessionCrowdBreakdown(selectedSession!),
-      ]);
-      setLeaderboard(lb);
-      setCrowdBreakdown(breakdown);
-    }
-    loadLb();
-  }, [selectedSession]);
+    if (!activeSession) return;
+    const interval = setInterval(() => {
+      setCountdownStr(formatCountdownLong(activeSession.ends_at));
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [activeSession]);
+
+  useEffect(() => {
+    if (!selectedCompletedId) return;
+    getSessionLeaderboard(selectedCompletedId, 50)
+      .then(setCompletedWinners)
+      .catch(() => {});
+  }, [selectedCompletedId]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      <div className="flex items-center justify-center py-24">
+        <div className="size-7 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
 
-  // Use real leaderboard if available, otherwise showcase realistic Hall of Fame standby
-  const displayRows: LeaderboardRow[] =
-    leaderboard.length > 0
-      ? leaderboard
-      : mockLeaderboard.map((m, i) => ({
-          rank: m.rank,
-          points: m.points,
-          response_ms: m.timeMs,
-          prize: [100000, 50000, 25000, 10000, 10000][i] ?? 5000,
-          user_id: `hall-${i}`,
-          profiles: { username: m.username, avatar_url: null },
-        }));
-
-  const podium = displayRows.slice(0, 3);
-
-  // Group crowd breakdown by question
-  const groupedBreakdown = crowdBreakdown.reduce(
-    (acc, row) => {
-      if (!acc[row.question_id]) {
-        acc[row.question_id] = {
-          title: row.question_title,
-          options: [],
-        };
-      }
-      acc[row.question_id].options.push(row);
-      return acc;
-    },
-    {} as Record<string, { title: string; options: CrowdBreakdownRow[] }>,
-  );
-
-  const breakdownQuestions =
-    Object.values(groupedBreakdown).length > 0
-      ? Object.values(groupedBreakdown)
-      : VIRAL_DEMO_QUESTIONS.map((q) => ({
-          title: q.title,
-          options: q.options.map((o) => ({
-            question_id: q.id,
-            question_title: q.title,
-            option_id: o.id,
-            option_label: o.label,
-            picks: o.crowdPct * 42,
-            percentage: o.crowdPct,
-            points_awarded: o.points,
-          })),
-        }));
-
-  const userTurf = profile?.turf ?? "Lagos (Eko)";
-  const waTurfRally = buildWhatsAppShareUrl({
-    username: profile?.username ?? "Player",
-    referralCode: profile?.referral_code,
-    turf: userTurf,
-    sessionName: "Turf & Campus Wars",
-    prizePool: 250_000,
-  });
-
-  const filteredTurfs = TURF_SQUADS.filter((t) => {
-    if (boardMode === "cities") return t.category === "city";
-    if (boardMode === "campus") return t.category === "campus";
-    if (boardMode === "africa") return t.category === "africa";
-    return false;
+  const filteredLiveRows = liveRows.filter((r) => {
+    if (!searchQuery.trim()) return true;
+    const name = (r.profiles?.username ?? "").toLowerCase();
+    return name.includes(searchQuery.trim().toLowerCase());
   });
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header & Clean 2-Tab Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold">Leaderboard &amp; Turf Wars</h1>
-          <p className="text-xs text-ink-muted mt-0.5">
-            Track individual winners, City/Campus squad standings, and post-session crowd vote breakdowns.
+          <h1 className="font-display text-2xl font-bold text-white">
+            Leaderboard
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Points update dynamically as more players guess. Shortest time breaks ties.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {sessions.length > 0 && (boardMode === "players" || boardMode === "breakdown") && (
-            <select
-              value={selectedSession ?? ""}
-              onChange={(e) => setSelectedSession(e.target.value)}
-              aria-label="Select completed session"
-              className="rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-            >
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <a
-            href={waTurfRally}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-black text-slate-950 transition-all"
+        <div className="inline-flex rounded-xl border border-white/10 bg-[#0d111c] p-1">
+          <button
+            type="button"
+            onClick={() => setTab("live")}
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+              tab === "live"
+                ? "bg-accent text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
           >
-            <UsersIcon className="size-3.5" />
-            <span>Rally {userTurf.split(" ")[0]} on WhatsApp</span>
-          </a>
+            Live Leaderboard
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("winners")}
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+              tab === "winners"
+                ? "bg-accent text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Winners Board
+          </button>
         </div>
       </div>
 
-      <TabGroup
-        tabs={[
-          { label: "🏆 Top Players", value: "players" },
-          { label: "⚡ City Turf Wars", value: "cities" },
-          { label: "🎓 Campus Clash", value: "campus" },
-          { label: "🌍 Pan-African", value: "africa" },
-          { label: "📊 Crowd Vote Reveal", value: "breakdown" },
-        ]}
-        value={boardMode}
-        onChange={setBoardMode}
-      />
+      {/* ── Tab 1: Live Leaderboard (Product Document Pages 19, 29, 30) ── */}
+      {tab === "live" && (
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-5">
+          {/* Top Bar: Guesses Count Up (Left), Search (Middle), Session Countdown (Right) — Page 29 */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-white">
+                {totalGuesses.toLocaleString()} Guesses
+              </div>
 
-      {/* ── Individual Players Mode ── */}
-      {boardMode === "players" && (
-        <>
-          {leaderboard.length === 0 && (
-            <div className="rounded-xl border border-[#F7911B]/30 bg-[#F7911B]/10 px-4 py-2.5 text-xs text-[#F7911B] flex items-center justify-between">
-              <span>Showing Hall of Fame Standings (Weekend Showdown #47)</span>
-              <Badge variant="active">Verified Payouts</Badge>
+              {activeSession && (
+                <div className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200">
+                  {countdownStr}
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Podium */}
-          {podium.length >= 3 && (
-            <section className="flex items-end justify-center gap-4 py-6">
-              {[podium[1], podium[0], podium[2]].map((p, idx) => {
-                const heights = ["h-28", "h-36", "h-24"];
-                const ranks = [2, 1, 3];
-                return (
-                  <div key={p.user_id} className="flex flex-col items-center gap-2">
-                    <Avatar name={p.profiles?.username ?? "?"} size="lg" rank={ranks[idx]} />
-                    <p className="text-sm font-semibold text-ink">{p.profiles?.username ?? "?"}</p>
-                    <p className="text-xs text-ink-muted">
-                      {p.points} pts · {(p.response_ms / 1000).toFixed(1)}s
-                    </p>
-                    <div
-                      className={`w-24 ${heights[idx]} rounded-t-xl bg-gradient-to-b ${
-                        ranks[idx] === 1
-                          ? "from-amber-500/35 to-amber-500/5 border-t border-amber-400/40"
-                          : ranks[idx] === 2
-                            ? "from-gray-400/30 to-gray-400/5 border-t border-gray-400/30"
-                            : "from-orange-700/30 to-orange-700/5 border-t border-orange-600/30"
-                      } flex flex-col items-center justify-start pt-3`}
-                    >
-                      <span className="font-display text-2xl font-bold text-ink">#{ranks[idx]}</span>
-                      <span className="text-[11px] font-bold text-accent mt-1">
-                        {formatNaira(p.prize)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </section>
-          )}
+            <div className="w-full sm:w-64">
+              <label htmlFor="leaderboard-search" className="sr-only">
+                Search players
+              </label>
+              <input
+                id="leaderboard-search"
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search player name..."
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
 
-          {/* Full table */}
-          <section className="rounded-card border border-rule bg-paper-2 p-6">
+          {/* Leaderboard Table: Position | Prize | Name | Points | Time (Page 29 & 30) */}
+          <div
+            tabIndex={0}
+            role="region"
+            aria-labelledby="live-lb-caption"
+            className="overflow-x-auto"
+          >
             <table className="w-full text-sm">
+              <caption id="live-lb-caption" className="sr-only">
+                Live session leaderboard standings
+              </caption>
               <thead>
-                <tr className="border-b border-rule text-left text-xs font-medium uppercase tracking-wider text-ink-muted">
-                  <th className="pb-3 pr-4">Rank</th>
-                  <th className="pb-3 pr-4">Player</th>
-                  <th className="pb-3 pr-4 text-right">Points</th>
-                  <th className="pb-3 pr-4 text-right hidden sm:table-cell">Speed</th>
-                  <th className="pb-3 text-right">Prize</th>
+                <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
+                  <th className="py-3 pr-4">Position</th>
+                  <th className="py-3 pr-4">Prize</th>
+                  <th className="py-3 pr-4">Name</th>
+                  <th className="py-3 pr-4">Points</th>
+                  <th className="py-3 text-right">Time</th>
                 </tr>
               </thead>
               <tbody>
-                {displayRows.map((row) => {
-                  const isMe = row.user_id === user?.id;
-                  return (
-                    <tr
-                      key={row.user_id}
-                      className={`border-b border-rule/50 last:border-0 ${
-                        isMe ? "bg-accent-muted/30" : ""
-                      }`}
-                    >
-                      <td className="py-3 pr-4">
-                        <span
-                          className={`font-display font-bold text-xs rounded-md px-2 py-1 ${
-                            row.rank <= 3
-                              ? "bg-amber-500/15 text-amber-400"
-                              : "bg-paper-3 text-ink"
-                          }`}
-                        >
-                          #{row.rank}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar name={row.profiles?.username ?? "?"} size="sm" rank={row.rank} />
-                          <span className={`font-medium ${isMe ? "text-accent" : "text-ink"}`}>
-                            {row.profiles?.username ?? "Unknown"} {isMe && "(You)"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4 text-right font-medium text-ink-2">
-                        {row.points.toLocaleString()}
-                      </td>
-                      <td className="py-3 pr-4 text-right text-emerald-400 font-mono text-xs hidden sm:table-cell">
-                        {(row.response_ms / 1000).toFixed(1)}s
-                      </td>
-                      <td className="py-3 text-right font-semibold text-accent">
-                        {row.prize > 0 ? formatNaira(row.prize) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </section>
-        </>
-      )}
-
-      {/* ── Turf Wars Mode (Cities, Campuses, Pan-African) ── */}
-      {(boardMode === "cities" || boardMode === "campus" || boardMode === "africa") && (
-        <section className="space-y-4">
-          <div className="rounded-card border border-[#F7911B]/35 bg-gradient-to-r from-[#19131d] via-paper-2 to-[#121723] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-[#F7911B]">
-                <FlameIcon className="size-4" />
-                <span>
-                  {boardMode === "cities"
-                    ? "Nigerian City & State Turf Wars"
-                    : boardMode === "campus"
-                      ? "University Campus Squad Clash"
-                      : "Pan-African Prediction Clash"}
-                </span>
-              </div>
-              <h2 className="font-display text-xl font-bold text-white">
-                You are repping <span className="text-[#F7911B]">{userTurf}</span>
-              </h2>
-              <p className="text-xs text-ink-muted">
-                Every session point scored by a squad member adds to your Turf&apos;s live total!
-              </p>
-            </div>
-            <Button size="sm" href="/play">
-              Score Points for {userTurf.split(" ")[0]}
-            </Button>
-          </div>
-
-          <div className="grid gap-3">
-            {filteredTurfs.map((turf, idx) => {
-              const isMyTurf = turf.name === userTurf;
-              return (
-                <div
-                  key={turf.id}
-                  className={`rounded-card border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-                    isMyTurf
-                      ? "border-[#F7911B] bg-[#F7911B]/10 shadow-lg"
-                      : "border-rule bg-paper-2"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`grid size-11 place-items-center rounded-2xl font-display text-base font-black ${
-                        idx === 0
-                          ? "bg-gradient-to-br from-[#F7911B] to-[#FF0400] text-white"
-                          : "bg-paper-3 text-ink"
-                      }`}
-                    >
-                      #{idx + 1}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{turf.emoji}</span>
-                        <h3 className="font-display text-lg font-bold text-white">
-                          {turf.name}
-                        </h3>
-                        {isMyTurf && <Badge variant="active">Your Turf</Badge>}
-                      </div>
-                      <p className="text-xs text-ink-muted mt-0.5">
-                        {turf.slogan} · <strong className="text-ink-2">{turf.basePlayers.toLocaleString()}</strong> active players · MVP{" "}
-                        <span className="text-[#F7911B]">@{turf.topPlayer}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-1">
-                    <p className="font-display text-xl font-black text-[#F7911B]">
-                      {turf.basePoints.toLocaleString()} pts
-                    </p>
-                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
-                      {turf.weeklyDelta} this week
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ── Post-Session Crowd Vote Reveal Mode ── */}
-      {boardMode === "breakdown" && (
-        <section className="space-y-4">
-          <div className="rounded-card border border-rule bg-paper-2 p-5">
-            <h2 className="font-display text-lg font-bold text-white">
-              📊 Completed Session Crowd Breakdown
-            </h2>
-            <p className="text-xs text-ink-muted mt-1">
-              Once a session closes, the vault opens! See the exact percentage of players that voted for each option and the points awarded.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {breakdownQuestions.map((q, qIdx) => (
-              <div key={qIdx} className="rounded-card border border-rule bg-paper-2 p-5 space-y-3">
-                <div className="flex items-center justify-between text-xs text-ink-muted">
-                  <span className="font-bold text-[#F7911B]">QUESTION {qIdx + 1}</span>
-                  <span>10 pts for #1 Majority Pick</span>
-                </div>
-                <h3 className="font-display text-base font-bold text-white leading-snug">
-                  {q.title}
-                </h3>
-                <div className="space-y-2 pt-1">
-                  {q.options.map((opt, oIdx) => {
-                    const isTop = oIdx === 0;
+                {filteredLiveRows.length > 0 ? (
+                  filteredLiveRows.map((row) => {
+                    const isMe = row.user_id === user?.id;
                     return (
-                      <div
-                        key={opt.option_id}
-                        className={`relative overflow-hidden rounded-xl border p-3 ${
-                          isTop
-                            ? "border-[#F7911B]/60 bg-[#F7911B]/10"
-                            : "border-rule bg-paper-3"
+                      <tr
+                        key={row.user_id}
+                        className={`border-b border-white/10 last:border-0 ${
+                          isMe
+                            ? "text-accent font-semibold"
+                            : row.rank === 1
+                              ? "text-sky-400 font-medium"
+                              : "text-slate-200"
                         }`}
                       >
-                        <div
-                          className={`absolute inset-y-0 left-0 ${
-                            isTop
-                              ? "bg-gradient-to-r from-[#F7911B]/30 to-[#FF0400]/30"
-                              : "bg-white/5"
-                          }`}
-                          style={{ width: `${opt.percentage}%` }}
-                        />
-                        <div className="relative z-10 flex items-center justify-between gap-2 text-xs">
-                          <div>
-                            <p className="font-bold text-white">
-                              {isTop ? "👑 " : ""}
-                              {opt.option_label}
-                            </p>
-                            <p className="text-[11px] text-[#F7911B] font-semibold">
-                              +{opt.points_awarded} pts · {opt.picks.toLocaleString()} votes
-                            </p>
-                          </div>
-                          <span className="font-display text-base font-black text-white">
-                            {opt.percentage}%
-                          </span>
-                        </div>
-                      </div>
+                        <th
+                          scope="row"
+                          className="py-3.5 pr-4 font-display font-bold text-left"
+                        >
+                          {formatOrdinal(row.rank)}
+                        </th>
+                        <td className="py-3.5 pr-4 font-mono">
+                          {row.prize > 0 ? row.prize.toLocaleString() : "—"}
+                        </td>
+                        <td className="py-3.5 pr-4">
+                          {row.profiles?.username ?? "Player"}
+                          {isMe ? " (You)" : ""}
+                        </td>
+                        <td className="py-3.5 pr-4 font-mono font-bold">
+                          {row.points}
+                        </td>
+                        <td className="py-3.5 text-right font-mono">
+                          {formatDuration(row.response_ms)}
+                        </td>
+                      </tr>
                     );
-                  })}
-                </div>
-              </div>
-            ))}
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-10 text-center text-sm text-slate-500"
+                    >
+                      {searchQuery
+                        ? `No player matching "${searchQuery}"`
+                        : "No plays recorded yet in this session."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
+      )}
+
+      {/* ── Tab 2: Winners Board (Product Document Page 20) ── */}
+      {tab === "winners" && (
+        <div className="space-y-6">
+          {/* 36 Winners / N500,000 Prize Breakdown (Page 20) */}
+          <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-white">
+                36 WINNERS / ₦500,000
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                The leaderboard displays the scores of the players and rewards top players every 3 days.
+              </p>
+            </div>
+
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Prize breakdown table"
+              className="overflow-x-auto"
+            >
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
+                    <th className="py-3 pr-4">Position</th>
+                    <th className="py-3 pr-4">Prize (₦)</th>
+                    <th className="py-3 text-right">Total (₦)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PRIZE_TIERS_36.map((tier) => (
+                    <tr
+                      key={tier.position}
+                      className="border-b border-white/10 text-slate-200"
+                    >
+                      <th scope="row" className="py-3 pr-4 font-display font-bold text-left">
+                        {tier.position}
+                      </th>
+                      <td className="py-3 pr-4 font-mono">{tier.prize}</td>
+                      <td className="py-3 text-right font-mono">{tier.total}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-bold text-white">
+                    <th scope="row" className="py-3.5 pr-4 text-left">
+                      Total
+                    </th>
+                    <td className="py-3.5 pr-4" />
+                    <td className="py-3.5 text-right font-mono text-accent">
+                      500,000
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* Past Session Winners */}
+          <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-bold text-white">
+                Previous Session Winners
+              </h2>
+              {completedSessions.length > 0 && (
+                <select
+                  value={selectedCompletedId}
+                  onChange={(e) => setSelectedCompletedId(e.target.value)}
+                  aria-label="Select completed session"
+                  className="rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-xs text-white focus:border-accent focus:outline-none"
+                >
+                  {completedSessions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Completed session winners"
+              className="overflow-x-auto"
+            >
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
+                    <th className="py-3 pr-4">Position</th>
+                    <th className="py-3 pr-4">Prize (₦)</th>
+                    <th className="py-3 pr-4">Name</th>
+                    <th className="py-3 pr-4">Points</th>
+                    <th className="py-3 text-right">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {completedWinners.map((w) => (
+                    <tr
+                      key={w.user_id}
+                      className="border-b border-white/10 last:border-0 text-slate-200"
+                    >
+                      <th scope="row" className="py-3.5 pr-4 font-display font-bold text-left">
+                        {formatOrdinal(w.rank)}
+                      </th>
+                      <td className="py-3.5 pr-4 font-mono text-accent">
+                        {w.prize > 0 ? w.prize.toLocaleString() : "—"}
+                      </td>
+                      <td className="py-3.5 pr-4">
+                        {w.profiles?.username ?? "Player"}
+                      </td>
+                      <td className="py-3.5 pr-4 font-mono font-bold">
+                        {w.points}
+                      </td>
+                      <td className="py-3.5 text-right font-mono text-slate-400">
+                        {formatDuration(w.response_ms)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

@@ -2,47 +2,36 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MobileNav, Logo } from "@/components/ui";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { getUserWallet, type WalletRow } from "@/lib/supabase/queries";
 import {
   TrendingUpIcon,
   PlayIcon,
-  CalendarIcon,
   TrophyIcon,
-  CoinsIcon,
-  GiftIcon,
   UsersIcon,
   HelpCircleIcon,
   TargetIcon,
   ZapIcon,
+  InfoIcon,
 } from "@/components/ui/Icons";
 
-/* ── Navigation structure from Sidebar Content IA ── */
 const navGroups = [
   {
-    label: "Main",
+    label: "Game",
     items: [
-      { label: "Dashboard", href: "/dashboard", Icon: TrendingUpIcon },
-      { label: "Play Now", href: "/play", Icon: PlayIcon },
-      { label: "Sessions", href: "/sessions", Icon: CalendarIcon },
+      { label: "Home", href: "/dashboard", Icon: TrendingUpIcon },
+      { label: "Play", href: "/play", Icon: PlayIcon },
       { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon },
     ],
   },
   {
-    label: "Finance",
+    label: "Options",
     items: [
-      { label: "Wallet", href: "/wallet", Icon: CoinsIcon },
-      { label: "Rewards", href: "/rewards", Icon: GiftIcon },
-      { label: "Referrals", href: "/referrals", Icon: UsersIcon },
-    ],
-  },
-  {
-    label: "Account",
-    items: [
-      { label: "Support", href: "/support", Icon: HelpCircleIcon },
       { label: "Profile", href: "/profile", Icon: TargetIcon },
+      { label: "Referrals", href: "/referrals", Icon: UsersIcon },
+      { label: "How to Play", href: "/how-to-play", Icon: InfoIcon },
+      { label: "Support", href: "/support", Icon: HelpCircleIcon },
       { label: "Settings", href: "/settings", Icon: ZapIcon },
     ],
   },
@@ -52,18 +41,10 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
-  const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Player";
   const initials = displayName.slice(0, 2).toUpperCase();
-
-  useEffect(() => {
-    if (!user) return;
-    getUserWallet(user.id)
-      .then(setWallet)
-      .catch((err) => console.error("Wallet header load error:", err));
-  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -73,14 +54,12 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   return (
     <div className="flex min-h-screen bg-[#07090e] text-slate-100">
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden md:flex md:w-64 lg:w-72 flex-col border-r border-white/5 bg-[#0b0e17]/90 backdrop-blur-2xl fixed inset-y-0 left-0 z-40">
-        {/* Logo */}
+      <aside className="hidden md:flex md:w-60 flex-col border-r border-white/5 bg-[#0b0e17] fixed inset-y-0 left-0 z-40">
         <div className="px-6 py-5 border-b border-white/5">
           <Logo size="sm" />
         </div>
 
-        {/* Nav groups */}
-        <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
+        <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-6" aria-label="Main navigation">
           {navGroups.map((group) => (
             <div key={group.label} className="space-y-1">
               <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
@@ -95,9 +74,9 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-all duration-200 ${
+                        className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors duration-200 ${
                           active
-                            ? "bg-accent-muted text-accent font-semibold border border-accent/30 shadow-md shadow-accent/10"
+                            ? "bg-accent-muted text-accent font-semibold border border-accent/30"
                             : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
                         }`}
                       >
@@ -112,15 +91,18 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           ))}
         </nav>
 
-        {/* User section at bottom */}
         <div className="border-t border-white/5 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="grid size-9 place-items-center rounded-xl bg-accent font-display text-xs font-bold text-white shadow-md">
+            <Link
+              href="/profile"
+              className="grid size-9 place-items-center rounded-xl bg-accent font-display text-xs font-bold text-white"
+            >
               {initials}
-            </div>
+            </Link>
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-semibold text-white">{displayName}</p>
               <button
+                type="button"
                 onClick={handleSignOut}
                 className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
               >
@@ -132,44 +114,43 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
       </aside>
 
       {/* ── Main content ── */}
-      <main className="flex-1 md:ml-64 lg:ml-72 min-w-0 flex flex-col">
-        {/* Top bar (mobile view WIMBF redesign) */}
-        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/5 bg-[#0b0e17]/85 px-4 py-3 backdrop-blur-2xl md:hidden">
+      <main className="flex-1 md:ml-60 min-w-0 flex flex-col">
+        {/* Clean Mobile Header */}
+        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/5 bg-[#0b0e17]/90 px-4 py-3 backdrop-blur-xl md:hidden">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Open menu"
               className="p-2 rounded-xl bg-white/5 text-slate-300 hover:text-white"
             >
-              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
             <Logo size="sm" />
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <Link
-              href="/wallet"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-400 shadow-sm"
-            >
-              <CoinsIcon className="size-3.5" />
-              <span>{wallet?.coin_balance.toLocaleString() ?? 0}</span>
-            </Link>
-
-            <Link
-              href="/profile"
-              className="grid size-8 place-items-center rounded-xl bg-accent text-xs font-bold text-white shadow-md"
-            >
+          <Link
+            href="/profile"
+            className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-white"
+          >
+            <span className="grid size-6 place-items-center rounded-lg bg-accent text-[10px] font-bold text-white">
               {initials}
-            </Link>
-          </div>
+            </span>
+            <span className="max-w-24 truncate">{displayName}</span>
+          </Link>
         </header>
 
-        {/* Full Mobile Navigation Menu Drawer */}
+        {/* Mobile Drawer */}
         {menuOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl md:hidden flex flex-col p-6 space-y-6 animate-fade-in">
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl md:hidden flex flex-col p-6 space-y-6 animate-fade-in">
             <div className="flex items-center justify-between border-b border-white/5 pb-4">
               <Logo size="sm" />
               <button
+                type="button"
                 onClick={() => setMenuOpen(false)}
+                aria-label="Close menu"
                 className="p-2 text-slate-400 hover:text-white text-lg"
               >
                 ✕
@@ -188,7 +169,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                         key={item.href}
                         href={item.href}
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-sm font-semibold text-slate-200"
+                        className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm font-medium text-slate-200"
                       >
                         <item.Icon className="size-4 text-accent" />
                         <span>{item.label}</span>
@@ -205,6 +186,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                 <p className="text-xs text-slate-400">{user?.email}</p>
               </div>
               <button
+                type="button"
                 onClick={handleSignOut}
                 className="px-4 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold"
               >
@@ -214,12 +196,11 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           </div>
         )}
 
-        <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8 pb-28 md:pb-8 flex-1 w-full">
+        <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8 pb-28 md:pb-10 flex-1 w-full">
           {children}
         </div>
       </main>
 
-      {/* ── Mobile WIMBF Floating Dock Nav ── */}
       <MobileNav />
     </div>
   );

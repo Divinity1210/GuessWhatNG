@@ -45,62 +45,45 @@ function getFallbackUserId(): string {
   return "demo-naija-player";
 }
 
-// ─── Join Session ────────────────────────────────────────────────────────────
+// ─── Join Session (Free to Play + Supports Replay) ───────────────────────────
 
-export async function joinSession(sessionId: string): Promise<string> {
+export async function joinSession(
+  sessionId: string,
+  replay = false,
+): Promise<string> {
   const supabase = createSupabaseBrowserClient();
 
   try {
-    const { data: user } = await supabase.auth.getUser();
-    if (user?.user) {
-      const { data: existing } = await supabase
-        .from("session_entries")
-        .select("id")
-        .eq("session_id", sessionId)
-        .eq("user_id", user.user.id)
-        .maybeSingle();
-
-      if (existing) return existing.id;
-
-      const { data, error } = await supabase.rpc("join_session", {
-        p_session_id: sessionId,
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+    if (userId) {
+      const res = await fetch("/api/game/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "join",
+          sessionId,
+          userId,
+          replay,
+        }),
       });
-
-      if (!error && data) {
-        return data as string;
-      }
-
-      if (error) {
-        if (error.message.includes("insufficient coins")) {
-          throw new Error(
-            "You don't have enough coins to join this session. Buy more coins from your wallet.",
-          );
+      const json = await res.json();
+      if (res.ok && json.entryId) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(`gw_answers_${json.entryId}`);
         }
-        if (error.message.includes("session not open")) {
-          throw new Error("This session is no longer open for entry.");
-        }
+        return json.entryId as string;
       }
     }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "";
-    if (msg.includes("enough coins") || msg.includes("no longer open")) {
-      throw err;
-    }
-    // Otherwise fall through to local session entry
+  } catch {
+    // Fall through to local fallback
   }
 
-  // Local fallback entry when remote Supabase is paused/offline
   const userId = getFallbackUserId();
   const localEntryKey = `gw_entry_${userId}_${sessionId}`;
   if (typeof window !== "undefined") {
-    const existingEntryId = localStorage.getItem(localEntryKey);
-    if (existingEntryId) return existingEntryId;
-
     const newEntryId = `local-entry-${sessionId}-${Date.now()}`;
     localStorage.setItem(localEntryKey, newEntryId);
-    // Deduct 50 coins locally
-    const prevBonus = Number(localStorage.getItem(`gw_bonus_coins_${userId}`) ?? "0");
-    localStorage.setItem(`gw_bonus_coins_${userId}`, String(prevBonus - 50));
     return newEntryId;
   }
 
@@ -109,7 +92,9 @@ export async function joinSession(sessionId: string): Promise<string> {
 
 // ─── Fetch Session Questions ─────────────────────────────────────────────────
 
-export async function getSessionQuestions(sessionId: string): Promise<SessionQuestion[]> {
+export async function getSessionQuestions(
+  sessionId: string,
+): Promise<SessionQuestion[]> {
   try {
     const supabase = createSupabaseBrowserClient();
 
@@ -172,7 +157,7 @@ export async function getSessionQuestions(sessionId: string): Promise<SessionQue
   }));
 }
 
-// ─── Submit Answer ───────────────────────────────────────────────────────────
+// ─── Submit Answer & Recalculate Live Leaderboard ────────────────────────────
 
 export async function submitAnswer(
   entryId: string,
@@ -180,7 +165,11 @@ export async function submitAnswer(
   optionId: string,
   responseMs: number,
   isLocked2x = false,
-): Promise<void> {
+  sessionId?: string,
+): Promise<{
+  completed?: boolean;
+  myStats?: { rank: number; points: number; responseMs: number; prize: number } | null;
+}> {
   if (typeof window !== "undefined") {
     const raw = localStorage.getItem(`gw_answers_${entryId}`);
     const map = raw ? JSON.parse(raw) : {};
@@ -189,40 +178,43 @@ export async function submitAnswer(
   }
 
   if (entryId.startsWith("local-entry-")) {
-    return;
+    return {};
   }
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    let targetSessionId = sessionId;
+    if (!targetSessionId) {
+      const supabase = createSupabaseBrowserClient();
+      const { data: ent } = await supabase
+        .from("session_entries")
+        .select("session_id")
+        .eq("id", entryId)
+        .maybeSingle();
+      targetSessionId = ent?.session_id;
+    }
 
-    let { error } = await supabase.rpc("submit_answer", {
-      p_entry_id: entryId,
-      p_question_id: questionId,
-      p_option_id: optionId,
-      p_response_ms: responseMs,
-      p_is_locked_2x: isLocked2x,
-    });
-
-    if (
-      error &&
-      (error.message.includes("p_is_locked_2x") || error.message.includes("function submit_answer"))
-    ) {
-      const retry = await supabase.rpc("submit_answer", {
-        p_entry_id: entryId,
-        p_question_id: questionId,
-        p_option_id: optionId,
-        p_response_ms: responseMs,
+    if (targetSessionId) {
+      const res = await fetch("/api/game/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "answer",
+          entryId,
+          sessionId: targetSessionId,
+          questionId,
+          optionId,
+          responseMs,
+        }),
       });
-      error = retry.error;
+      if (res.ok) {
+        return await res.json();
+      }
     }
-
-    if (error && error.message.includes("entry not open")) {
-      throw new Error("This session has closed. Your answer could not be submitted.");
-    }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "";
-    if (msg.includes("session has closed")) throw err;
+  } catch {
+    // Ignore
   }
+
+  return {};
 }
 
 // ─── Check Existing Entry ────────────────────────────────────────────────────
@@ -234,7 +226,7 @@ export async function getExistingEntry(sessionId: string) {
     if (user?.user) {
       const { data } = await supabase
         .from("session_entries")
-        .select("id, completed_at, total_score, final_rank")
+        .select("id, completed_at, total_score, total_response_ms, final_rank")
         .eq("session_id", sessionId)
         .eq("user_id", user.user.id)
         .maybeSingle();
@@ -243,22 +235,6 @@ export async function getExistingEntry(sessionId: string) {
     }
   } catch {
     // Fall through
-  }
-
-  if (typeof window !== "undefined") {
-    const userId = getFallbackUserId();
-    const localEntryId = localStorage.getItem(`gw_entry_${userId}_${sessionId}`);
-    if (localEntryId) {
-      const rawAnswers = localStorage.getItem(`gw_answers_${localEntryId}`);
-      const answers = rawAnswers ? JSON.parse(rawAnswers) : {};
-      const count = Object.keys(answers).length;
-      return {
-        id: localEntryId,
-        completed_at: count >= VIRAL_DEMO_QUESTIONS.length ? new Date().toISOString() : null,
-        total_score: null,
-        final_rank: null,
-      };
-    }
   }
 
   return null;
@@ -301,6 +277,5 @@ export async function getMyAnswers(entryId: string) {
       }
     }
   }
-
   return {};
 }
