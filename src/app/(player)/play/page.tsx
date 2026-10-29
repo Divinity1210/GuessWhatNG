@@ -67,6 +67,13 @@ export default function PlayPage() {
   const [soundMuted, setSoundMutedState] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
 
+  // Gameplay state
+  const [phase, setPhase] = useState<Phase>("lobby");
+  const [entryId, setEntryId] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<SessionQuestion[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
     const syncAudio = () => {
       setSoundMutedState(isSoundMuted());
@@ -97,13 +104,6 @@ export default function PlayPage() {
     const active = toggleBackgroundMusic();
     setMusicPlaying(active);
   };
-
-  // Gameplay state
-  const [phase, setPhase] = useState<Phase>("lobby");
-  const [entryId, setEntryId] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<SessionQuestion[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
 
   // Unlimited count-up timer from 0 (Product Document Page 27)
   const [questionStartTime, setQuestionStartTime] = useState(0);
