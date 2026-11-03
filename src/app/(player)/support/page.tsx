@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button, Badge, EmptyState } from "@/components/ui";
-import { HelpCircleIcon } from "@/components/ui/Icons";
+import { useEffect, useState, useCallback } from "react";
+import { Button, Badge } from "@/components/ui";
+import { HelpCircleIcon, StarIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { getMyTickets, getTicketMessages, createTicket, sendTicketMessage, type TicketRow, type TicketMessageRow } from "@/lib/supabase/queries";
+import {
+  getMyTickets,
+  getTicketMessages,
+  sendTicketMessage,
+  type TicketRow,
+  type TicketMessageRow,
+} from "@/lib/supabase/queries";
 
 export default function SupportPage() {
   const { user } = useAuth();
@@ -14,29 +20,36 @@ export default function SupportPage() {
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
 
-  // New ticket form
+  // New ticket / feedback form
+  const [category, setCategory] = useState<"support" | "feedback">("support");
+  const [rating, setRating] = useState<number>(5);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [creating, setCreating] = useState(false);
+  const [submitBanner, setSubmitBanner] = useState<string | null>(null);
 
   // Reply form
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    async function load() {
-      try {
-        const t = await getMyTickets(user!.id);
-        setTickets(t);
-      } catch (err) {
-        console.error("Support load error:", err);
-      } finally {
-        setLoading(false);
+  const loadTickets = useCallback(async () => {
+    try {
+      const uid = user?.id ?? "";
+      const t = await getMyTickets(uid);
+      setTickets(t);
+      if (t.length > 0 && !selectedTicket) {
+        setSelectedTicket(t[0].id);
       }
+    } catch (err) {
+      console.error("Support load error:", err);
+    } finally {
+      setLoading(false);
     }
-    load();
-  }, [user]);
+  }, [user?.id, selectedTicket]);
+
+  useEffect(() => {
+    loadTickets();
+  }, [loadTickets]);
 
   useEffect(() => {
     if (!selectedTicket) return;
@@ -49,16 +62,39 @@ export default function SupportPage() {
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !subject.trim() || !body.trim()) return;
+    if (!subject.trim() || !body.trim()) return;
     setCreating(true);
+    setSubmitBanner(null);
     try {
-      const ticketId = await createTicket(user.id, subject.trim(), body.trim());
+      const res = await fetch("/api/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user?.id ?? "",
+          category,
+          rating: category === "feedback" ? rating : undefined,
+          subject: subject.trim(),
+          message: body.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit");
+
+      const newId = data.ticket?.id as string | undefined;
       setSubject("");
       setBody("");
       setShowNew(false);
-      const t = await getMyTickets(user.id);
+      setSubmitBanner(
+        category === "feedback"
+          ? "Thank you! Your gameplay feedback has been submitted."
+          : "Your customer support ticket has been created.",
+      );
+      const t = await getMyTickets(user?.id ?? "");
       setTickets(t);
-      setSelectedTicket(ticketId);
+      if (newId) setSelectedTicket(newId);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("gw-inbox-updated"));
+      }
     } catch (err) {
       console.error("Create ticket error:", err);
     } finally {
@@ -68,10 +104,10 @@ export default function SupportPage() {
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !selectedTicket || !reply.trim()) return;
+    if (!selectedTicket || !reply.trim()) return;
     setSending(true);
     try {
-      await sendTicketMessage(selectedTicket, user.id, reply.trim());
+      await sendTicketMessage(selectedTicket, user?.id ?? "", reply.trim());
       setReply("");
       const msgs = await getTicketMessages(selectedTicket);
       setMessages(msgs);
@@ -82,7 +118,8 @@ export default function SupportPage() {
     }
   };
 
-  const inputClass = "w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30";
+  const inputClass =
+    "w-full rounded-xl border border-white/15 bg-[#07090e] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none";
 
   if (loading) {
     return (
@@ -99,31 +136,169 @@ export default function SupportPage() {
     closed: "default",
   };
 
+  const activeTicketObj = tickets.find((t) => t.id === selectedTicket);
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold">Support</h1>
-        <Button size="sm" onClick={() => { setShowNew(true); setSelectedTicket(null); }}>
-          New Ticket
-        </Button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-white">
+            Support &amp; Gameplay Feedback
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Submit a customer support ticket or share gameplay feedback with the Guess What team.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => {
+              setCategory("support");
+              setShowNew(true);
+            }}
+          >
+            + Support Ticket
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setCategory("feedback");
+              setShowNew(true);
+            }}
+          >
+            ★ Gameplay Feedback
+          </Button>
+        </div>
       </div>
 
-      {/* ── New ticket form ── */}
+      {submitBanner && (
+        <div
+          role="status"
+          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 flex items-center justify-between"
+        >
+          <span>{submitBanner}</span>
+          <button
+            type="button"
+            onClick={() => setSubmitBanner(null)}
+            className="text-xs text-emerald-200 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* ── New ticket / feedback form ── */}
       {showNew && (
-        <section className="rounded-card border border-rule bg-paper-2 p-6">
-          <h2 className="font-display text-lg font-bold">Create Support Ticket</h2>
-          <form className="mt-4 space-y-4" onSubmit={handleCreateTicket}>
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-lg font-bold text-white">
+              {category === "feedback"
+                ? "Submit Gameplay Feedback"
+                : "Create Customer Support Ticket"}
+            </h2>
+            <div className="inline-flex rounded-xl border border-white/10 bg-[#07090e] p-1">
+              <button
+                type="button"
+                onClick={() => setCategory("support")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  category === "support"
+                    ? "bg-accent text-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Support Ticket
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategory("feedback")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  category === "feedback"
+                    ? "bg-accent text-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Gameplay Feedback
+              </button>
+            </div>
+          </div>
+
+          <form className="space-y-4" onSubmit={handleCreateTicket}>
+            {category === "feedback" && (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">
+                  Gameplay Experience Rating
+                </label>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      className={`inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-bold transition-colors ${
+                        rating >= star
+                          ? "border-amber-400/50 bg-amber-400/15 text-amber-300"
+                          : "border-white/10 bg-white/[0.02] text-slate-500"
+                      }`}
+                    >
+                      <StarIcon className="size-3.5" />
+                      <span>{star}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
-              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Subject</label>
-              <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Brief description" required className={inputClass} />
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">
+                Subject
+              </label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder={
+                  category === "feedback"
+                    ? "e.g. Suggestion for session questions or leaderboard"
+                    : "Brief description of your issue"
+                }
+                required
+                className={inputClass}
+              />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted">Message</label>
-              <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Describe your issue..." required rows={4} className={inputClass} />
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">
+                {category === "feedback" ? "Your Feedback" : "Message"}
+              </label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={
+                  category === "feedback"
+                    ? "Tell us what you love or what we should improve..."
+                    : "Describe your issue in detail..."
+                }
+                required
+                rows={4}
+                className={inputClass}
+              />
             </div>
             <div className="flex gap-3">
-              <Button type="submit" disabled={creating}>{creating ? "Creating..." : "Submit Ticket"}</Button>
-              <Button type="button" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+              <Button type="submit" disabled={creating}>
+                {creating
+                  ? "Submitting..."
+                  : category === "feedback"
+                  ? "Submit Feedback"
+                  : "Submit Ticket"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowNew(false)}
+              >
+                Cancel
+              </Button>
             </div>
           </form>
         </section>
@@ -132,55 +307,133 @@ export default function SupportPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* ── Ticket list ── */}
         <section className="lg:col-span-1 space-y-2">
-          {tickets.length > 0 ? tickets.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => { setSelectedTicket(t.id); setShowNew(false); }}
-              className={`w-full text-left rounded-[var(--radius-sm)] border px-4 py-3 transition-all ${
-                selectedTicket === t.id ? "border-accent bg-accent-muted" : "border-rule bg-paper-2 hover:border-rule-2"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-ink truncate">{t.subject}</p>
-                <Badge variant={statusColors[t.status] ?? "default"} className="text-[0.6rem]">{t.status}</Badge>
-              </div>
-              <p className="text-xs text-ink-muted mt-1">{new Date(t.updated_at).toLocaleDateString("en-NG")}</p>
-            </button>
-          )) : (
-            <p className="text-sm text-ink-muted text-center py-8">No tickets yet.</p>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
+            Your Tickets &amp; Feedback ({tickets.length})
+          </h2>
+          {tickets.length > 0 ? (
+            tickets.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setSelectedTicket(t.id);
+                  setShowNew(false);
+                }}
+                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all ${
+                  selectedTicket === t.id
+                    ? "border-accent bg-accent/10"
+                    : "border-white/10 bg-[#0d111c] hover:border-white/20"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-white truncate">
+                    {t.subject}
+                  </p>
+                  <Badge
+                    variant={statusColors[t.status] ?? "default"}
+                    className="text-[0.65rem] shrink-0"
+                  >
+                    {t.status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Updated {new Date(t.updated_at).toLocaleDateString("en-NG")}
+                </p>
+              </button>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-8 text-center">
+              <p className="text-sm text-slate-400">
+                No tickets or feedback submitted yet.
+              </p>
+            </div>
           )}
         </section>
 
         {/* ── Conversation ── */}
-        <section className="lg:col-span-2 rounded-card border border-rule bg-paper-2 p-6">
+        <section className="lg:col-span-2 rounded-2xl border border-white/10 bg-[#0d111c] p-6">
           {selectedTicket ? (
             <>
-              <h2 className="font-display text-lg font-bold mb-4">Conversation</h2>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {messages.map((msg) => {
-                  const isMe = msg.sender_id === user?.id;
-                  return (
-                    <div key={msg.id} className={`rounded-[var(--radius-sm)] px-4 py-3 ${
-                      isMe ? "bg-accent-muted border border-accent/20 ml-8" : "bg-paper-3 border border-rule/50 mr-8"
-                    }`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-medium text-ink">{isMe ? "You" : msg.profiles?.username ?? "Support"}</p>
-                        <p className="text-xs text-ink-muted">{new Date(msg.created_at).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}</p>
-                      </div>
-                      <p className="text-sm text-ink-2">{msg.body}</p>
-                    </div>
-                  );
-                })}
+              <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+                <div>
+                  <h2 className="font-display text-lg font-bold text-white">
+                    {activeTicketObj?.subject ?? "Conversation"}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Replies from Admin Support also trigger an alert in your Player Inbox.
+                  </p>
+                </div>
+                {activeTicketObj && (
+                  <Badge variant={statusColors[activeTicketObj.status] ?? "default"}>
+                    {activeTicketObj.status}
+                  </Badge>
+                )}
               </div>
+
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                {messages.length > 0 ? (
+                  messages.map((msg) => {
+                    const isAdminReply =
+                      msg.profiles?.role &&
+                      msg.profiles.role !== "player";
+                    const isMe = !isAdminReply && msg.sender_id === user?.id;
+
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`rounded-xl px-4 py-3 ${
+                          isMe
+                            ? "bg-accent/15 border border-accent/30 ml-6"
+                            : "bg-white/[0.04] border border-white/10 mr-6"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs font-semibold text-white">
+                            {isAdminReply
+                              ? "Guess What Support Team"
+                              : isMe
+                              ? "You"
+                              : msg.profiles?.username ?? "Player"}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {new Date(msg.created_at).toLocaleString("en-NG", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                          </p>
+                        </div>
+                        <p className="text-sm text-slate-200 whitespace-pre-line">
+                          {msg.body}
+                        </p>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-slate-400 py-6 text-center">
+                    No messages in this thread yet.
+                  </p>
+                )}
+              </div>
+
               <form className="mt-4 flex gap-2" onSubmit={handleReply}>
-                <input type="text" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Type a reply..." className={`flex-1 ${inputClass}`} />
-                <Button type="submit" size="sm" disabled={sending}>{sending ? "..." : "Send"}</Button>
+                <input
+                  type="text"
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  placeholder="Type a follow-up message..."
+                  className={`flex-1 ${inputClass}`}
+                />
+                <Button type="submit" size="sm" disabled={sending}>
+                  {sending ? "..." : "Send"}
+                </Button>
               </form>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <HelpCircleIcon className="size-10 text-ink-muted mb-3" />
-              <p className="text-sm text-ink-muted">Select a ticket or create a new one.</p>
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <HelpCircleIcon className="size-10 text-slate-500 mb-3" />
+              <p className="text-sm text-slate-400">
+                Select a ticket from the list or create a new support request / feedback above.
+              </p>
             </div>
           )}
         </section>

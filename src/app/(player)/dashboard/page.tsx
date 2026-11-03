@@ -64,6 +64,8 @@ export default function DashboardPage() {
   const [liveLeaderboard, setLiveLeaderboard] = useState<LeaderboardRow[]>([]);
   const [totalGuesses, setTotalGuesses] = useState(0);
   const [previousWinners, setPreviousWinners] = useState<LeaderboardRow[]>([]);
+  const [previousSessionName, setPreviousSessionName] = useState<string>("Lagos vs Abuja Street Derby");
+  const [unreadInboxCount, setUnreadInboxCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Live animation & sound states
@@ -119,7 +121,7 @@ export default function DashboardPage() {
         "startViewTransition" in document
       ) {
         (document as Document & { startViewTransition: (cb: () => void) => void }).startViewTransition(
-          commitUpdate
+          commitUpdate,
         );
       } else {
         commitUpdate();
@@ -132,7 +134,7 @@ export default function DashboardPage() {
         }, 2600);
       }
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -141,6 +143,8 @@ export default function DashboardPage() {
         const activeSessions = await getActiveSessions();
         const active = activeSessions[0] ?? null;
         setActiveSession(active);
+
+        let completedSessionFromApi: SessionRow | null = null;
 
         if (active) {
           const res = await fetch(
@@ -155,13 +159,33 @@ export default function DashboardPage() {
             }
             setLiveLeaderboard(initial);
             setTotalGuesses(data.totalGuesses ?? 0);
+
+            if (Array.isArray(data.sessions)) {
+              completedSessionFromApi =
+                (data.sessions as SessionRow[]).find((s) => s.status === "completed") ?? null;
+            }
           }
         }
 
-        const latestCompletedId = await getLatestCompletedSessionId();
+        const latestCompletedId =
+          completedSessionFromApi?.id ?? (await getLatestCompletedSessionId());
+        if (completedSessionFromApi?.name) {
+          setPreviousSessionName(completedSessionFromApi.name);
+        }
         if (latestCompletedId) {
-          const prevLb = await getSessionLeaderboard(latestCompletedId, 5);
-          setPreviousWinners(prevLb);
+          const prevLb = await getSessionLeaderboard(latestCompletedId, 3);
+          setPreviousWinners(prevLb.slice(0, 3));
+        }
+
+        const inboxRes = await fetch(
+          `/api/inbox?userId=${encodeURIComponent(user?.id ?? "")}`,
+          { cache: "no-store" },
+        ).catch(() => null);
+        if (inboxRes && inboxRes.ok) {
+          const inboxData = await inboxRes.json();
+          if (typeof inboxData.unreadCount === "number") {
+            setUnreadInboxCount(inboxData.unreadCount);
+          }
         }
       } catch (err) {
         console.error("Dashboard load error:", err);
@@ -226,7 +250,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* ── Primary Play Card (Product Document Page 31 & 34) ── */}
+      {/* ── Primary Play Card (Product Document Page 32 & 33) ── */}
       <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 sm:p-10">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-3 max-w-xl">
@@ -237,6 +261,15 @@ export default function DashboardPage() {
               <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 px-3 py-0.5 text-xs font-semibold text-emerald-400">
                 Free to Play
               </span>
+              {unreadInboxCount > 0 && (
+                <Link
+                  href="/inbox"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/35 px-3 py-0.5 text-xs font-semibold text-accent hover:bg-accent/25 transition-colors"
+                >
+                  <span className="size-1.5 rounded-full bg-accent animate-pulse" />
+                  <span>{unreadInboxCount} Unread in Inbox</span>
+                </Link>
+              )}
             </div>
 
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
@@ -245,7 +278,7 @@ export default function DashboardPage() {
 
             <p className="text-sm text-slate-400 leading-relaxed">
               Predict the option most players will select across 10 quick questions.
-              Top scorers share{" "}
+              Top 36 scorers share{" "}
               <strong className="text-white">
                 {formatNaira(activeSession?.prize_pool ?? 500_000)}
               </strong>{" "}
@@ -313,7 +346,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ── Live Animated Leaderboard (Product Document Page 19 & 29) ── */}
+      {/* ── Live Animated Leaderboard (Product Document Page 19 & 27) ── */}
       <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
@@ -409,7 +442,7 @@ export default function DashboardPage() {
                         </span>
                       </td>
                       <td className="py-3.5 pr-4 font-medium text-slate-300 tabular-nums">
-                        {row.prize > 0 ? row.prize.toLocaleString() : "—"}
+                        {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "—"}
                       </td>
                       <td className="py-3.5 pr-4">
                         {row.profiles?.username ?? profile?.username ?? "Player"}
@@ -436,15 +469,20 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ── Previous Winners (Product Document Page 20 & 34) ── */}
+      {/* ── Previous Session Winners (Product Document Page 20, 32 & 33) ── */}
       {previousWinners.length > 0 && (
         <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div className="flex items-center gap-2.5">
               <TrophyIcon className="size-4 text-amber-400" />
-              <h2 className="font-display text-lg font-bold text-white">
-                Previous Winners
-              </h2>
+              <div>
+                <h2 className="font-display text-lg font-bold text-white">
+                  Previous Session Winners
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Top 3 Winners · {previousSessionName}
+                </p>
+              </div>
             </div>
             <Link
               href="/leaderboard?tab=winners"
@@ -458,7 +496,7 @@ export default function DashboardPage() {
           <div
             tabIndex={0}
             role="region"
-            aria-label="Previous session winners"
+            aria-label="Previous session top 3 winners"
             className="overflow-x-auto"
           >
             <table className="w-full text-sm">
@@ -467,11 +505,12 @@ export default function DashboardPage() {
                   <th className="py-2.5 pr-4">Position</th>
                   <th className="py-2.5 pr-4">Name</th>
                   <th className="py-2.5 pr-4">Points</th>
+                  <th className="py-2.5 pr-4">Time</th>
                   <th className="py-2.5 text-right">Prize Won</th>
                 </tr>
               </thead>
               <tbody>
-                {previousWinners.slice(0, 5).map((w) => (
+                {previousWinners.slice(0, 3).map((w) => (
                   <tr
                     key={w.user_id}
                     className="border-b border-white/5 last:border-0 text-slate-200"
@@ -480,7 +519,10 @@ export default function DashboardPage() {
                       {formatOrdinal(w.rank)}
                     </td>
                     <td className="py-3 pr-4">{w.profiles?.username ?? "Player"}</td>
-                    <td className="py-3 pr-4 font-mono tabular-nums">{w.points}</td>
+                    <td className="py-3 pr-4 font-mono font-bold tabular-nums">{w.points}</td>
+                    <td className="py-3 pr-4 font-mono text-slate-400 tabular-nums">
+                      {formatDuration(w.response_ms)}
+                    </td>
                     <td className="py-3 text-right font-semibold text-accent tabular-nums">
                       {formatNaira(w.prize)}
                     </td>

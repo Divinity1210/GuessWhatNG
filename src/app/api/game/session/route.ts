@@ -42,7 +42,7 @@ async function recalculateLiveLeaderboard(
         .eq("session_id", sessionId),
     ]);
 
-  if (!entries || entries.length === 0 || !allAnswers) return [];
+  if (!entries || entries.length === 0 || !allAnswers || allAnswers.length === 0) return [];
 
   // Build option pick counts per question
   const countsByQuestion: Record<string, Record<string, number>> = {};
@@ -167,25 +167,49 @@ export async function GET(req: NextRequest) {
     const sessionId = searchParams.get("sessionId");
     const supabase = createSupabaseServiceClient();
 
-    let targetSessionId = sessionId;
-    if (!targetSessionId) {
-      const { data: active } = await supabase
+    const { data: allSessions } = await supabase
+      .from("game_sessions")
+      .select("id, name, status, starts_at, ends_at, prize_pool, prize_structure")
+      .in("status", ["active", "completed", "closing"])
+      .order("starts_at", { ascending: false })
+      .limit(20);
+
+    const sessions = (allSessions ?? []).sort((a, b) => {
+      if (a.status === "active" && b.status !== "active") return -1;
+      if (a.status !== "active" && b.status === "active") return 1;
+      return new Date(b.ends_at).getTime() - new Date(a.ends_at).getTime();
+    });
+
+    let targetSession = sessionId
+      ? sessions.find((s) => s.id === sessionId) ?? null
+      : sessions.find((s) => s.status === "active") ?? sessions[0] ?? null;
+
+    if (sessionId && !targetSession) {
+      const { data: fetchedSession } = await supabase
         .from("game_sessions")
-        .select("id")
-        .eq("status", "active")
-        .order("ends_at", { ascending: true })
-        .limit(1)
+        .select("id, name, status, starts_at, ends_at, prize_pool, prize_structure")
+        .eq("id", sessionId)
         .maybeSingle();
-      targetSessionId = active?.id ?? null;
+      if (fetchedSession) targetSession = fetchedSession;
     }
+
+    const targetSessionId = targetSession?.id ?? sessionId ?? null;
 
     if (!targetSessionId) {
-      return NextResponse.json({ ok: true, totalGuesses: 0, leaderboard: [] });
+      return NextResponse.json({
+        ok: true,
+        sessions,
+        session: null,
+        totalGuesses: 0,
+        leaderboard: [],
+      });
     }
 
-    await recalculateLiveLeaderboard(supabase, targetSessionId);
+    if (!targetSession || targetSession.status === "active") {
+      await recalculateLiveLeaderboard(supabase, targetSessionId);
+    }
 
-    const [{ data: lb }, { count: entryCount }] = await Promise.all([
+    const [{ data: lb }, { count: entryCount }, { count: answerCount }] = await Promise.all([
       supabase
         .from("leaderboards")
         .select("rank, points, response_ms, prize, user_id, profiles(username, avatar_url)")
@@ -196,12 +220,22 @@ export async function GET(req: NextRequest) {
         .from("session_entries")
         .select("id", { count: "exact", head: true })
         .eq("session_id", targetSessionId),
+      supabase
+        .from("answers")
+        .select("id", { count: "exact", head: true })
+        .eq("session_id", targetSessionId),
     ]);
+
+    const fallbackGuesses = (entryCount ?? lb?.length ?? 0) * 10;
+    const totalGuesses =
+      answerCount && answerCount > 0 ? Math.max(answerCount, fallbackGuesses) : fallbackGuesses;
 
     return NextResponse.json({
       ok: true,
       sessionId: targetSessionId,
-      totalGuesses: entryCount ?? lb?.length ?? 0,
+      session: targetSession,
+      sessions,
+      totalGuesses,
       leaderboard: lb ?? [],
     });
   } catch (err) {

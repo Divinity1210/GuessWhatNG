@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { MobileNav, Logo } from "@/components/ui";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { playMenuClick } from "@/lib/audio/sound-effects";
@@ -14,7 +14,29 @@ import {
   HelpCircleIcon,
   TargetIcon,
   ZapIcon,
+   type IconProps,
 } from "@/components/ui/Icons";
+
+function InboxIcon({ className = "size-5", size, ...props }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      width={size}
+      height={size}
+      {...props}
+    >
+      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </svg>
+  );
+}
 
 const navGroups = [
   {
@@ -23,6 +45,7 @@ const navGroups = [
       { label: "Home", href: "/dashboard", Icon: TrendingUpIcon },
       { label: "Play", href: "/play", Icon: PlayIcon },
       { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon },
+      { label: "Inbox", href: "/inbox", Icon: InboxIcon, showBadge: true },
     ],
   },
   {
@@ -42,6 +65,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Player";
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -50,6 +74,33 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
     user?.email === "admin@guesswhat.ng" ||
     user?.email === "master@guesswhat.ng" ||
     user?.email === "muyiwa.a@gramefdigitalagency.com";
+
+  const fetchUnread = useCallback(async () => {
+    try {
+      const uid = user?.id ?? "";
+      const res = await fetch(`/api/inbox?userId=${encodeURIComponent(uid)}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.unreadCount === "number") {
+          setUnreadCount(data.unreadCount);
+        }
+      }
+    } catch {
+      // Ignore network errors
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchUnread();
+  }, [fetchUnread, pathname]);
+
+  useEffect(() => {
+    const handler = () => fetchUnread();
+    window.addEventListener("gw-inbox-updated", handler);
+    return () => window.removeEventListener("gw-inbox-updated", handler);
+  }, [fetchUnread]);
 
   const handleSignOut = async () => {
     playMenuClick();
@@ -88,19 +139,29 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                   const active =
                     pathname === item.href ||
                     (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                  const badgeCount =
+                    "showBadge" in item && item.showBadge ? unreadCount : 0;
+
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
                         onClick={() => playMenuClick()}
-                        className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors duration-200 ${
+                        className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm transition-colors duration-200 ${
                           active
                             ? "bg-accent-muted text-accent font-semibold border border-accent/30"
                             : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
                         }`}
                       >
-                        <item.Icon className="size-4.5" />
-                        <span>{item.label}</span>
+                        <span className="flex items-center gap-3">
+                          <item.Icon className="size-4.5" />
+                          <span>{item.label}</span>
+                        </span>
+                        {badgeCount > 0 && (
+                          <span className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-white">
+                            {badgeCount}
+                          </span>
+                        )}
                       </Link>
                     </li>
                   );
@@ -172,16 +233,32 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             <Logo size="sm" />
           </div>
 
-          <Link
-            href="/profile"
-            onClick={() => playMenuClick()}
-            className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-white"
-          >
-            <span className="grid size-6 place-items-center rounded-lg bg-accent text-[10px] font-bold text-white">
-              {initials}
-            </span>
-            <span className="max-w-24 truncate">{displayName}</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/inbox"
+              onClick={() => playMenuClick()}
+              aria-label="Inbox"
+              className="relative p-2 rounded-xl bg-white/[0.04] border border-white/10 text-slate-300 hover:text-white"
+            >
+              <InboxIcon className="size-4.5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">
+                  {unreadCount}
+                </span>
+              )}
+            </Link>
+
+            <Link
+              href="/profile"
+              onClick={() => playMenuClick()}
+              className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-white"
+            >
+              <span className="grid size-6 place-items-center rounded-lg bg-accent text-[10px] font-bold text-white">
+                {initials}
+              </span>
+              <span className="max-w-24 truncate">{displayName}</span>
+            </Link>
+          </div>
         </header>
 
         {/* Mobile Drawer */}
@@ -209,20 +286,31 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                     {group.label}
                   </p>
                   <div className="grid grid-cols-2 gap-2">
-                    {group.items.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => {
-                          playMenuClick();
-                          setMenuOpen(false);
-                        }}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm font-medium text-slate-200"
-                      >
-                        <item.Icon className="size-4 text-accent" />
-                        <span>{item.label}</span>
-                      </Link>
-                    ))}
+                    {group.items.map((item) => {
+                      const badgeCount =
+                        "showBadge" in item && item.showBadge ? unreadCount : 0;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => {
+                            playMenuClick();
+                            setMenuOpen(false);
+                          }}
+                          className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm font-medium text-slate-200"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <item.Icon className="size-4 text-accent" />
+                            <span>{item.label}</span>
+                          </span>
+                          {badgeCount > 0 && (
+                            <span className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-white">
+                              {badgeCount}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
