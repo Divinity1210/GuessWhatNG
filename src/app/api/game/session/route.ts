@@ -224,26 +224,79 @@ export async function POST(req: NextRequest) {
 
       const { data: existing } = await supabase
         .from("session_entries")
-        .select("id, completed_at")
+        .select("id, joined_at, completed_at, total_score, total_response_ms, final_rank")
         .eq("session_id", sessionId)
         .eq("user_id", userId)
         .maybeSingle();
 
+      // Count prior play starts/replays for this user in this session
+      const { count: priorStarts } = await supabase
+        .from("audit_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("actor_id", userId)
+        .eq("target_id", sessionId)
+        .in("action", ["gameplay_start", "gameplay_replay"]);
+
+      const attemptNumber = (priorStarts ?? (existing ? 1 : 0)) + 1;
+
       if (existing) {
         if (replay || existing.completed_at) {
+          // Archive previous attempt before resetting so repeat gameplay & historical data are preserved
+          const { data: prevAnswers } = await supabase
+            .from("answers")
+            .select("question_id, option_id, response_ms")
+            .eq("entry_id", existing.id);
+
+          if ((prevAnswers && prevAnswers.length > 0) || existing.total_score !== null) {
+            const prevTotalMs =
+              existing.total_response_ms ??
+              (prevAnswers ?? []).reduce((s, a) => s + (a.response_ms ?? 0), 0);
+            await supabase.from("audit_logs").insert({
+              actor_id: userId,
+              action: "gameplay_attempt_archived",
+              target_table: "session_entries",
+              target_id: sessionId,
+              detail: {
+                entry_id: existing.id,
+                session_id: sessionId,
+                attempt_number: Math.max(1, attemptNumber - 1),
+                questions_answered: prevAnswers?.length ?? 10,
+                total_score: existing.total_score ?? 0,
+                total_response_ms: prevTotalMs,
+                final_rank: existing.final_rank ?? null,
+                started_at: existing.joined_at,
+                completed_at: existing.completed_at ?? new Date().toISOString(),
+              },
+            });
+          }
+
           // Reset previous attempt so user can play again ("Try again if you don't make it", Page 6)
           await supabase.from("answers").delete().eq("entry_id", existing.id);
           await supabase
             .from("session_entries")
             .update({
+              joined_at: new Date().toISOString(),
               completed_at: null,
               total_score: null,
               total_response_ms: null,
               final_rank: null,
             })
             .eq("id", existing.id);
+
+          await supabase.from("audit_logs").insert({
+            actor_id: userId,
+            action: "gameplay_replay",
+            target_table: "game_sessions",
+            target_id: sessionId,
+            detail: {
+              entry_id: existing.id,
+              session_id: sessionId,
+              is_replay: true,
+              attempt_number: attemptNumber,
+            },
+          });
         }
-        return NextResponse.json({ ok: true, entryId: existing.id });
+        return NextResponse.json({ ok: true, entryId: existing.id, attemptNumber });
       }
 
       const { data: created, error: createErr } = await supabase
@@ -259,7 +312,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: createErr.message }, { status: 500 });
       }
 
-      return NextResponse.json({ ok: true, entryId: created.id });
+      await supabase.from("audit_logs").insert({
+        actor_id: userId,
+        action: "gameplay_start",
+        target_table: "game_sessions",
+        target_id: sessionId,
+        detail: {
+          entry_id: created.id,
+          session_id: sessionId,
+          is_replay: false,
+          attempt_number: 1,
+        },
+      });
+
+      return NextResponse.json({ ok: true, entryId: created.id, attemptNumber: 1 });
     }
 
     if (action === "answer") {
@@ -286,7 +352,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: ansErr.message }, { status: 500 });
       }
 
-      const [{ count: ansCount }, { count: qCount }] = await Promise.all([
+      const [{ count: ansCount }, { count: qCount }, { data: entryRow }] = await Promise.all([
         supabase
           .from("answers")
           .select("id", { count: "exact", head: true })
@@ -295,6 +361,11 @@ export async function POST(req: NextRequest) {
           .from("session_questions")
           .select("question_id", { count: "exact", head: true })
           .eq("session_id", sessionId),
+        supabase
+          .from("session_entries")
+          .select("user_id")
+          .eq("id", entryId)
+          .maybeSingle(),
       ]);
 
       const completed = (ansCount ?? 0) >= (qCount ?? 10);
@@ -317,6 +388,43 @@ export async function POST(req: NextRequest) {
           responseMs: mine.response_ms,
           prize: mine.prize,
         };
+      }
+
+      // Record real-time answer & completion telemetry for Admin Gameplay Monitoring
+      if (entryRow?.user_id) {
+        await supabase.from("audit_logs").insert({
+          actor_id: entryRow.user_id,
+          action: "gameplay_answer",
+          target_table: "answers",
+          target_id: sessionId,
+          detail: {
+            entry_id: entryId,
+            session_id: sessionId,
+            question_id: questionId,
+            option_id: optionId,
+            response_ms: safeMs,
+            questions_answered: ansCount ?? 1,
+            completed,
+            running_score: mine?.points ?? null,
+            running_rank: mine?.rank ?? null,
+          },
+        });
+
+        if (completed && mine) {
+          await supabase.from("audit_logs").insert({
+            actor_id: entryRow.user_id,
+            action: "gameplay_complete",
+            target_table: "game_sessions",
+            target_id: sessionId,
+            detail: {
+              entry_id: entryId,
+              session_id: sessionId,
+              total_score: mine.points,
+              total_response_ms: mine.response_ms,
+              final_rank: mine.rank,
+            },
+          });
+        }
       }
 
       return NextResponse.json({
