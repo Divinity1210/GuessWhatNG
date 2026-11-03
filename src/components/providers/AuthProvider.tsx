@@ -47,54 +47,29 @@ type AuthContextValue = AuthState & AuthActions;
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const DEFAULT_DEMO_USER: User = {
-  id: "demo-naija-player",
-  aud: "authenticated",
-  role: "authenticated",
-  email: "striker@guesswhat.ng",
-  user_metadata: {
-    username: "naija_striker",
-    turf: "lagos",
-    referral_code: "NAIJA26",
-  },
-  app_metadata: {},
-  created_at: new Date().toISOString(),
-} as unknown as User;
+const UUID_RE = /^[0-9a-f-]{36}$/i;
 
-const DEFAULT_DEMO_PROFILE: Profile = {
-  id: "demo-naija-player",
-  username: "naija_striker",
-  full_name: "Naija Striker",
-  avatar_url: null,
-  role: "player",
-  referral_code: "NAIJA26",
-  turf: "lagos",
-  streak_days: 3,
-};
-
-function getLocalFallbackAuth(): { user: User; profile: Profile } {
+function getStoredRealSession(): { user: User | null; profile: Profile | null } {
   if (typeof window === "undefined") {
-    return { user: DEFAULT_DEMO_USER, profile: DEFAULT_DEMO_PROFILE };
+    return { user: null, profile: null };
   }
 
   try {
     const rawUser = localStorage.getItem("gw_demo_user");
     const rawProfile = localStorage.getItem("gw_demo_profile");
-    const user: User = rawUser ? JSON.parse(rawUser) : DEFAULT_DEMO_USER;
-    const baseProfile: Profile = rawProfile ? JSON.parse(rawProfile) : DEFAULT_DEMO_PROFILE;
-    const localTurf = localStorage.getItem(`gw_turf_${user.id}`);
-    const localStreak = localStorage.getItem(`gw_streak_${user.id}`);
+    if (!rawUser) return { user: null, profile: null };
 
-    return {
-      user,
-      profile: {
-        ...baseProfile,
-        turf: localTurf || baseProfile.turf || "lagos",
-        streak_days: localStreak ? Number(localStreak) : baseProfile.streak_days || 3,
-      },
-    };
+    const parsedUser = JSON.parse(rawUser) as User;
+    if (!parsedUser?.id || parsedUser.id === "demo-naija-player" || !UUID_RE.test(parsedUser.id)) {
+      localStorage.removeItem("gw_demo_user");
+      localStorage.removeItem("gw_demo_profile");
+      return { user: null, profile: null };
+    }
+
+    const parsedProfile = rawProfile ? (JSON.parse(rawProfile) as Profile) : null;
+    return { user: parsedUser, profile: parsedProfile };
   } catch {
-    return { user: DEFAULT_DEMO_USER, profile: DEFAULT_DEMO_PROFILE };
+    return { user: null, profile: null };
   }
 }
 
@@ -108,9 +83,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  /** Fetch the profile row for a given user id */
+  /** Fetch the real profile row for a given user id */
   const fetchProfile = useCallback(
     async (userId: string): Promise<Profile | null> => {
+      if (!userId || !UUID_RE.test(userId)) return null;
+
       try {
         const { data } = await supabase
           .from("profiles")
@@ -118,33 +95,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq("id", userId)
           .single();
         if (data) {
-          const p = data as Profile;
-          if (typeof window !== "undefined") {
-            const localTurf = localStorage.getItem(`gw_turf_${userId}`);
-            const localStreak = localStorage.getItem(`gw_streak_${userId}`);
-            return {
-              ...p,
-              turf: localTurf || p.turf || "lagos",
-              streak_days: localStreak ? Number(localStreak) : p.streak_days || 1,
-            };
-          }
-          return p;
+          return data as Profile;
         }
       } catch {
-        // Fall through to local fallback
+        // Fall through to service API
       }
-      return getLocalFallbackAuth().profile;
+
+      try {
+        const res = await fetch(`/api/profile?userId=${encodeURIComponent(userId)}`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.profile) {
+            return {
+              role: "player",
+              ...json.profile,
+            } as Profile;
+          }
+        }
+      } catch {
+        // Ignore
+      }
+
+      return getStoredRealSession().profile;
     },
     [supabase],
   );
 
   /** Refresh the profile for the current user */
   const refreshProfile = useCallback(async () => {
-    const activeUserId = state.user?.id ?? DEFAULT_DEMO_USER.id;
+    const activeUserId = state.user?.id;
+    if (!activeUserId) return;
     const profile = await fetchProfile(activeUserId);
     setState((prev) => ({
       ...prev,
-      user: prev.user ?? getLocalFallbackAuth().user,
       profile,
     }));
   }, [state.user, fetchProfile]);
@@ -161,7 +146,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!mounted) return;
 
-        if (session?.user) {
+        if (session?.user && UUID_RE.test(session.user.id)) {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("gw_real_user_id", session.user.id);
+          }
           const profile = await fetchProfile(session.user.id);
           if (!mounted) return;
           setState({
@@ -173,29 +161,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       } catch {
-        // Ignore network errors and use local fallback
+        // Check stored real session
       }
 
       if (!mounted) return;
-      const fallback = getLocalFallbackAuth();
+      const stored = getStoredRealSession();
+      if (stored.user?.id) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("gw_real_user_id", stored.user.id);
+        }
+        const profile = (await fetchProfile(stored.user.id)) ?? stored.profile;
+        if (!mounted) return;
+        setState({
+          user: stored.user,
+          session: null,
+          profile,
+          loading: false,
+        });
+        return;
+      }
+
       setState({
-        user: fallback.user,
+        user: null,
         session: null,
-        profile: fallback.profile,
+        profile: null,
         loading: false,
       });
     }
 
     initAuth();
 
-    const handleLocalAuthChange = () => {
-      const fallback = getLocalFallbackAuth();
-      setState((prev) => ({
-        ...prev,
-        user: fallback.user,
-        profile: fallback.profile,
-        loading: false,
-      }));
+    const handleLocalAuthChange = async () => {
+      const stored = getStoredRealSession();
+      if (stored.user?.id) {
+        const profile = (await fetchProfile(stored.user.id)) ?? stored.profile;
+        setState((prev) => ({
+          ...prev,
+          user: stored.user,
+          profile,
+          loading: false,
+        }));
+      } else {
+        setState({
+          user: null,
+          session: null,
+          profile: null,
+          loading: false,
+        });
+      }
     };
 
     window.addEventListener("gw-auth-change", handleLocalAuthChange);
@@ -205,7 +218,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
-      if (session?.user) {
+      if (session?.user && UUID_RE.test(session.user.id)) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("gw_real_user_id", session.user.id);
+        }
         const profile = await fetchProfile(session.user.id);
         setState({
           user: session.user,
@@ -214,11 +230,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           loading: false,
         });
       } else {
-        const fallback = getLocalFallbackAuth();
+        const stored = getStoredRealSession();
         setState({
-          user: fallback.user,
+          user: stored.user,
           session: null,
-          profile: fallback.profile,
+          profile: stored.profile,
           loading: false,
         });
       }
@@ -241,6 +257,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("gw_real_user_id");
+    }
     await authSignOut();
   }, []);
 

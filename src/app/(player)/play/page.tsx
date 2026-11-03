@@ -10,6 +10,7 @@ import {
   getSessionQuestions,
   submitAnswer,
   type SessionQuestion,
+  type SessionCompleteStats,
 } from "@/lib/game/session-service";
 import {
   isSoundMuted,
@@ -118,12 +119,7 @@ export default function PlayPage() {
 
   // Cumulative stats at completion
   const [totalTimeMs, setTotalTimeMs] = useState(0);
-  const [finalStats, setFinalStats] = useState<{
-    rank: number;
-    points: number;
-    responseMs: number;
-    prize: number;
-  } | null>(null);
+  const [finalStats, setFinalStats] = useState<SessionCompleteStats | null>(null);
 
   useEffect(() => {
     const onFsChange = () => {
@@ -189,9 +185,12 @@ export default function PlayPage() {
 
     try {
       const [eid, qs] = await Promise.all([
-        joinSession(activeSession.id, true),
+        joinSession(activeSession.id, true, user?.id),
         getSessionQuestions(activeSession.id),
       ]);
+      if (qs.length === 0) {
+        throw new Error("No questions are currently published for this session.");
+      }
       setEntryId(eid);
       setQuestions(qs);
       setCurrentIndex(0);
@@ -215,7 +214,7 @@ export default function PlayPage() {
   const advanceToNextQuestion = (
     nextIdx: number,
     isLast: boolean,
-    stats?: { rank: number; points: number; responseMs: number; prize: number } | null,
+    stats?: SessionCompleteStats | null,
   ) => {
     if (!isLast) {
       playQuestionAdvance();
@@ -565,7 +564,7 @@ export default function PlayPage() {
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-slate-500">
-                Points
+                Best Points
               </p>
               <p className="font-display text-xl font-bold text-white mt-0.5">
                 {finalStats ? finalStats.points : "—"}
@@ -573,13 +572,34 @@ export default function PlayPage() {
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-slate-500">
-                Total Time
+                Best Time
               </p>
               <p className="font-mono text-xl font-bold text-white mt-0.5">
                 {formatStopwatch(finalStats?.responseMs || totalTimeMs)}
               </p>
             </div>
           </div>
+
+          {finalStats &&
+            finalStats.latestPoints !== undefined &&
+            finalStats.attemptsCount &&
+            finalStats.attemptsCount > 1 && (
+              <div
+                className={`rounded-xl border px-4 py-3 text-xs font-medium ${
+                  finalStats.isBestRetained
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                }`}
+              >
+                {finalStats.isBestRetained
+                  ? `This Run: ${finalStats.latestPoints} pts (${formatStopwatch(
+                      finalStats.latestResponseMs ?? totalTimeMs,
+                    )}) · Your Best Score of ${finalStats.points} pts is kept on the Leaderboard!`
+                  : `🔥 New Personal Best! ${finalStats.points} pts (${formatStopwatch(
+                      finalStats.responseMs,
+                    )}) — Attempt #${finalStats.attemptsCount}`}
+              </div>
+            )}
 
           <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
             <Button

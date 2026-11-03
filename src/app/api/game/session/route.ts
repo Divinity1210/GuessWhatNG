@@ -21,46 +21,70 @@ function getPrizeForRank(
   return 0;
 }
 
+type ArchivedAttemptDetail = {
+  entry_id?: string;
+  session_id?: string;
+  attempt_number?: number;
+  questions_answered?: number;
+  total_score?: number;
+  total_response_ms?: number;
+  final_rank?: number | null;
+  answers?: { question_id: string; option_id: string; response_ms: number }[];
+};
+
 async function recalculateLiveLeaderboard(
   supabase: ReturnType<typeof createSupabaseServiceClient>,
   sessionId: string,
 ) {
-  const [{ data: session }, { data: sqs }, { data: allAnswers }, { data: entries }] =
-    await Promise.all([
-      supabase.from("game_sessions").select("prize_structure").eq("id", sessionId).maybeSingle(),
-      supabase
-        .from("session_questions")
-        .select("question_id, question_options:questions(question_options(id, position))")
-        .eq("session_id", sessionId),
-      supabase
-        .from("answers")
-        .select("entry_id, question_id, option_id, response_ms")
-        .eq("session_id", sessionId),
-      supabase
-        .from("session_entries")
-        .select("id, user_id, completed_at")
-        .eq("session_id", sessionId),
-    ]);
+  const [
+    { data: session },
+    { data: sqs },
+    { data: allAnswers },
+    { data: entries },
+    { data: archivedLogs },
+  ] = await Promise.all([
+    supabase.from("game_sessions").select("prize_structure").eq("id", sessionId).maybeSingle(),
+    supabase
+      .from("session_questions")
+      .select("question_id, question_options:questions(question_options(id, position))")
+      .eq("session_id", sessionId),
+    supabase
+      .from("answers")
+      .select("entry_id, question_id, option_id, response_ms")
+      .eq("session_id", sessionId),
+    supabase
+      .from("session_entries")
+      .select("id, user_id, completed_at, total_score, total_response_ms")
+      .eq("session_id", sessionId),
+    supabase
+      .from("audit_logs")
+      .select("actor_id, detail")
+      .eq("target_id", sessionId)
+      .eq("action", "gameplay_attempt_archived"),
+  ]);
 
-  if (!entries || entries.length === 0 || !allAnswers || allAnswers.length === 0) return [];
+  if (!entries || entries.length === 0) return [];
 
-  // Build option pick counts per question
+  // Build option pick counts per question (active answers + archived replay answers)
   const countsByQuestion: Record<string, Record<string, number>> = {};
+  const positionByOption: Record<string, number> = {};
+
   if (sqs) {
     for (const sq of sqs) {
       countsByQuestion[sq.question_id] = {};
       const qObj = Array.isArray(sq.question_options)
         ? sq.question_options[0]
         : sq.question_options;
-      const opts = (qObj as { question_options?: { id: string; position: number }[] })
-        ?.question_options ?? [];
+      const opts =
+        (qObj as { question_options?: { id: string; position: number }[] })?.question_options ?? [];
       for (const o of opts) {
         countsByQuestion[sq.question_id][o.id] = 0;
+        positionByOption[o.id] = o.position ?? 0;
       }
     }
   }
 
-  for (const ans of allAnswers) {
+  for (const ans of allAnswers ?? []) {
     if (!countsByQuestion[ans.question_id]) {
       countsByQuestion[ans.question_id] = {};
     }
@@ -68,46 +92,136 @@ async function recalculateLiveLeaderboard(
       (countsByQuestion[ans.question_id][ans.option_id] ?? 0) + 1;
   }
 
+  for (const log of archivedLogs ?? []) {
+    const detail = (log.detail ?? {}) as ArchivedAttemptDetail;
+    if (Array.isArray(detail.answers)) {
+      for (const ans of detail.answers) {
+        if (!ans.question_id || !ans.option_id) continue;
+        if (!countsByQuestion[ans.question_id]) {
+          countsByQuestion[ans.question_id] = {};
+        }
+        countsByQuestion[ans.question_id][ans.option_id] =
+          (countsByQuestion[ans.question_id][ans.option_id] ?? 0) + 1;
+      }
+    }
+  }
+
   // Assign points per option: Most selected = 10 pts, 2nd = 9 pts ... Least selected = 1 pt (Page 18)
   const pointsByOption: Record<string, number> = {};
   for (const qId of Object.keys(countsByQuestion)) {
     const optMap = countsByQuestion[qId];
-    const sorted = Object.entries(optMap).sort((a, b) => b[1] - a[1]);
+    const sorted = Object.entries(optMap).sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return (positionByOption[a[0]] ?? 0) - (positionByOption[b[0]] ?? 0);
+    });
     sorted.forEach(([optId], idx) => {
       pointsByOption[optId] = Math.max(10 - idx, 1);
     });
   }
 
-  // Group answers by entry_id
-  const answersByEntry: Record<string, { option_id: string; response_ms: number }[]> = {};
-  for (const ans of allAnswers) {
+  // Group current answers by entry_id
+  const answersByEntry: Record<
+    string,
+    { question_id: string; option_id: string; response_ms: number }[]
+  > = {};
+  for (const ans of allAnswers ?? []) {
     if (!answersByEntry[ans.entry_id]) answersByEntry[ans.entry_id] = [];
     answersByEntry[ans.entry_id].push(ans);
   }
 
-  // Compute score and cumulative time for each entry that has answers
+  // Compute each player's BEST SCORE across all attempts (current + archived + stored)
   const scoredEntries: {
     entryId: string;
     userId: string;
     points: number;
     responseMs: number;
+    latestPoints: number;
+    latestResponseMs: number;
+    attemptsCount: number;
   }[] = [];
 
   for (const entry of entries) {
-    const entryAnswers = answersByEntry[entry.id] ?? [];
-    if (entryAnswers.length === 0) continue;
-    const points = entryAnswers.reduce(
+    const currentAnswers = answersByEntry[entry.id] ?? [];
+    const currentPoints = currentAnswers.reduce(
       (sum, a) => sum + (pointsByOption[a.option_id] ?? 1),
       0,
     );
-    const responseMs = entryAnswers.reduce((sum, a) => sum + (a.response_ms ?? 0), 0);
+    const currentResponseMs = currentAnswers.reduce(
+      (sum, a) => sum + Number(a.response_ms ?? 0),
+      0,
+    );
+
+    const myArchived = (archivedLogs ?? []).filter((l) => {
+      const d = (l.detail ?? {}) as ArchivedAttemptDetail;
+      return d.entry_id === entry.id || l.actor_id === entry.user_id;
+    });
+
+    const candidates: {
+      points: number;
+      responseMs: number;
+      source: "archived" | "stored" | "current";
+    }[] = [];
+
+    for (const arch of myArchived) {
+      const detail = (arch.detail ?? {}) as ArchivedAttemptDetail;
+      const archAns = Array.isArray(detail.answers) ? detail.answers : [];
+      const dynPts =
+        archAns.length > 0
+          ? archAns.reduce((s, a) => s + (pointsByOption[a.option_id] ?? 1), 0)
+          : 0;
+      const dynMs =
+        archAns.length > 0
+          ? archAns.reduce((s, a) => s + Number(a.response_ms ?? 0), 0)
+          : 0;
+      const pts = Math.max(dynPts, Number(detail.total_score ?? 0));
+      const ms = Number(detail.total_response_ms || dynMs || 0);
+      if (pts > 0) {
+        candidates.push({ points: pts, responseMs: ms, source: "archived" });
+      }
+    }
+
+    if (
+      entry.total_score !== null &&
+      Number(entry.total_score) > 0 &&
+      currentAnswers.length < 10
+    ) {
+      candidates.push({
+        points: Number(entry.total_score),
+        responseMs: Number(entry.total_response_ms ?? 0),
+        source: "stored",
+      });
+    }
+
+    if (currentAnswers.length > 0) {
+      candidates.push({
+        points: currentPoints,
+        responseMs: currentResponseMs,
+        source: "current",
+      });
+    }
+
+    if (candidates.length === 0) continue;
+
+    // Pick BEST candidate: highest points first, then shortest responseMs
+    candidates.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return a.responseMs - b.responseMs;
+    });
+
+    const best = candidates[0];
+
     scoredEntries.push({
       entryId: entry.id,
       userId: entry.user_id,
-      points,
-      responseMs,
+      points: best.points,
+      responseMs: best.responseMs,
+      latestPoints: currentAnswers.length > 0 ? currentPoints : best.points,
+      latestResponseMs: currentAnswers.length > 0 ? currentResponseMs : best.responseMs,
+      attemptsCount: myArchived.length + (currentAnswers.length > 0 ? 1 : 0),
     });
   }
+
+  if (scoredEntries.length === 0) return [];
 
   // Sort by highest points, then shortest cumulative time (Page 5 & 18)
   scoredEntries.sort((a, b) => {
@@ -130,10 +244,13 @@ async function recalculateLiveLeaderboard(
       response_ms: item.responseMs,
       prize,
       entryId: item.entryId,
+      latestPoints: item.latestPoints,
+      latestResponseMs: item.latestResponseMs,
+      attemptsCount: item.attemptsCount,
     };
   });
 
-  // Persist to session_entries and leaderboards
+  // Persist Best Score to session_entries and leaderboards
   await Promise.all(
     leaderboardRows.map((row) =>
       supabase
@@ -151,10 +268,21 @@ async function recalculateLiveLeaderboard(
   await supabase.from("leaderboards").delete().eq("session_id", sessionId);
   if (leaderboardRows.length > 0) {
     await supabase.from("leaderboards").insert(
-      leaderboardRows.map(({ entryId: _unused, ...rest }) => {
-        void _unused;
-        return rest;
-      }),
+      leaderboardRows.map(
+        ({
+          entryId: _e,
+          latestPoints: _lp,
+          latestResponseMs: _lm,
+          attemptsCount: _ac,
+          ...rest
+        }) => {
+          void _e;
+          void _lp;
+          void _lm;
+          void _ac;
+          return rest;
+        },
+      ),
     );
   }
 
@@ -165,6 +293,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("sessionId");
+    const includeQuestions = searchParams.get("includeQuestions") === "1";
     const supabase = createSupabaseServiceClient();
 
     const { data: allSessions } = await supabase
@@ -202,6 +331,59 @@ export async function GET(req: NextRequest) {
         session: null,
         totalGuesses: 0,
         leaderboard: [],
+        questions: [],
+      });
+    }
+
+    if (includeQuestions) {
+      const { data: sqData } = await supabase
+        .from("session_questions")
+        .select(`
+          position,
+          question_id,
+          questions (
+            id,
+            title,
+            category,
+            type,
+            question_options (
+              id,
+              label,
+              media_url,
+              position
+            )
+          )
+        `)
+        .eq("session_id", targetSessionId)
+        .order("position", { ascending: true });
+
+      const questions = (sqData ?? []).map((sq) => {
+        const q = (Array.isArray(sq.questions) ? sq.questions[0] : sq.questions) as {
+          id: string;
+          title: string;
+          category: string;
+          type: string;
+          question_options?: { id: string; label: string; media_url: string | null; position: number }[];
+        } | null;
+        return {
+          position: sq.position,
+          question_id: sq.question_id,
+          questions: q
+            ? {
+                ...q,
+                question_options: [...(q.question_options ?? [])].sort(
+                  (a, b) => a.position - b.position,
+                ),
+              }
+            : null,
+        };
+      });
+
+      return NextResponse.json({
+        ok: true,
+        sessionId: targetSessionId,
+        session: targetSession,
+        questions,
       });
     }
 
@@ -209,7 +391,7 @@ export async function GET(req: NextRequest) {
       await recalculateLiveLeaderboard(supabase, targetSessionId);
     }
 
-    const [{ data: lb }, { count: entryCount }, { count: answerCount }] = await Promise.all([
+    const [{ data: lb }, { count: answerCount }, { data: archivedLogs }] = await Promise.all([
       supabase
         .from("leaderboards")
         .select("rank, points, response_ms, prize, user_id, profiles(username, avatar_url)")
@@ -217,18 +399,23 @@ export async function GET(req: NextRequest) {
         .order("rank", { ascending: true })
         .limit(100),
       supabase
-        .from("session_entries")
-        .select("id", { count: "exact", head: true })
-        .eq("session_id", targetSessionId),
-      supabase
         .from("answers")
         .select("id", { count: "exact", head: true })
         .eq("session_id", targetSessionId),
+      supabase
+        .from("audit_logs")
+        .select("detail")
+        .eq("target_id", targetSessionId)
+        .eq("action", "gameplay_attempt_archived"),
     ]);
 
-    const fallbackGuesses = (entryCount ?? lb?.length ?? 0) * 10;
-    const totalGuesses =
-      answerCount && answerCount > 0 ? Math.max(answerCount, fallbackGuesses) : fallbackGuesses;
+    const archivedAnswersCount = (archivedLogs ?? []).reduce((sum, l) => {
+      const detail = (l.detail ?? {}) as ArchivedAttemptDetail;
+      if (Array.isArray(detail.answers)) return sum + detail.answers.length;
+      return sum + Number(detail.questions_answered ?? 0);
+    }, 0);
+
+    const totalGuesses = (answerCount ?? 0) + archivedAnswersCount;
 
     return NextResponse.json({
       ok: true,
@@ -275,7 +462,7 @@ export async function POST(req: NextRequest) {
 
       if (existing) {
         if (replay || existing.completed_at) {
-          // Archive previous attempt before resetting so repeat gameplay & historical data are preserved
+          // Archive previous attempt (including its answers) before resetting so Best Score & crowd tallies are preserved
           const { data: prevAnswers } = await supabase
             .from("answers")
             .select("question_id, option_id, response_ms")
@@ -283,8 +470,10 @@ export async function POST(req: NextRequest) {
 
           if ((prevAnswers && prevAnswers.length > 0) || existing.total_score !== null) {
             const prevTotalMs =
-              existing.total_response_ms ??
-              (prevAnswers ?? []).reduce((s, a) => s + (a.response_ms ?? 0), 0);
+              prevAnswers && prevAnswers.length > 0
+                ? prevAnswers.reduce((s, a) => s + (a.response_ms ?? 0), 0)
+                : (existing.total_response_ms ?? 0);
+
             await supabase.from("audit_logs").insert({
               actor_id: userId,
               action: "gameplay_attempt_archived",
@@ -300,20 +489,18 @@ export async function POST(req: NextRequest) {
                 final_rank: existing.final_rank ?? null,
                 started_at: existing.joined_at,
                 completed_at: existing.completed_at ?? new Date().toISOString(),
+                answers: prevAnswers ?? [],
               },
             });
           }
 
-          // Reset previous attempt so user can play again ("Try again if you don't make it", Page 6)
+          // Clear current answers for the new run while retaining total_score & total_response_ms (Best Score)
           await supabase.from("answers").delete().eq("entry_id", existing.id);
           await supabase
             .from("session_entries")
             .update({
               joined_at: new Date().toISOString(),
               completed_at: null,
-              total_score: null,
-              total_response_ms: null,
-              final_rank: null,
             })
             .eq("id", existing.id);
 
@@ -412,15 +599,22 @@ export async function POST(req: NextRequest) {
           .eq("id", entryId);
       }
 
-      // Always recalculate live scores so the leaderboard reflects every guess immediately (Page 19)
+      // Always recalculate live Best Scores so the leaderboard reflects every guess immediately (Page 19)
       const lbRows = await recalculateLiveLeaderboard(supabase, sessionId);
       const mine = lbRows.find((r) => r.entryId === entryId);
       if (mine) {
+        const isBestRetained =
+          mine.points > mine.latestPoints ||
+          (mine.points === mine.latestPoints && mine.response_ms < mine.latestResponseMs);
         myStats = {
           rank: mine.rank,
           points: mine.points,
           responseMs: mine.response_ms,
           prize: mine.prize,
+          latestPoints: mine.latestPoints,
+          latestResponseMs: mine.latestResponseMs,
+          attemptsCount: mine.attemptsCount,
+          isBestRetained,
         };
       }
 
@@ -439,7 +633,8 @@ export async function POST(req: NextRequest) {
             response_ms: safeMs,
             questions_answered: ansCount ?? 1,
             completed,
-            running_score: mine?.points ?? null,
+            running_score: mine?.latestPoints ?? mine?.points ?? null,
+            best_score: mine?.points ?? null,
             running_rank: mine?.rank ?? null,
           },
         });
@@ -453,9 +648,12 @@ export async function POST(req: NextRequest) {
             detail: {
               entry_id: entryId,
               session_id: sessionId,
-              total_score: mine.points,
-              total_response_ms: mine.response_ms,
+              total_score: mine.latestPoints,
+              total_response_ms: mine.latestResponseMs,
+              best_score: mine.points,
+              best_response_ms: mine.response_ms,
               final_rank: mine.rank,
+              attempts_count: mine.attemptsCount,
             },
           });
         }
