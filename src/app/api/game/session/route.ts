@@ -173,7 +173,8 @@ async function recalculateLiveLeaderboard(
         archAns.length > 0
           ? archAns.reduce((s, a) => s + Number(a.response_ms ?? 0), 0)
           : 0;
-      const pts = Math.max(dynPts, Number(detail.total_score ?? 0));
+      // Always use live dynamic crowd-consensus points when option selections exist so scores move up OR down as votes change
+      const pts = archAns.length > 0 ? dynPts : Number(detail.total_score ?? 0);
       const ms = Number(detail.total_response_ms || dynMs || 0);
       if (pts > 0) {
         candidates.push({ points: pts, responseMs: ms, source: "archived" });
@@ -181,9 +182,10 @@ async function recalculateLiveLeaderboard(
     }
 
     if (
+      currentAnswers.length === 0 &&
+      myArchived.length === 0 &&
       entry.total_score !== null &&
-      Number(entry.total_score) > 0 &&
-      currentAnswers.length < 10
+      Number(entry.total_score) > 0
     ) {
       candidates.push({
         points: Number(entry.total_score),
