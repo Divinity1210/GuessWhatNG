@@ -197,42 +197,23 @@ export default function DashboardPage() {
     load();
   }, [user]);
 
-  // Live Leaderboard Movement on Dashboard
+  // Live Leaderboard Movement on Dashboard (polls real server data only — no simulated movements)
   useEffect(() => {
     if (!activeSession || livePaused) return;
 
-    const interval = setInterval(() => {
-      setLiveLeaderboard((current) => {
-        if (current.length < 2) return current;
-        const copy = current.map((r) => ({ ...r }));
-        const challengerIdx = 1 + Math.floor(Math.random() * (copy.length - 1));
-        const challenger = copy[challengerIdx];
-        const targetAbove = copy[challengerIdx - 1];
-
-        if (challenger && targetAbove) {
-          challenger.points = Math.min(100, Math.max(challenger.points + 1, targetAbove.points));
-          if (challenger.points === targetAbove.points) {
-            challenger.response_ms = Math.max(8500, targetAbove.response_ms - 400);
-          }
-        }
-
-        copy.sort((a, b) => {
-          if (b.points !== a.points) return b.points - a.points;
-          return a.response_ms - b.response_ms;
-        });
-
-        const reRanked = copy.map((row, idx) => ({
-          ...row,
-          rank: idx + 1,
-          prize: prizeForRank(idx + 1),
-        }));
-
-        setTimeout(() => {
-          applyLeaderboardUpdate(reRanked, (prev) => prev + 1);
-        }, 0);
-
-        return current;
-      });
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/game/session?sessionId=${encodeURIComponent(activeSession.id)}`,
+          { cache: "no-store", priority: "low" },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const serverRows = ((data.leaderboard ?? []) as LeaderboardRow[]).slice(0, 6);
+        applyLeaderboardUpdate(serverRows, data.totalGuesses ?? 0);
+      } catch {
+        // Ignore transient network errors
+      }
     }, 6000);
 
     return () => clearInterval(interval);
