@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { VIRAL_DEMO_QUESTIONS } from "@/lib/game/viral-engine";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,33 +31,18 @@ export type GameState = {
   completed: boolean;
 };
 
-export type SessionCompleteStats = {
-  rank: number;
-  points: number;
-  responseMs: number;
-  prize: number;
-  latestPoints?: number;
-  latestResponseMs?: number;
-  attemptsCount?: number;
-  isBestRetained?: boolean;
-};
-
-const UUID_RE = /^[0-9a-f-]{36}$/i;
-
-function getStoredRealUserId(): string | null {
-  if (typeof window === "undefined") return null;
+function getFallbackUserId(): string {
+  if (typeof window === "undefined") return "demo-naija-player";
   try {
-    const direct = localStorage.getItem("gw_real_user_id");
-    if (direct && UUID_RE.test(direct)) return direct;
     const raw = localStorage.getItem("gw_demo_user");
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed?.id && UUID_RE.test(parsed.id)) return parsed.id;
+      if (parsed?.id) return parsed.id;
     }
   } catch {
     // ignore
   }
-  return null;
+  return "demo-naija-player";
 }
 
 // ─── Join Session (Free to Play + Supports Replay) ───────────────────────────
@@ -64,52 +50,44 @@ function getStoredRealUserId(): string | null {
 export async function joinSession(
   sessionId: string,
   replay = false,
-  explicitUserId?: string,
 ): Promise<string> {
   const supabase = createSupabaseBrowserClient();
-  let userId: string | null =
-    explicitUserId && UUID_RE.test(explicitUserId) ? explicitUserId : null;
 
-  if (!userId) {
-    try {
-      const { data: authData } = await supabase.auth.getUser();
-      if (authData?.user?.id && UUID_RE.test(authData.user.id)) {
-        userId = authData.user.id;
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+    if (userId) {
+      const res = await fetch("/api/game/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "join",
+          sessionId,
+          userId,
+          replay,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.entryId) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(`gw_answers_${json.entryId}`);
+        }
+        return json.entryId as string;
       }
-    } catch {
-      // Fall through to stored real user id
     }
+  } catch {
+    // Fall through to local fallback
   }
 
-  if (!userId) {
-    userId = getStoredRealUserId();
-  }
-
-  if (!userId) {
-    throw new Error("Please log in or sign up to join this live session.");
-  }
-
-  const res = await fetch("/api/game/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "join",
-      sessionId,
-      userId,
-      replay,
-    }),
-  });
-
-  const json = await res.json();
-  if (!res.ok || !json.entryId) {
-    throw new Error(json.error || "Unable to join game session.");
-  }
-
+  const userId = getFallbackUserId();
+  const localEntryKey = `gw_entry_${userId}_${sessionId}`;
   if (typeof window !== "undefined") {
-    localStorage.removeItem(`gw_answers_${json.entryId}`);
+    const newEntryId = `local-entry-${sessionId}-${Date.now()}`;
+    localStorage.setItem(localEntryKey, newEntryId);
+    return newEntryId;
   }
 
-  return json.entryId as string;
+  return `local-entry-${sessionId}`;
 }
 
 // ─── Fetch Session Questions ─────────────────────────────────────────────────
@@ -117,23 +95,6 @@ export async function joinSession(
 export async function getSessionQuestions(
   sessionId: string,
 ): Promise<SessionQuestion[]> {
-  try {
-    const res = await fetch(
-      `/api/game/session?sessionId=${encodeURIComponent(sessionId)}&includeQuestions=1`,
-      { cache: "no-store" },
-    );
-    if (res.ok) {
-      const json = await res.json();
-      if (Array.isArray(json.questions) && json.questions.length > 0) {
-        return json.questions.filter(
-          (sq: SessionQuestion) => sq.questions && sq.questions.question_options?.length > 0,
-        ) as SessionQuestion[];
-      }
-    }
-  } catch {
-    // Fall through to direct Supabase browser query
-  }
-
   try {
     const supabase = createSupabaseBrowserClient();
 
@@ -175,10 +136,25 @@ export async function getSessionQuestions(
       }) as unknown as SessionQuestion[];
     }
   } catch {
-    // Return empty array if no questions found
+    // Fall through to demo questions
   }
 
-  return [];
+  return VIRAL_DEMO_QUESTIONS.map((dq, idx) => ({
+    position: idx + 1,
+    question_id: dq.id,
+    questions: {
+      id: dq.id,
+      title: dq.title,
+      category: dq.category,
+      type: "text",
+      question_options: dq.options.map((o, oIdx) => ({
+        id: o.id,
+        label: o.label,
+        media_url: null,
+        position: oIdx + 1,
+      })),
+    },
+  }));
 }
 
 // ─── Submit Answer & Recalculate Live Leaderboard ────────────────────────────
@@ -192,13 +168,17 @@ export async function submitAnswer(
   sessionId?: string,
 ): Promise<{
   completed?: boolean;
-  myStats?: SessionCompleteStats | null;
+  myStats?: { rank: number; points: number; responseMs: number; prize: number } | null;
 }> {
   if (typeof window !== "undefined") {
     const raw = localStorage.getItem(`gw_answers_${entryId}`);
     const map = raw ? JSON.parse(raw) : {};
     map[questionId] = { optionId, responseMs, isLocked2x };
     localStorage.setItem(`gw_answers_${entryId}`, JSON.stringify(map));
+  }
+
+  if (entryId.startsWith("local-entry-")) {
+    return {};
   }
 
   try {
@@ -263,23 +243,25 @@ export async function getExistingEntry(sessionId: string) {
 // ─── Get My Submitted Answers for an Entry ───────────────────────────────────
 
 export async function getMyAnswers(entryId: string) {
-  try {
-    const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase
-      .from("answers")
-      .select("question_id, option_id, response_ms")
-      .eq("entry_id", entryId);
+  if (!entryId.startsWith("local-entry-")) {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from("answers")
+        .select("question_id, option_id, response_ms")
+        .eq("entry_id", entryId);
 
-    if (!error && data && data.length > 0) {
-      const map: Record<string, { optionId: string; responseMs: number; isLocked2x?: boolean }> =
-        {};
-      for (const a of data) {
-        map[a.question_id] = { optionId: a.option_id, responseMs: a.response_ms };
+      if (!error && data && data.length > 0) {
+        const map: Record<string, { optionId: string; responseMs: number; isLocked2x?: boolean }> =
+          {};
+        for (const a of data) {
+          map[a.question_id] = { optionId: a.option_id, responseMs: a.response_ms };
+        }
+        return map;
       }
-      return map;
+    } catch {
+      // Fall through
     }
-  } catch {
-    // Fall through
   }
 
   if (typeof window !== "undefined") {

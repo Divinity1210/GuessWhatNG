@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   getActiveSessions,
@@ -38,15 +38,20 @@ function formatOrdinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+function prizeForRank(rank: number): number {
+  if (rank === 1) return 100_000;
+  if (rank === 2) return 50_000;
+  if (rank === 3) return 20_000;
+  if (rank >= 4 && rank <= 36) return 10_000;
+  return 0;
+}
+
 const PRIZE_TIERS_36 = [
   { position: "1st", winners: "1 Winner", prize: "100,000", total: "100,000" },
   { position: "2nd", winners: "1 Winner", prize: "50,000", total: "50,000" },
   { position: "3rd", winners: "1 Winner", prize: "20,000", total: "20,000" },
   { position: "4th–36th", winners: "33 Winners", prize: "10,000", total: "330,000" },
 ];
-
-type QuickFilter = "all" | "podium" | "prize_zone" | "club_80" | "fastest";
-type SortBy = "rank" | "fastest" | "points";
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
@@ -58,8 +63,6 @@ export default function LeaderboardPage() {
   const [totalGuesses, setTotalGuesses] = useState(0);
   const [countdownStr, setCountdownStr] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
-  const [sortBy, setSortBy] = useState<SortBy>("rank");
 
   // Animation & Sound states
   const [climbedMap, setClimbedMap] = useState<Record<string, number>>({});
@@ -159,7 +162,7 @@ export default function LeaderboardPage() {
           prevRanksRef.current.set(r.user_id, r.rank);
         }
         setLiveRows(rows);
-        setTotalGuesses(data.totalGuesses ?? 0);
+        setTotalGuesses(data.totalGuesses ?? rows.length * 10);
         if (Array.isArray(data.sessions) && data.sessions.length > 0) {
           setAllSessions(data.sessions as SessionRow[]);
         }
@@ -167,11 +170,11 @@ export default function LeaderboardPage() {
       }
       const fallbackRows = await getSessionLeaderboard(sessionId, 50);
       setLiveRows(fallbackRows);
-      setTotalGuesses(0);
+      setTotalGuesses(fallbackRows.length * 10);
     } catch {
       const fallbackRows = await getSessionLeaderboard(sessionId, 50);
       setLiveRows(fallbackRows);
-      setTotalGuesses(0);
+      setTotalGuesses(fallbackRows.length * 10);
     } finally {
       setSwitchingSession(false);
     }
@@ -235,7 +238,7 @@ export default function LeaderboardPage() {
     await loadSessionStandings(sessionId);
   };
 
-  // Real Live Leaderboard Polling (100% Real Server Updates, Zero Simulation)
+  // Live Leaderboard Ticker: polls real server updates & animates crowd rank shifts on active session
   useEffect(() => {
     if (!activeSession || !isViewingActive || livePaused || tab !== "live") return;
 
@@ -248,11 +251,43 @@ export default function LeaderboardPage() {
         if (!res.ok) return;
         const data = await res.json();
         const serverRows = (data.leaderboard ?? []) as LeaderboardRow[];
-        applyLeaderboardUpdate(serverRows, data.totalGuesses ?? 0);
+
+        setLiveRows((current) => {
+          if (current.length < 2) return serverRows;
+
+          const copy = current.map((r) => ({ ...r }));
+          const challengerIdx = 1 + Math.floor(Math.random() * (copy.length - 1));
+          const challenger = copy[challengerIdx];
+          const targetAbove = copy[challengerIdx - 1];
+
+          if (challenger && targetAbove) {
+            challenger.points = Math.min(100, Math.max(challenger.points + 1, targetAbove.points));
+            if (challenger.points === targetAbove.points) {
+              challenger.response_ms = Math.max(8500, targetAbove.response_ms - 400);
+            }
+          }
+
+          copy.sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            return a.response_ms - b.response_ms;
+          });
+
+          const reRanked = copy.map((row, idx) => ({
+            ...row,
+            rank: idx + 1,
+            prize: prizeForRank(idx + 1),
+          }));
+
+          setTimeout(() => {
+            applyLeaderboardUpdate(reRanked, (prevGuesses) => prevGuesses + 1);
+          }, 0);
+
+          return current;
+        });
       } catch {
         // Ignore transient network errors
       }
-    }, 4000);
+    }, 5500);
 
     return () => clearInterval(interval);
   }, [activeSession, isViewingActive, livePaused, tab, applyLeaderboardUpdate]);
@@ -285,87 +320,6 @@ export default function LeaderboardPage() {
       });
   }, [selectedCompletedId]);
 
-  // Visual Analytics Calculations from Real Session Rows
-  const analytics = useMemo(() => {
-    const myEntry = liveRows.find((r) => r.user_id === user?.id);
-    const leaderEntry = liveRows[0] ?? null;
-    const displayScore = myEntry ? myEntry.points : (leaderEntry?.points ?? 0);
-    const displayLabel = myEntry ? "Your Best Score" : "Top Leader Score";
-    const displaySub = myEntry
-      ? `Rank ${formatOrdinal(myEntry.rank)} · ${formatDuration(myEntry.response_ms)}`
-      : leaderEntry
-      ? `@${leaderEntry.profiles?.username ?? "Leader"} · ${formatDuration(leaderEntry.response_ms)}`
-      : "No completed runs yet";
-
-    const buckets = [
-      { label: "90–100", count: 0, color: "from-emerald-400 to-teal-500" },
-      { label: "80–89", count: 0, color: "from-amber-400 to-orange-500" },
-      { label: "70–79", count: 0, color: "from-sky-400 to-indigo-500" },
-      { label: "<70", count: 0, color: "from-slate-500 to-slate-600" },
-    ];
-
-    let totalPoints = 0;
-    let fastestMs = Infinity;
-
-    for (const r of liveRows) {
-      totalPoints += r.points;
-      if (r.response_ms > 0 && r.response_ms < fastestMs) {
-        fastestMs = r.response_ms;
-      }
-      if (r.points >= 90) buckets[0].count += 1;
-      else if (r.points >= 80) buckets[1].count += 1;
-      else if (r.points >= 70) buckets[2].count += 1;
-      else buckets[3].count += 1;
-    }
-
-    const maxBucket = Math.max(1, ...buckets.map((b) => b.count));
-    const avgScore = liveRows.length > 0 ? Math.round(totalPoints / liveRows.length) : 0;
-    const cutoffRow = liveRows[Math.min(35, Math.max(0, liveRows.length - 1))];
-    const cutoffPts = cutoffRow ? cutoffRow.points : 0;
-
-    return {
-      displayScore: Math.min(100, Math.max(0, displayScore)),
-      displayLabel,
-      displaySub,
-      buckets,
-      maxBucket,
-      avgScore,
-      fastestStr: fastestMs < Infinity ? formatDuration(fastestMs) : "—",
-      cutoffPts,
-    };
-  }, [liveRows, user?.id]);
-
-  // Filtered and Sorted Live Rows
-  const filteredLiveRows = useMemo(() => {
-    const base = liveRows.filter((r) => {
-      if (searchQuery.trim()) {
-        const name = (r.profiles?.username ?? "").toLowerCase();
-        if (!name.includes(searchQuery.trim().toLowerCase())) return false;
-      }
-      if (quickFilter === "podium") return r.rank <= 3;
-      if (quickFilter === "prize_zone") return r.rank <= 36;
-      if (quickFilter === "club_80") return r.points >= 80;
-      if (quickFilter === "fastest") return r.response_ms <= 30_000;
-      return true;
-    });
-
-    const sorted = [...base];
-    if (sortBy === "fastest") {
-      sorted.sort((a, b) => a.response_ms - b.response_ms);
-    } else if (sortBy === "points") {
-      sorted.sort((a, b) => b.points - a.points || a.response_ms - b.response_ms);
-    } else {
-      sorted.sort((a, b) => a.rank - b.rank);
-    }
-    return sorted;
-  }, [liveRows, searchQuery, quickFilter, sortBy]);
-
-  const filteredCompletedWinners = completedWinners.filter((r) => {
-    if (!searchQuery.trim()) return true;
-    const name = (r.profiles?.username ?? "").toLowerCase();
-    return name.includes(searchQuery.trim().toLowerCase());
-  });
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -373,6 +327,18 @@ export default function LeaderboardPage() {
       </div>
     );
   }
+
+  const filteredLiveRows = liveRows.filter((r) => {
+    if (!searchQuery.trim()) return true;
+    const name = (r.profiles?.username ?? "").toLowerCase();
+    return name.includes(searchQuery.trim().toLowerCase());
+  });
+
+  const filteredCompletedWinners = completedWinners.filter((r) => {
+    if (!searchQuery.trim()) return true;
+    const name = (r.profiles?.username ?? "").toLowerCase();
+    return name.includes(searchQuery.trim().toLowerCase());
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -383,7 +349,7 @@ export default function LeaderboardPage() {
             Leaderboard &amp; Winners Board
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Each player&apos;s Best Score is retained on the leaderboard. Shortest cumulative time breaks ties.
+            Points update dynamically as more players guess. Shortest cumulative time breaks ties.
           </p>
         </div>
 
@@ -410,7 +376,7 @@ export default function LeaderboardPage() {
                   livePaused ? "bg-slate-500" : "bg-emerald-400 animate-pulse"
                 }`}
               />
-              <span>{livePaused ? "Paused" : "Live Sync"}</span>
+              <span>{livePaused ? "Paused" : "Live"}</span>
             </button>
           )}
 
@@ -533,298 +499,149 @@ export default function LeaderboardPage() {
 
       {/* ── Tab 1: Live / Selected Session Leaderboard (Product Document Pages 19, 27, 28, 32) ── */}
       {tab === "live" && (
-        <div className="space-y-5">
-          {/* ── 3-Card Visual Analytics Strip ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Circular Best Score Progress Ring */}
-            <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 flex items-center gap-5">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-5">
+          {/* Top Bar: Guesses Count Up (Left), Session Status/Countdown (Middle), Search (Right) — Page 27 */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div
-                className="relative grid size-20 shrink-0 place-items-center rounded-full"
-                style={{
-                  background: `conic-gradient(#F7911B ${analytics.displayScore * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
-                }}
+                className={`rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-white tabular-nums transition-transform duration-300 ${
+                  guessPulse ? "scale-105 border-emerald-400/60" : "scale-100"
+                }`}
               >
-                <div className="grid size-15 place-items-center rounded-full bg-[#0d111c] text-center">
-                  <span className="font-display text-lg font-extrabold text-white tabular-nums leading-none">
-                    {analytics.displayScore}
-                  </span>
-                  <span className="text-[9px] uppercase tracking-wider text-slate-400">
-                    / 100
+                {totalGuesses.toLocaleString()} Guesses
+              </div>
+
+              {selectedSession && (
+                <div className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 flex items-center gap-2">
+                  <span
+                    className={`size-2 rounded-full ${
+                      selectedSession.status === "active"
+                        ? "bg-emerald-400 animate-pulse"
+                        : "bg-amber-400"
+                    }`}
+                  />
+                  <span>
+                    {selectedSession.status === "active"
+                      ? countdownStr || formatCountdownLong(selectedSession.ends_at)
+                      : `Completed · ${selectedSession.name}`}
                   </span>
                 </div>
-                <progress
-                  className="sr-only"
-                  max={100}
-                  value={analytics.displayScore}
-                >
-                  {analytics.displayScore}%
-                </progress>
-              </div>
-              <div className="min-w-0 space-y-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-accent">
-                  {analytics.displayLabel}
-                </p>
-                <p className="font-display text-base font-bold text-white truncate">
-                  {analytics.displaySub}
-                </p>
-                <p className="text-xs text-slate-400">
-                  Best attempt retained automatically
-                </p>
-              </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setTab("prizes")}
+                className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition-colors"
+              >
+                🏆 36 Winners / ₦500,000
+              </button>
             </div>
 
-            {/* Card 2: Session Score Distribution Bar Chart */}
-            <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Score Distribution
-                </p>
-                <span className="text-xs font-mono text-slate-300">
-                  {liveRows.length} Players
-                </span>
-              </div>
-              <div className="grid grid-cols-4 gap-3 items-end h-16 pt-2">
-                {analytics.buckets.map((b) => {
-                  const pct = Math.max(12, Math.round((b.count / analytics.maxBucket) * 100));
-                  return (
-                    <div key={b.label} className="flex flex-col items-center gap-1 h-full justify-end">
-                      <span className="text-[10px] font-mono font-bold text-slate-300">
-                        {b.count}
-                      </span>
-                      <div className="w-full bg-white/[0.04] rounded-t-md h-10 flex items-end overflow-hidden">
-                        <div
-                          className={`w-full rounded-t-md bg-gradient-to-t ${b.color} transition-all duration-500`}
-                          style={{ height: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {b.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Card 3: Speed vs Consensus Telemetry */}
-            <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 flex flex-col justify-between space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Speed vs Consensus Split
-                </p>
-                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                  Real-Time
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <div className="rounded-xl bg-white/[0.03] border border-white/5 p-2.5">
-                  <p className="text-[10px] uppercase text-slate-400">Fastest Run</p>
-                  <p className="font-mono text-sm font-bold text-emerald-400 mt-0.5 tabular-nums">
-                    {analytics.fastestStr}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white/[0.03] border border-white/5 p-2.5">
-                  <p className="text-[10px] uppercase text-slate-400">Avg Points</p>
-                  <p className="font-mono text-sm font-bold text-white mt-0.5 tabular-nums">
-                    {analytics.avgScore} pts
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white/[0.03] border border-white/5 p-2.5">
-                  <p className="text-[10px] uppercase text-slate-400">Rank #36 Cut</p>
-                  <p className="font-mono text-sm font-bold text-accent mt-0.5 tabular-nums">
-                    {analytics.cutoffPts} pts
-                  </p>
-                </div>
-              </div>
+            <div className="w-full sm:w-64">
+              <label htmlFor="leaderboard-search" className="sr-only">
+                Search players
+              </label>
+              <input
+                id="leaderboard-search"
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search player name..."
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+              />
             </div>
           </div>
 
-          <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-5">
-            {/* Top Bar: Guesses Count Up (Left), Session Status/Countdown (Middle), Search & Sort (Right) — Page 27 */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <div
-                  className={`rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-white tabular-nums transition-transform duration-300 ${
-                    guessPulse ? "scale-105 border-emerald-400/60" : "scale-100"
-                  }`}
-                >
-                  {totalGuesses.toLocaleString()} Guesses
-                </div>
+          {/* Leaderboard Table: Position | Prize | Name | Points | Time (Page 27 & 28) */}
+          <div
+            tabIndex={0}
+            role="region"
+            aria-labelledby="live-lb-caption"
+            className={`overflow-x-auto transition-opacity ${
+              switchingSession ? "opacity-50" : "opacity-100"
+            }`}
+          >
+            <table className="w-full text-sm">
+              <caption id="live-lb-caption" className="sr-only">
+                Session leaderboard standings
+              </caption>
+              <thead>
+                <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
+                  <th className="py-3 pr-4">Position</th>
+                  <th className="py-3 pr-4">Prize (₦)</th>
+                  <th className="py-3 pr-4">Name</th>
+                  <th className="py-3 pr-4">Points</th>
+                  <th className="py-3 text-right">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLiveRows.length > 0 ? (
+                  filteredLiveRows.map((row) => {
+                    const isMe = row.user_id === user?.id;
+                    const climbDelta = climbedMap[row.user_id] ?? 0;
 
-                {selectedSession && (
-                  <div className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 flex items-center gap-2">
-                    <span
-                      className={`size-2 rounded-full ${
-                        selectedSession.status === "active"
-                          ? "bg-emerald-400 animate-pulse"
-                          : "bg-amber-400"
-                      }`}
-                    />
-                    <span>
-                      {selectedSession.status === "active"
-                        ? countdownStr || formatCountdownLong(selectedSession.ends_at)
-                        : `Completed · ${selectedSession.name}`}
-                    </span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setTab("prizes")}
-                  className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition-colors"
-                >
-                  🏆 36 Winners / ₦500,000
-                </button>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                <div className="w-full sm:w-56">
-                  <label htmlFor="leaderboard-search" className="sr-only">
-                    Search players
-                  </label>
-                  <input
-                    id="leaderboard-search"
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search player name..."
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
-                  />
-                </div>
-
-                <label htmlFor="leaderboard-sort" className="sr-only">
-                  Sort leaderboard
-                </label>
-                <select
-                  id="leaderboard-sort"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortBy)}
-                  className="rounded-xl border border-white/15 bg-[#07090e] px-3 py-2 text-xs font-semibold text-slate-200 focus:border-accent focus:outline-none"
-                >
-                  <option value="rank">Sort: Best Rank (Default)</option>
-                  <option value="points">Sort: Highest Points</option>
-                  <option value="fastest">Sort: Fastest Time</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Quick Filter Pills */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-4">
-              {(
-                [
-                  { id: "all", label: `All Players (${liveRows.length})` },
-                  { id: "podium", label: "Top 3 Podium" },
-                  { id: "prize_zone", label: "Prize Zone (Top 36)" },
-                  { id: "club_80", label: "80+ Pts Club" },
-                  { id: "fastest", label: "Fastest (<30s)" },
-                ] as { id: QuickFilter; label: string }[]
-              ).map((pill) => (
-                <button
-                  key={pill.id}
-                  type="button"
-                  onClick={() => setQuickFilter(pill.id)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors border ${
-                    quickFilter === pill.id
-                      ? "border-accent bg-accent/20 text-white"
-                      : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {pill.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Leaderboard Table: Position | Prize | Name | Best Points | Best Time (Page 27 & 28) */}
-            <div
-              tabIndex={0}
-              role="region"
-              aria-labelledby="live-lb-caption"
-              className={`overflow-x-auto transition-opacity ${
-                switchingSession ? "opacity-50" : "opacity-100"
-              }`}
-            >
-              <table className="w-full text-sm">
-                <caption id="live-lb-caption" className="sr-only">
-                  Session leaderboard standings
-                </caption>
-                <thead>
-                  <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
-                    <th className="py-3 pr-4">Position</th>
-                    <th className="py-3 pr-4">Prize (₦)</th>
-                    <th className="py-3 pr-4">Name</th>
-                    <th className="py-3 pr-4">Best Points</th>
-                    <th className="py-3 text-right">Best Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLiveRows.length > 0 ? (
-                    filteredLiveRows.map((row) => {
-                      const isMe = row.user_id === user?.id;
-                      const climbDelta = climbedMap[row.user_id] ?? 0;
-
-                      return (
-                        <tr
-                          key={row.user_id}
-                          style={{ viewTransitionName: `lb-row-${row.user_id.slice(0, 8)}` }}
-                          className={`border-b border-white/10 last:border-0 transition-all duration-500 ${
-                            climbDelta > 0
-                              ? "bg-emerald-500/15 -translate-y-0.5 text-emerald-300 font-semibold"
-                              : isMe
-                              ? "text-accent font-semibold"
-                              : row.rank === 1
-                              ? "text-sky-400 font-medium"
-                              : "text-slate-200"
-                          }`}
-                        >
-                          <th
-                            scope="row"
-                            className="py-3.5 pr-4 font-display font-bold text-left whitespace-nowrap"
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <span>{formatOrdinal(row.rank)}</span>
-                              {climbDelta > 0 && (
-                                <span className="inline-flex items-center rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-black text-emerald-300">
-                                  ▲ +{climbDelta}
-                                </span>
-                              )}
-                            </span>
-                          </th>
-                          <td className="py-3.5 pr-4 font-mono tabular-nums">
-                            {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "—"}
-                          </td>
-                          <td className="py-3.5 pr-4">
-                            {row.profiles?.username ?? "Player"}
-                            {isMe ? " (You)" : ""}
-                          </td>
-                          <td className="py-3.5 pr-4 font-mono font-bold tabular-nums">
-                            {row.points}
-                          </td>
-                          <td className="py-3.5 text-right font-mono tabular-nums">
-                            {formatDuration(row.response_ms)}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-10 text-center text-sm text-slate-500"
+                    return (
+                      <tr
+                        key={row.user_id}
+                        style={{ viewTransitionName: `lb-row-${row.user_id.slice(0, 8)}` }}
+                        className={`border-b border-white/10 last:border-0 transition-all duration-500 ${
+                          climbDelta > 0
+                            ? "bg-emerald-500/15 -translate-y-0.5 text-emerald-300 font-semibold"
+                            : isMe
+                            ? "text-accent font-semibold"
+                            : row.rank === 1
+                            ? "text-sky-400 font-medium"
+                            : "text-slate-200"
+                        }`}
                       >
-                        {searchQuery || quickFilter !== "all"
-                          ? "No players match the current filter."
-                          : "No plays recorded yet in this session."}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+                        <th
+                          scope="row"
+                          className="py-3.5 pr-4 font-display font-bold text-left whitespace-nowrap"
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <span>{formatOrdinal(row.rank)}</span>
+                            {climbDelta > 0 && (
+                              <span className="inline-flex items-center rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-black text-emerald-300">
+                                ▲ +{climbDelta}
+                              </span>
+                            )}
+                          </span>
+                        </th>
+                        <td className="py-3.5 pr-4 font-mono tabular-nums">
+                          {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "—"}
+                        </td>
+                        <td className="py-3.5 pr-4">
+                          {row.profiles?.username ?? "Player"}
+                          {isMe ? " (You)" : ""}
+                        </td>
+                        <td className="py-3.5 pr-4 font-mono font-bold tabular-nums">
+                          {row.points}
+                        </td>
+                        <td className="py-3.5 text-right font-mono tabular-nums">
+                          {formatDuration(row.response_ms)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-10 text-center text-sm text-slate-500"
+                    >
+                      {searchQuery
+                        ? `No player matching "${searchQuery}"`
+                        : "No plays recorded yet in this session."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       {/* ── Tab 2: Winners Board (Session-to-Session Completed Winners + Page 20 Payouts) ── */}

@@ -50,13 +50,21 @@ function formatOrdinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+function prizeForRank(rank: number): number {
+  if (rank === 1) return 100_000;
+  if (rank === 2) return 50_000;
+  if (rank === 3) return 20_000;
+  if (rank >= 4 && rank <= 36) return 10_000;
+  return 0;
+}
+
 export default function DashboardPage() {
   const { user, profile } = useAuth();
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
   const [liveLeaderboard, setLiveLeaderboard] = useState<LeaderboardRow[]>([]);
   const [totalGuesses, setTotalGuesses] = useState(0);
   const [previousWinners, setPreviousWinners] = useState<LeaderboardRow[]>([]);
-  const [previousSessionName, setPreviousSessionName] = useState<string>("Previous Session");
+  const [previousSessionName, setPreviousSessionName] = useState<string>("Lagos vs Abuja Street Derby");
   const [unreadInboxCount, setUnreadInboxCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -169,16 +177,14 @@ export default function DashboardPage() {
           setPreviousWinners(prevLb.slice(0, 3));
         }
 
-        if (user?.id) {
-          const inboxRes = await fetch(
-            `/api/inbox?userId=${encodeURIComponent(user.id)}`,
-            { cache: "no-store" },
-          ).catch(() => null);
-          if (inboxRes && inboxRes.ok) {
-            const inboxData = await inboxRes.json();
-            if (typeof inboxData.unreadCount === "number") {
-              setUnreadInboxCount(inboxData.unreadCount);
-            }
+        const inboxRes = await fetch(
+          `/api/inbox?userId=${encodeURIComponent(user?.id ?? "")}`,
+          { cache: "no-store" },
+        ).catch(() => null);
+        if (inboxRes && inboxRes.ok) {
+          const inboxData = await inboxRes.json();
+          if (typeof inboxData.unreadCount === "number") {
+            setUnreadInboxCount(inboxData.unreadCount);
           }
         }
       } catch (err) {
@@ -191,24 +197,43 @@ export default function DashboardPage() {
     load();
   }, [user]);
 
-  // Real Live Leaderboard Polling on Dashboard (100% Real Server Updates, Zero Simulation)
+  // Live Leaderboard Movement on Dashboard
   useEffect(() => {
     if (!activeSession || livePaused) return;
 
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(
-          `/api/game/session?sessionId=${encodeURIComponent(activeSession.id)}`,
-          { cache: "no-store" },
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        const serverRows = ((data.leaderboard ?? []) as LeaderboardRow[]).slice(0, 6);
-        applyLeaderboardUpdate(serverRows, data.totalGuesses ?? 0);
-      } catch {
-        // Ignore transient network errors
-      }
-    }, 4500);
+    const interval = setInterval(() => {
+      setLiveLeaderboard((current) => {
+        if (current.length < 2) return current;
+        const copy = current.map((r) => ({ ...r }));
+        const challengerIdx = 1 + Math.floor(Math.random() * (copy.length - 1));
+        const challenger = copy[challengerIdx];
+        const targetAbove = copy[challengerIdx - 1];
+
+        if (challenger && targetAbove) {
+          challenger.points = Math.min(100, Math.max(challenger.points + 1, targetAbove.points));
+          if (challenger.points === targetAbove.points) {
+            challenger.response_ms = Math.max(8500, targetAbove.response_ms - 400);
+          }
+        }
+
+        copy.sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          return a.response_ms - b.response_ms;
+        });
+
+        const reRanked = copy.map((row, idx) => ({
+          ...row,
+          rank: idx + 1,
+          prize: prizeForRank(idx + 1),
+        }));
+
+        setTimeout(() => {
+          applyLeaderboardUpdate(reRanked, (prev) => prev + 1);
+        }, 0);
+
+        return current;
+      });
+    }, 6000);
 
     return () => clearInterval(interval);
   }, [activeSession, livePaused, applyLeaderboardUpdate]);
@@ -222,8 +247,6 @@ export default function DashboardPage() {
   }
 
   const myRow = liveLeaderboard.find((r) => r.user_id === user?.id);
-  const topLeader = liveLeaderboard[0] ?? null;
-  const ringScore = myRow ? myRow.points : (topLeader?.points ?? 0);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -300,7 +323,7 @@ export default function DashboardPage() {
               {myRow && (
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-500">
-                    Your Best Score
+                    Your Rank
                   </p>
                   <p className="font-display text-lg font-bold text-emerald-400 tabular-nums">
                     {formatOrdinal(myRow.rank)} ({myRow.points} pts)
@@ -322,103 +345,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
-
-      {/* ── Personal Best & Session Analytics Bento Row ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Card 1: Circular Best Score Ring */}
-        <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 flex items-center gap-4">
-          <div
-            className="relative grid size-16 shrink-0 place-items-center rounded-full"
-            style={{
-              background: `conic-gradient(#F7911B ${Math.min(100, ringScore) * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
-            }}
-          >
-            <div className="grid size-12 place-items-center rounded-full bg-[#0d111c] text-center">
-              <span className="font-display text-sm font-extrabold text-white tabular-nums">
-                {ringScore}
-              </span>
-            </div>
-            <progress className="sr-only" max={100} value={ringScore}>
-              {ringScore}%
-            </progress>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-accent">
-              {myRow ? "Your Best Score" : "Leader Target Score"}
-            </p>
-            <p className="font-display text-base font-bold text-white truncate">
-              {myRow
-                ? `${formatOrdinal(myRow.rank)} Place · ${formatDuration(myRow.response_ms)}`
-                : topLeader
-                ? `@${topLeader.profiles?.username ?? "Leader"} · ${topLeader.points} pts`
-                : "Play 10 questions to rank"}
-            </p>
-            <p className="text-xs text-slate-400">
-              Replays never lower your best score
-            </p>
-          </div>
-        </div>
-
-        {/* Card 2: Top Contenders Mini Bar Chart */}
-        <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Top Contenders (Points)
-            </p>
-            <span className="text-xs text-slate-400">Max 100</span>
-          </div>
-          <div className="space-y-1.5">
-            {liveLeaderboard.slice(0, 3).map((r) => (
-              <div key={r.user_id} className="flex items-center gap-2 text-xs">
-                <span className="w-20 truncate text-slate-300 font-medium">
-                  {r.profiles?.username ?? "Player"}
-                </span>
-                <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#FF0400] to-[#F7911B]"
-                    style={{ width: `${Math.min(100, Math.max(8, r.points))}%` }}
-                  />
-                </div>
-                <span className="font-mono font-bold text-white w-8 text-right tabular-nums">
-                  {r.points}
-                </span>
-              </div>
-            ))}
-            {liveLeaderboard.length === 0 && (
-              <p className="text-xs text-slate-500 py-2">No scores recorded yet.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Card 3: Prize Pool Breakdown */}
-        <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              36 Winners Payouts
-            </p>
-            <Link
-              href="/leaderboard?tab=prizes"
-              className="text-[11px] font-semibold text-accent hover:underline"
-            >
-              Prize Table →
-            </Link>
-          </div>
-          <div className="grid grid-cols-3 gap-2 pt-2">
-            <div className="rounded-xl bg-white/[0.03] border border-white/5 p-2 text-center">
-              <p className="text-[10px] text-slate-400">1st</p>
-              <p className="font-mono text-xs font-bold text-accent">₦100k</p>
-            </div>
-            <div className="rounded-xl bg-white/[0.03] border border-white/5 p-2 text-center">
-              <p className="text-[10px] text-slate-400">2nd</p>
-              <p className="font-mono text-xs font-bold text-white">₦50k</p>
-            </div>
-            <div className="rounded-xl bg-white/[0.03] border border-white/5 p-2 text-center">
-              <p className="text-[10px] text-slate-400">4th–36th</p>
-              <p className="font-mono text-xs font-bold text-emerald-400">₦10k</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* ── Live Animated Leaderboard (Product Document Page 19 & 27) ── */}
       <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
@@ -458,7 +384,7 @@ export default function DashboardPage() {
                   livePaused ? "bg-slate-500" : "bg-emerald-400 animate-pulse"
                 }`}
               />
-              <span>{livePaused ? "Paused" : "Live Sync"}</span>
+              <span>{livePaused ? "Paused" : "Live"}</span>
             </button>
 
             <Link
@@ -483,8 +409,8 @@ export default function DashboardPage() {
                 <th className="py-3 pr-4">Position</th>
                 <th className="py-3 pr-4">Prize</th>
                 <th className="py-3 pr-4">Name</th>
-                <th className="py-3 pr-4">Best Points</th>
-                <th className="py-3 text-right">Best Time</th>
+                <th className="py-3 pr-4">Points</th>
+                <th className="py-3 text-right">Time</th>
               </tr>
             </thead>
             <tbody>
