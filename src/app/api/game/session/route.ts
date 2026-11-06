@@ -309,7 +309,29 @@ export async function GET(req: NextRequest) {
       .order("starts_at", { ascending: false })
       .limit(20);
 
-    const sessions = (allSessions ?? []).sort((a, b) => {
+    const nowMs = Date.now();
+    const expiredActiveIds: string[] = [];
+
+    const normalizedSessions = (allSessions ?? []).map((s) => {
+      const isPastEnd = new Date(s.ends_at).getTime() <= nowMs;
+      if ((s.status === "active" || s.status === "closing") && isPastEnd) {
+        expiredActiveIds.push(s.id);
+        return { ...s, status: "completed" as const };
+      }
+      return s;
+    });
+
+    if (expiredActiveIds.length > 0) {
+      await supabase
+        .from("game_sessions")
+        .update({ status: "completed" })
+        .in("id", expiredActiveIds);
+      for (const expId of expiredActiveIds) {
+        await recalculateLiveLeaderboard(supabase, expId);
+      }
+    }
+
+    const sessions = normalizedSessions.sort((a, b) => {
       if (a.status === "active" && b.status !== "active") return -1;
       if (a.status !== "active" && b.status === "active") return 1;
       return new Date(b.ends_at).getTime() - new Date(a.ends_at).getTime();
@@ -327,7 +349,22 @@ export async function GET(req: NextRequest) {
         .select("id, name, status, starts_at, ends_at, prize_pool, prize_structure")
         .eq("id", sessionId)
         .maybeSingle();
-      if (fetchedSession) targetSession = fetchedSession;
+      if (fetchedSession) {
+        const isPastEnd = new Date(fetchedSession.ends_at).getTime() <= nowMs;
+        if (
+          (fetchedSession.status === "active" ||
+            fetchedSession.status === "closing") &&
+          isPastEnd
+        ) {
+          await supabase
+            .from("game_sessions")
+            .update({ status: "completed" })
+            .eq("id", fetchedSession.id);
+          targetSession = { ...fetchedSession, status: "completed" };
+        } else {
+          targetSession = fetchedSession;
+        }
+      }
     }
 
     const targetSessionId = targetSession?.id ?? sessionId ?? null;
@@ -715,6 +752,38 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "sessionId and userId required" }, { status: 400 });
       }
 
+      const { data: sessionRow } = await supabase
+        .from("game_sessions")
+        .select("id, name, status, ends_at")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+      const isEnded =
+        !sessionRow ||
+        sessionRow.status !== "active" ||
+        new Date(sessionRow.ends_at).getTime() <= Date.now();
+
+      if (isEnded) {
+        if (
+          sessionRow &&
+          sessionRow.status !== "completed" &&
+          new Date(sessionRow.ends_at).getTime() <= Date.now()
+        ) {
+          await supabase
+            .from("game_sessions")
+            .update({ status: "completed" })
+            .eq("id", sessionId);
+          await recalculateLiveLeaderboard(supabase, sessionId);
+        }
+        return NextResponse.json(
+          {
+            error: "This session has ended and is closed for play.",
+            sessionEnded: true,
+          },
+          { status: 403 },
+        );
+      }
+
       const { data: existing } = await supabase
         .from("session_entries")
         .select("id, joined_at, completed_at, total_score, total_response_ms, final_rank")
@@ -825,6 +894,38 @@ export async function POST(req: NextRequest) {
       const { entryId, sessionId, questionId, optionId, responseMs } = body;
       if (!entryId || !sessionId || !questionId || !optionId) {
         return NextResponse.json({ error: "Missing answer fields" }, { status: 400 });
+      }
+
+      const { data: sessionRow } = await supabase
+        .from("game_sessions")
+        .select("id, name, status, ends_at")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+      const isEnded =
+        !sessionRow ||
+        sessionRow.status !== "active" ||
+        new Date(sessionRow.ends_at).getTime() <= Date.now();
+
+      if (isEnded) {
+        if (
+          sessionRow &&
+          sessionRow.status !== "completed" &&
+          new Date(sessionRow.ends_at).getTime() <= Date.now()
+        ) {
+          await supabase
+            .from("game_sessions")
+            .update({ status: "completed" })
+            .eq("id", sessionId);
+          await recalculateLiveLeaderboard(supabase, sessionId);
+        }
+        return NextResponse.json(
+          {
+            error: "This session has ended and is closed for play.",
+            sessionEnded: true,
+          },
+          { status: 403 },
+        );
       }
 
       const safeMs = Math.max(200, Math.min(Number(responseMs) || 2000, 600000));

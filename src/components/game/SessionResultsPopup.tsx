@@ -399,16 +399,41 @@ export function SessionResultsPopup() {
         const list = (data.sessions ?? []) as PopupSessionMeta[];
         if (list.length === 0) return;
 
+        const now = Date.now();
         for (const s of list) {
           const prevStatus = knownSessionStatusRef.current.get(s.id);
-          knownSessionStatusRef.current.set(s.id, s.status);
+          const effectiveStatus =
+            s.status === "completed" || new Date(s.ends_at).getTime() <= now
+              ? "completed"
+              : s.status;
+          knownSessionStatusRef.current.set(s.id, effectiveStatus);
 
-          // If a session just transitioned from active/closing -> completed while the user is online:
+          // 1) If a session just transitioned from active/closing -> completed while the user is online:
           if (
             prevStatus &&
             prevStatus !== "completed" &&
-            s.status === "completed"
+            effectiveStatus === "completed"
           ) {
+            if (typeof window !== "undefined") {
+              localStorage.setItem(`gw_popup_shown_${s.id}`, "1");
+            }
+            void openModalWithSession({
+              sessionId: s.id,
+              initialTab: "feedback",
+            });
+            return;
+          }
+
+          // 2) If a session ended recently (within the last 12 hours) and the user hasn't seen its end popup yet:
+          const endedAgoMs = now - new Date(s.ends_at).getTime();
+          if (
+            effectiveStatus === "completed" &&
+            endedAgoMs >= 0 &&
+            endedAgoMs <= 12 * 3600_000 &&
+            typeof window !== "undefined" &&
+            !localStorage.getItem(`gw_popup_shown_${s.id}`)
+          ) {
+            localStorage.setItem(`gw_popup_shown_${s.id}`, "1");
             void openModalWithSession({
               sessionId: s.id,
               initialTab: "feedback",
@@ -424,7 +449,7 @@ export function SessionResultsPopup() {
     void checkSessionEnd();
     const interval = setInterval(() => {
       void checkSessionEnd();
-    }, 10000);
+    }, 8000);
 
     return () => {
       mounted = false;
@@ -443,8 +468,13 @@ export function SessionResultsPopup() {
     return () => clearInterval(timer);
   }, [isOpen, autoCycleQuestions, questionFeedbacks.length]);
 
-  const isSessionEnded = sessionMeta?.status === "completed";
-  const completedSessionOption = sessions.find((s) => s.status === "completed");
+  const isSessionEnded =
+    !sessionMeta ||
+    sessionMeta.status === "completed" ||
+    new Date(sessionMeta.ends_at).getTime() <= Date.now();
+  const completedSessionOption = sessions.find(
+    (s) => s.status === "completed" || new Date(s.ends_at).getTime() <= Date.now(),
+  );
   const currentQuestion =
     questionFeedbacks[selectedQuestionIdx] ?? questionFeedbacks[0] ?? null;
 

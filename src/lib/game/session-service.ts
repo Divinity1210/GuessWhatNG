@@ -75,6 +75,14 @@ export async function joinSession(
         }),
       });
       const json = await res.json();
+      if (res.status === 403 || json?.sessionEnded) {
+        throw new Error(
+          json?.error || "This session has ended and is closed for play.",
+        );
+      }
+      if (!res.ok && json?.error) {
+        throw new Error(json.error);
+      }
       if (res.ok && json.entryId) {
         if (typeof window !== "undefined") {
           localStorage.removeItem(`gw_answers_${json.entryId}`);
@@ -82,8 +90,10 @@ export async function joinSession(
         return json.entryId as string;
       }
     }
-  } catch {
-    // Fall through to local fallback
+  } catch (err) {
+    if (err instanceof Error) {
+      throw err;
+    }
   }
 
   const userId = knownUserId || getFallbackUserId();
@@ -196,6 +206,8 @@ export async function submitAnswer(
   sessionId?: string,
 ): Promise<{
   completed?: boolean;
+  sessionEnded?: boolean;
+  error?: string;
   myStats?: { rank: number; points: number; responseMs: number; prize: number } | null;
 }> {
   if (typeof window !== "undefined") {
@@ -234,8 +246,15 @@ export async function submitAnswer(
           responseMs,
         }),
       });
+      const json = await res.json();
+      if (res.status === 403 || json?.sessionEnded) {
+        return {
+          sessionEnded: true,
+          error: json?.error || "This session has ended and is closed for play.",
+        };
+      }
       if (res.ok) {
-        return await res.json();
+        return json;
       }
     }
   } catch {

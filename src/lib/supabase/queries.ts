@@ -212,8 +212,11 @@ export async function getActiveSessions() {
       .eq("status", "active")
       .order("ends_at", { ascending: true });
 
-    if (!error && data && data.length > 0) {
-      return data as SessionRow[];
+    if (!error && data) {
+      const nowMs = Date.now();
+      return (data as SessionRow[]).filter(
+        (s) => s.status === "active" && new Date(s.ends_at).getTime() > nowMs,
+      );
     }
   } catch {
     // Fall through

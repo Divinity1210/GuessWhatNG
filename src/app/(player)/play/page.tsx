@@ -162,12 +162,13 @@ export default function PlayPage() {
     return () => clearInterval(interval);
   }, [phase, questionStartTime]);
 
-  // Load active session
+  // Load active session & poll every 4s so if session ends mid-game, gameplay stops immediately
   useEffect(() => {
+    let mounted = true;
     async function load() {
       try {
         const res = await fetch("/api/game/session", { cache: "no-store" });
-        if (res.ok) {
+        if (res.ok && mounted) {
           const data = await res.json();
           if (data.session) {
             setActiveSession(data.session as SessionRow);
@@ -175,15 +176,29 @@ export default function PlayPage() {
           }
         }
         const sessions = await getActiveSessions();
-        setActiveSession(sessions[0] ?? null);
+        if (mounted) {
+          setActiveSession(sessions[0] ?? null);
+        }
       } catch (err) {
         console.error("Play load error:", err);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }
-    load();
+    void load();
+    const poll = setInterval(() => {
+      void load();
+    }, 4000);
+    return () => {
+      mounted = false;
+      clearInterval(poll);
+    };
   }, [user]);
+
+  const isSessionEnded =
+    !activeSession ||
+    activeSession.status !== "active" ||
+    new Date(activeSession.ends_at).getTime() <= nowMs;
 
   const requestBrowserFullscreen = async () => {
     try {
@@ -205,9 +220,39 @@ export default function PlayPage() {
     }
   };
 
+  // Immediately stop active gameplay if the session countdown expires or Admin ends the session
+  useEffect(() => {
+    if (
+      isSessionEnded &&
+      (phase === "playing" || phase === "result_sample")
+    ) {
+      stopBackgroundMusic();
+      void exitBrowserFullscreen();
+      setPhase("lobby");
+      setJoinError(
+        "This session has just ended! Gameplay is now closed — view the official crowd feedback & winners.",
+      );
+      if (activeSession?.id) {
+        openSessionResultsPopup({
+          sessionId: activeSession.id,
+          entryId: entryId ?? undefined,
+          initialTab: "feedback",
+        });
+      }
+    }
+  }, [isSessionEnded, phase, activeSession?.id, entryId]);
+
   // Start / Replay session (Page 31: projects fullscreen when PLAY is clicked)
   const handleStartPlay = async () => {
-    if (!activeSession || joining) return;
+    if (!activeSession || joining || isSessionEnded) {
+      if (isSessionEnded && activeSession?.id) {
+        openSessionResultsPopup({
+          sessionId: activeSession.id,
+          initialTab: "feedback",
+        });
+      }
+      return;
+    }
     setJoining(true);
     setJoinError(null);
     playGameStart();
@@ -234,6 +279,7 @@ export default function PlayPage() {
           ? (err as { message: string }).message
           : "Unable to start game. Please try again.";
       setJoinError(msg);
+      void exitBrowserFullscreen();
     } finally {
       setJoining(false);
     }
@@ -255,9 +301,7 @@ export default function PlayPage() {
       playSessionComplete();
       if (stats) setFinalStats(stats);
       setPhase("completed");
-      // Only auto-open the Session Results & Winners Popup if the session itself has ENDED ("completed").
-      // While the 3-day session is still ONGOING ("active"), do NOT auto-open the ended-session popup!
-      if (activeSession?.status === "completed") {
+      if (isSessionEnded && activeSession?.id) {
         setTimeout(() => {
           openSessionResultsPopup({
             sessionId: activeSession.id,
@@ -272,7 +316,7 @@ export default function PlayPage() {
   const handleSelectOption = async (
     opt: SessionQuestion["questions"]["question_options"][0],
   ) => {
-    if (!entryId || submitting || !activeSession) return;
+    if (!entryId || submitting || !activeSession || isSessionEnded) return;
     setSubmitting(true);
     playOptionSelect();
 
@@ -297,6 +341,25 @@ export default function PlayPage() {
         false,
         activeSession.id,
       );
+
+      if (result.sessionEnded) {
+        stopBackgroundMusic();
+        void exitBrowserFullscreen();
+        setActiveSession((prev) =>
+          prev ? { ...prev, status: "completed" } : prev,
+        );
+        setPhase("lobby");
+        setJoinError(
+          result.error ||
+            "This session has ended and is closed for play.",
+        );
+        openSessionResultsPopup({
+          sessionId: activeSession.id,
+          entryId: entryId ?? undefined,
+          initialTab: "feedback",
+        });
+        return;
+      }
 
       setTimeout(() => {
         advanceToNextQuestion(currentIndex + 1, isLast, result.myStats ?? null);
@@ -328,8 +391,14 @@ export default function PlayPage() {
         ref={containerRef}
         className="mx-auto max-w-xl py-12 animate-fade-in"
       >
-        <section className="rounded-2xl border border-emerald-500/20 bg-[#0d111c] px-6 py-12 sm:px-12 sm:py-14 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.4)]">
-          {activeSession && (
+        <section
+          className={`rounded-2xl border bg-[#0d111c] px-6 py-12 sm:px-12 sm:py-14 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.4)] ${
+            isSessionEnded
+              ? "border-amber-500/30"
+              : "border-emerald-500/20"
+          }`}
+        >
+          {activeSession && !isSessionEnded ? (
             <div className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-3.5 py-1 text-xs font-bold text-emerald-300">
               <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>LIVE · ONGOING SESSION</span>
@@ -338,38 +407,81 @@ export default function PlayPage() {
                 Closes in {formatLiveCountdown(activeSession.ends_at, nowMs)}
               </span>
             </div>
+          ) : (
+            <div className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-4 py-1 text-xs font-bold text-amber-300">
+              <span className="size-2 rounded-full bg-amber-400" />
+              <span>🏁 SESSION ENDED · CLOSED FOR PLAY</span>
+            </div>
           )}
 
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-accent">
-              Think &amp; Win · Free to Play
+              {isSessionEnded
+                ? "Official Session Results Ready"
+                : "Think & Win · Free to Play"}
             </p>
             <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
               {activeSession?.name ?? "GUESS WHAT"}
             </h1>
-            <p className="text-sm text-slate-300 max-w-md mx-auto">
-              10 questions · 10 options each. Predict the option that will receive the
-              highest number of selections from other players in the shortest time.
+            <p className="text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
+              {isSessionEnded
+                ? "This session has officially ended and is closed for new entries. Inspect the 10–1 crowd consensus breakdown and official session winners below."
+                : "10 questions · 10 options each. Predict the option that will receive the highest number of selections from other players in the shortest time."}
             </p>
           </div>
 
           {joinError && (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs sm:text-sm text-amber-200">
               {joinError}
             </div>
           )}
 
-          <div className="pt-2">
-            <Button
-              size="lg"
-              onClick={handleStartPlay}
-              disabled={joining || !activeSession}
-              className="px-14 py-4 text-base font-bold inline-flex items-center gap-2.5 shadow-lg"
-            >
-              <PlayIcon className="size-5 fill-current" />
-              <span>{joining ? "LOADING..." : "PLAY"}</span>
-            </Button>
-          </div>
+          {!isSessionEnded ? (
+            <div className="pt-2">
+              <Button
+                size="lg"
+                onClick={handleStartPlay}
+                disabled={joining || !activeSession || isSessionEnded}
+                className="px-14 py-4 text-base font-bold inline-flex items-center gap-2.5 shadow-lg"
+              >
+                <PlayIcon className="size-5 fill-current" />
+                <span>{joining ? "LOADING..." : "PLAY"}</span>
+              </Button>
+            </div>
+          ) : (
+            <div className="pt-2 flex flex-col items-center gap-3">
+              <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <span>🔒 Session Ended — Gameplay Closed</span>
+              </div>
+
+              {activeSession && (
+                <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openSessionResultsPopup({
+                        sessionId: activeSession.id,
+                        initialTab: "feedback",
+                      })
+                    }
+                    className="rounded-xl border border-amber-400/50 bg-amber-500/20 hover:bg-amber-500/30 px-6 py-3.5 text-sm font-bold text-amber-200 shadow-lg transition-all inline-flex items-center justify-center gap-2"
+                  >
+                    <span>🎉 View Session Feedback &amp; Winners</span>
+                  </button>
+
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    href="/leaderboard?tab=winners"
+                    className="inline-flex items-center justify-center gap-2"
+                  >
+                    <TrophyIcon className="size-4" />
+                    <span>Winners Leaderboard</span>
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {activeSession && (
             <div className="space-y-1 text-xs text-slate-400">
@@ -378,10 +490,15 @@ export default function PlayPage() {
                 <strong className="text-amber-300">
                   {formatNaira(activeSession.prize_pool)}
                 </strong>{" "}
-                · Free Entry · Unlimited Replays for Best Score
+                ·{" "}
+                {isSessionEnded
+                  ? "Final Standings & Crowd Feedback Unlocked"
+                  : "Free Entry · Unlimited Replays for Best Score"}
               </p>
               <p className="text-[11px] text-slate-500">
-                Session is currently ongoing. Official winners &amp; crowd feedback unlock when the countdown reaches 00:00:00.
+                {isSessionEnded
+                  ? "Click 'View Session Feedback & Winners' above to inspect all 10 questions and official winners."
+                  : "Session is currently ongoing. Official winners & crowd feedback unlock when the countdown reaches 00:00:00."}
               </p>
             </div>
           )}
@@ -629,12 +746,22 @@ export default function PlayPage() {
 
   // ── 4. 10/10 Entry Locked In Screen (Product Document Pages 6, 18, 19) ──
   if (phase === "completed") {
-    const isEnded = activeSession.status === "completed";
+    const isEnded = isSessionEnded;
     return (
       <div className="mx-auto max-w-xl py-10 animate-fade-in">
         <section className="rounded-2xl border border-emerald-500/20 bg-[#0d111c] p-8 sm:p-10 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.45)]">
-          <div className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-3.5 py-1 text-xs font-bold text-emerald-300">
-            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div
+            className={`inline-flex flex-wrap items-center justify-center gap-2 rounded-full border px-3.5 py-1 text-xs font-bold ${
+              isEnded
+                ? "border-amber-400/40 bg-amber-500/15 text-amber-300"
+                : "border-emerald-400/35 bg-emerald-500/15 text-emerald-300"
+            }`}
+          >
+            <span
+              className={`size-2 rounded-full ${
+                isEnded ? "bg-amber-400" : "bg-emerald-400 animate-pulse"
+              }`}
+            />
             <span>
               {isEnded
                 ? "🏁 SESSION ENDED · OFFICIAL RESULTS"
@@ -651,7 +778,7 @@ export default function PlayPage() {
 
           <div className="space-y-2">
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
-              {isEnded ? "Session Complete" : "10/10 Predictions Locked In!"}
+              {isEnded ? "Session Ended — Official Results" : "10/10 Predictions Locked In!"}
             </h1>
             <p className="text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
               {isEnded
@@ -715,27 +842,29 @@ export default function PlayPage() {
                     initialTab: "feedback",
                   })
                 }
-                className="rounded-xl border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 px-6 py-3.5 text-sm font-bold text-emerald-300 shadow-lg transition-all inline-flex items-center justify-center gap-2"
+                className="rounded-xl border border-amber-400/50 bg-amber-500/20 hover:bg-amber-500/30 px-6 py-3.5 text-sm font-bold text-amber-200 shadow-lg transition-all inline-flex items-center justify-center gap-2"
               >
                 <span>🎉 Crowd Feedback &amp; Winners Popup</span>
               </button>
             )}
             <Button
               size="lg"
-              href="/leaderboard"
+              href={isEnded ? "/leaderboard?tab=winners" : "/leaderboard"}
               onClick={exitBrowserFullscreen}
               className="inline-flex items-center justify-center gap-2"
             >
               <TrophyIcon className="size-4" />
-              <span>View Live Leaderboard</span>
+              <span>{isEnded ? "View Final Winners" : "View Live Leaderboard"}</span>
             </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={handleStartPlay}
-            >
-              Play Again (Beat Best Score)
-            </Button>
+            {!isEnded && (
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={handleStartPlay}
+              >
+                Play Again (Beat Best Score)
+              </Button>
+            )}
           </div>
         </section>
       </div>
