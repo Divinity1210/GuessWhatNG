@@ -51,12 +51,18 @@ function getFallbackUserId(): string {
 export async function joinSession(
   sessionId: string,
   replay = false,
+  knownUserId?: string,
 ): Promise<string> {
-  const supabase = createSupabaseBrowserClient();
-
   try {
-    const { data: authData } = await supabase.auth.getUser();
-    const userId = authData?.user?.id;
+    let userId = knownUserId;
+    if (!userId) {
+      const supabase = createSupabaseBrowserClient();
+      const authResult = await Promise.race([
+        supabase.auth.getUser(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+      ]);
+      userId = authResult?.data?.user?.id;
+    }
     if (userId) {
       const res = await fetch("/api/game/session", {
         method: "POST",
@@ -80,7 +86,7 @@ export async function joinSession(
     // Fall through to local fallback
   }
 
-  const userId = getFallbackUserId();
+  const userId = knownUserId || getFallbackUserId();
   const localEntryKey = `gw_entry_${userId}_${sessionId}`;
   if (typeof window !== "undefined") {
     const newEntryId = `local-entry-${sessionId}-${Date.now()}`;
@@ -96,6 +102,26 @@ export async function joinSession(
 export async function getSessionQuestions(
   sessionId: string,
 ): Promise<SessionQuestion[]> {
+  try {
+    const apiRes = await fetch(
+      `/api/game/session?sessionId=${encodeURIComponent(sessionId)}&includeQuestions=1`,
+      { cache: "no-store" },
+    );
+    if (apiRes.ok) {
+      const apiJson = await apiRes.json();
+      if (Array.isArray(apiJson.questions) && apiJson.questions.length > 0) {
+        const valid = (apiJson.questions as SessionQuestion[]).filter(
+          (sq) => sq.questions && Array.isArray(sq.questions.question_options),
+        );
+        if (valid.length > 0) {
+          return valid;
+        }
+      }
+    }
+  } catch {
+    // Fall through to direct Supabase query
+  }
+
   try {
     const supabase = createSupabaseBrowserClient();
 

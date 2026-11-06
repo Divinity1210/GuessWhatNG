@@ -351,6 +351,7 @@ export async function GET(req: NextRequest) {
             title,
             category,
             type,
+            notes,
             question_options (
               id,
               label,

@@ -218,42 +218,22 @@ dialog::backdrop {
   overscroll-behavior: contain;
 }
 
-dialog.gw-session-results-dialog {
-  opacity: 0;
-  transform: scale(0.92) translateY(14px);
-  transition-property: opacity, transform, display, overlay;
-  transition-duration: 0.34s;
-  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  transition-behavior: allow-discrete;
+dialog.gw-session-results-dialog:not([open]) {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+dialog.gw-session-results-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  animation: fade-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 dialog.gw-session-results-dialog::backdrop {
-  background-color: rgba(4, 6, 12, 0);
-  backdrop-filter: blur(0px);
-  transition-property: background-color, backdrop-filter, display, overlay;
-  transition-duration: 0.34s;
-  transition-timing-function: ease-out;
-  transition-behavior: allow-discrete;
-}
-
-:is(dialog.gw-session-results-dialog[open]):where(:not([data-closing])) {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-
-  @starting-style {
-    opacity: 0;
-    transform: scale(0.92) translateY(14px);
-  }
-
-  &::backdrop {
-    background-color: rgba(4, 6, 12, 0.82);
-    backdrop-filter: blur(10px);
-
-    @starting-style {
-      background-color: rgba(4, 6, 12, 0);
-      backdrop-filter: blur(0px);
-    }
-  }
+  background-color: rgba(4, 6, 12, 0.82);
+  backdrop-filter: blur(10px);
 }
 
 @keyframes gw-confetti-fall {

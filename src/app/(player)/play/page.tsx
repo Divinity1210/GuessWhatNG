@@ -148,6 +148,14 @@ export default function PlayPage() {
   useEffect(() => {
     async function load() {
       try {
+        const res = await fetch("/api/game/session", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.session) {
+            setActiveSession(data.session as SessionRow);
+            return;
+          }
+        }
         const sessions = await getActiveSessions();
         setActiveSession(sessions[0] ?? null);
       } catch (err) {
@@ -181,16 +189,16 @@ export default function PlayPage() {
 
   // Start / Replay session (Page 31: projects fullscreen when PLAY is clicked)
   const handleStartPlay = async () => {
-    if (!activeSession) return;
+    if (!activeSession || joining) return;
     setJoining(true);
     setJoinError(null);
     playGameStart();
 
-    await requestBrowserFullscreen();
+    void requestBrowserFullscreen();
 
     try {
       const [eid, qs] = await Promise.all([
-        joinSession(activeSession.id, true),
+        joinSession(activeSession.id, true, user?.id),
         getSessionQuestions(activeSession.id),
       ]);
       setEntryId(eid);

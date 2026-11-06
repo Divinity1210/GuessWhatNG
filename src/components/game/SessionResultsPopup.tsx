@@ -231,26 +231,12 @@ export function SessionResultsPopup() {
   const closeTopLayer = useCallback(async () => {
     const dialog = dialogRef.current;
     setAutoCycleQuestions(false);
+    setIsOpen(false);
     if (!dialog || !dialog.open) {
-      setIsOpen(false);
       return;
     }
-
-    if (!supportsTopLayerExit()) {
-      dialog.setAttribute("data-closing", "");
-      const animations = dialog.getAnimations({ subtree: true });
-      if (animations.length > 0) {
-        await Promise.race([
-          Promise.allSettled(animations.map((a) => a.finished)),
-          new Promise((r) => setTimeout(r, 450)),
-        ]);
-      }
-      if (!dialog.hasAttribute("data-closing")) return;
-      dialog.removeAttribute("data-closing");
-    }
-
+    dialog.removeAttribute("data-closing");
     dialog.close();
-    setIsOpen(false);
   }, []);
 
   const fetchSessionFeedback = useCallback(
@@ -394,11 +380,11 @@ export function SessionResultsPopup() {
     };
   }, [closeTopLayer]);
 
-  // Monitor sessions for automatic popup when a session ends (status changes to "completed" or timer expires)
+  // Monitor sessions for automatic popup when an active session ends (status transitions to "completed")
   useEffect(() => {
     let mounted = true;
 
-    const checkSessionEnd = async (isInitial: boolean) => {
+    const checkSessionEnd = async () => {
       try {
         const res = await fetch("/api/game/session", {
           cache: "no-store",
@@ -419,7 +405,6 @@ export function SessionResultsPopup() {
             prevStatus !== "completed" &&
             s.status === "completed"
           ) {
-            sessionStorage.setItem(`gw_session_end_popup_${s.id}`, "1");
             void openModalWithSession({
               sessionId: s.id,
               initialTab: "feedback",
@@ -427,35 +412,14 @@ export function SessionResultsPopup() {
             return;
           }
         }
-
-        // Also check if the active session's countdown just hit 0 or if there is a newly completed session not yet shown in this session
-        if (isInitial) {
-          const completedSession = list.find((s) => s.status === "completed");
-          const activeExpired = list.find(
-            (s) =>
-              s.status === "active" &&
-              new Date(s.ends_at).getTime() <= Date.now(),
-          );
-          const candidate = activeExpired ?? completedSession;
-          if (candidate) {
-            const seenKey = `gw_session_end_popup_${candidate.id}`;
-            if (!sessionStorage.getItem(seenKey)) {
-              sessionStorage.setItem(seenKey, "1");
-              void openModalWithSession({
-                sessionId: candidate.id,
-                initialTab: "feedback",
-              });
-            }
-          }
-        }
       } catch {
         // Ignore transient network errors
       }
     };
 
-    void checkSessionEnd(true);
+    void checkSessionEnd();
     const interval = setInterval(() => {
-      void checkSessionEnd(false);
+      void checkSessionEnd();
     }, 10000);
 
     return () => {
@@ -502,7 +466,7 @@ export function SessionResultsPopup() {
       ref={dialogRef}
       aria-labelledby={titleId}
       {...({ closedby: "any" } as Record<string, string>)}
-      className="gw-session-results-dialog m-auto w-[min(96vw,1080px)] max-h-[92dvh] rounded-3xl border border-white/15 bg-[#090d16] text-slate-100 shadow-[0_28px_90px_rgba(0,0,0,0.85)] p-0 overflow-hidden flex flex-col"
+      className="gw-session-results-dialog m-auto w-[min(96vw,1080px)] max-h-[92dvh] rounded-3xl border border-white/15 bg-[#090d16] text-slate-100 shadow-[0_28px_90px_rgba(0,0,0,0.85)] p-0 overflow-hidden"
     >
       {/* ── Top Animated Celebration Header ── */}
       <div className="relative overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#141c2f] via-[#0d1220] to-[#1a1118] px-5 py-5 sm:px-8 sm:py-6 shrink-0">
