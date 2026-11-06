@@ -22,8 +22,11 @@ function formatCountdownLong(endsAt: string): string {
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   const mins = Math.floor((diff % 3_600_000) / 60_000);
-  if (days > 0) return `${days} day${days > 1 ? "s" : ""} ${hours} hours`;
-  return `${hours} hours ${mins} mins`;
+  const secs = Math.floor((diff % 60_000) / 1_000);
+  if (days > 0) {
+    return `${days}d ${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s remaining`;
+  }
+  return `${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s remaining`;
 }
 
 function formatDuration(ms: number): string {
@@ -266,9 +269,10 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     if (!activeSession) return;
+    setCountdownStr(formatCountdownLong(activeSession.ends_at));
     const interval = setInterval(() => {
       setCountdownStr(formatCountdownLong(activeSession.ends_at));
-    }, 30_000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [activeSession]);
 
@@ -368,16 +372,13 @@ export default function LeaderboardPage() {
             type="button"
             onClick={() =>
               openSessionResultsPopup({
-                sessionId:
-                  tab === "winners"
-                    ? selectedCompletedId || selectedSessionId
-                    : selectedSessionId,
+                sessionId: selectedCompletedId || undefined,
                 initialTab: tab === "winners" ? "winners" : "feedback",
               })
             }
-            className="rounded-xl border border-emerald-400/40 bg-emerald-500/15 hover:bg-emerald-500/25 px-3.5 py-2 text-xs font-bold text-emerald-300 transition-colors"
+            className="rounded-xl border border-amber-400/40 bg-amber-500/15 hover:bg-amber-500/25 px-3.5 py-2 text-xs font-bold text-amber-300 transition-colors"
           >
-            🎉 Session Feedback &amp; Winners Popup
+            🏁 Ended Session Feedback &amp; Winners
           </button>
 
           <button
@@ -489,7 +490,7 @@ export default function LeaderboardPage() {
                         : "bg-amber-500/15 text-amber-300"
                     }`}
                   >
-                    {isLive ? "Live" : "Completed"}
+                    {isLive ? "Live · Ongoing" : "Ended"}
                   </span>
                 </button>
               );
@@ -515,7 +516,7 @@ export default function LeaderboardPage() {
             >
               {allSessions.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.status === "active" ? "LIVE" : "Completed"})
+                  {s.name} ({s.status === "active" ? "LIVE · ONGOING" : "ENDED · Final Results"})
                 </option>
               ))}
             </select>
@@ -546,10 +547,10 @@ export default function LeaderboardPage() {
                         : "bg-amber-400"
                     }`}
                   />
-                  <span>
+                  <span className="font-mono text-xs sm:text-sm tabular-nums">
                     {selectedSession.status === "active"
-                      ? countdownStr || formatCountdownLong(selectedSession.ends_at)
-                      : `Completed · ${selectedSession.name}`}
+                      ? `ONGOING · ${countdownStr || formatCountdownLong(selectedSession.ends_at)}`
+                      : `ENDED · ${selectedSession.name}`}
                   </span>
                 </div>
               )}
@@ -597,7 +598,11 @@ export default function LeaderboardPage() {
               <thead>
                 <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
                   <th className="py-3 pr-4">Position</th>
-                  <th className="py-3 pr-4">Prize (₦)</th>
+                  <th className="py-3 pr-4">
+                    {selectedSession?.status === "active"
+                      ? "Projected Prize (₦)"
+                      : "Official Prize (₦)"}
+                  </th>
                   <th className="py-3 pr-4">Name</th>
                   <th className="py-3 pr-4">Points</th>
                   <th className="py-3 text-right">Time</th>

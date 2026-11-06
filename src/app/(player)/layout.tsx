@@ -178,9 +178,9 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             <button
               type="button"
               onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
-              className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors"
+              className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
             >
-              <span>🎉 Session Results</span>
+              <span>🏁 Past Session Results</span>
               <span>📊</span>
             </button>
           </div>
@@ -252,10 +252,10 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             <button
               type="button"
               onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
-              aria-label="Open session results and crowd feedback"
-              className="rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25"
+              aria-label="Open past session results and crowd feedback"
+              className="rounded-xl bg-amber-500/15 border border-amber-500/30 px-2.5 py-1.5 text-[11px] font-bold text-amber-300 hover:bg-amber-500/25"
             >
-              🎉 Results
+              🏁 Past Results
             </button>
 
             <Link
@@ -343,9 +343,9 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             <button
               type="button"
               onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
-              className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors"
+              className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
             >
-              <span>🎉 Session Results</span>
+              <span>🏁 Past Session Results</span>
               <span>📊</span>
             </button>
           </div>

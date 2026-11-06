@@ -297,6 +297,7 @@ export async function GET(req: NextRequest) {
     const sessionId = searchParams.get("sessionId");
     const includeQuestions = searchParams.get("includeQuestions") === "1";
     const includeFeedback = searchParams.get("includeFeedback") === "1";
+    const preferCompleted = searchParams.get("preferCompleted") === "1";
     const userIdParam = searchParams.get("userId") || "";
     const entryIdParam = searchParams.get("entryId") || "";
     const supabase = createSupabaseServiceClient();
@@ -316,6 +317,8 @@ export async function GET(req: NextRequest) {
 
     let targetSession = sessionId
       ? sessions.find((s) => s.id === sessionId) ?? null
+      : preferCompleted
+      ? sessions.find((s) => s.status === "completed") ?? sessions[0] ?? null
       : sessions.find((s) => s.status === "active") ?? sessions[0] ?? null;
 
     if (sessionId && !targetSession) {

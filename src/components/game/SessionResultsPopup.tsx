@@ -244,7 +244,11 @@ export function SessionResultsPopup() {
       setLoading(true);
       try {
         const params = new URLSearchParams();
-        if (targetSessionId) params.set("sessionId", targetSessionId);
+        if (targetSessionId) {
+          params.set("sessionId", targetSessionId);
+        } else {
+          params.set("preferCompleted", "1");
+        }
         params.set("includeFeedback", "1");
         if (user?.id) params.set("userId", user.id);
         if (entryIdOverride) params.set("entryId", entryIdOverride);
@@ -439,6 +443,8 @@ export function SessionResultsPopup() {
     return () => clearInterval(timer);
   }, [isOpen, autoCycleQuestions, questionFeedbacks.length]);
 
+  const isSessionEnded = sessionMeta?.status === "completed";
+  const completedSessionOption = sessions.find((s) => s.status === "completed");
   const currentQuestion =
     questionFeedbacks[selectedQuestionIdx] ?? questionFeedbacks[0] ?? null;
 
@@ -494,12 +500,24 @@ export function SessionResultsPopup() {
           {/* Top Row: Badge + Session Switcher + Close Button */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300 shadow-sm">
-                <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider shadow-sm ${
+                  isSessionEnded
+                    ? "border-amber-400/40 bg-amber-500/15 text-amber-300"
+                    : "border-emerald-400/40 bg-emerald-500/15 text-emerald-300"
+                }`}
+              >
+                <span
+                  className={`size-2 rounded-full ${
+                    isSessionEnded
+                      ? "bg-amber-400"
+                      : "bg-emerald-400 animate-pulse"
+                  }`}
+                />
                 <span>
-                  {sessionMeta?.status === "completed"
-                    ? "Session Ended · Final Results"
-                    : "Live Session Feedback & Standings"}
+                  {isSessionEnded
+                    ? "🏁 Session Ended · Official Results & Winners"
+                    : "🟢 Session Ongoing · In Progress (Not Ended Yet)"}
                 </span>
               </span>
 
@@ -519,7 +537,10 @@ export function SessionResultsPopup() {
                     {sessions.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name} (
-                        {s.status === "completed" ? "Ended" : "Live"})
+                        {s.status === "completed"
+                          ? "🏁 ENDED · Final Results"
+                          : "🟢 ONGOING · Live Session"}
+                        )
                       </option>
                     ))}
                   </select>
@@ -633,7 +654,9 @@ export function SessionResultsPopup() {
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                🏆 Winners &amp; Podium ({leaderboard.length})
+                {isSessionEnded
+                  ? `🏆 Official Winners & Podium (${leaderboard.length})`
+                  : `⏳ Live Provisional Standings (${leaderboard.length})`}
               </button>
 
               <button
@@ -647,8 +670,10 @@ export function SessionResultsPopup() {
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                🎯 My Picks vs. Crowd
-                {myPerformance && myPerformance.questionsAnswered > 0
+                🎯 My Picks
+                {isSessionEnded &&
+                myPerformance &&
+                myPerformance.questionsAnswered > 0
                   ? ` (${myPerformance.mostSelectedHits}/10 #1 Hits)`
                   : ""}
               </button>
@@ -656,7 +681,11 @@ export function SessionResultsPopup() {
 
             {myPerformance && myPerformance.prize > 0 && (
               <div className="inline-flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-1.5 text-xs font-bold text-emerald-300">
-                <span>🎉 Winning Position! Prize Estimate:</span>
+                <span>
+                  {isSessionEnded
+                    ? "🎉 Official Winner! Prize Won:"
+                    : "⏳ In Winning Zone! Projected Prize:"}
+                </span>
                 <span className="font-mono text-sm text-white">
                   ₦{myPerformance.prize.toLocaleString()}
                 </span>
@@ -678,6 +707,41 @@ export function SessionResultsPopup() {
         ) : (
           <>
             {/* ════════════════════════════════════════════════════════════════
+                ONGOING SESSION FAIR-PLAY NOTICE BANNER (when status !== "completed")
+               ════════════════════════════════════════════════════════════════ */}
+            {!isSessionEnded && (
+              <div className="rounded-2xl border border-emerald-400/35 bg-emerald-500/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-emerald-300">
+                      🟢 Live Session Ongoing — Fair-Play Crowd Lock Active
+                    </p>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                    <strong>{sessionMeta?.name}</strong> is still in progress! To keep competition fair while players can still play and improve their Best Score, crowd vote percentages and{" "}
+                    <span className="text-emerald-300 font-semibold">
+                      #1 MOST SELECTED (10 pts)
+                    </span>{" "}
+                    answers are sealed until the session timer ends.
+                  </p>
+                </div>
+
+                {completedSessionOption && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void handleSelectSessionInModal(completedSessionOption.id)
+                    }
+                    className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/20 hover:bg-amber-500/30 px-4 py-2.5 text-xs font-bold text-amber-200 transition-colors"
+                  >
+                    <span>🏁 View Ended Session ({completedSessionOption.name})</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ════════════════════════════════════════════════════════════════
                 TAB 1: CROWD FEEDBACK RESULTS (Question-by-Question 10–1 Table)
                ════════════════════════════════════════════════════════════════ */}
             {activeTab === "feedback" && (
@@ -687,7 +751,7 @@ export function SessionResultsPopup() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     {questionFeedbacks.map((qf, idx) => {
                       const isCurrent = idx === selectedQuestionIdx;
-                      const earned = qf.myPointsEarned;
+                      const earned = isSessionEnded ? qf.myPointsEarned : null;
                       return (
                         <button
                           key={qf.questionId}
@@ -743,18 +807,20 @@ export function SessionResultsPopup() {
                     >
                       Next →
                     </button>
-                    <button
-                      type="button"
-                      aria-pressed={autoCycleQuestions}
-                      onClick={() => setAutoCycleQuestions((v) => !v)}
-                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-colors ${
-                        autoCycleQuestions
-                          ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-300"
-                          : "border-white/10 bg-white/[0.04] text-slate-300 hover:text-white"
-                      }`}
-                    >
-                      {autoCycleQuestions ? "⏸ Pause Auto" : "▶ Auto-Play Q1–Q10"}
-                    </button>
+                    {isSessionEnded && (
+                      <button
+                        type="button"
+                        aria-pressed={autoCycleQuestions}
+                        onClick={() => setAutoCycleQuestions((v) => !v)}
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-colors ${
+                          autoCycleQuestions
+                            ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-300"
+                            : "border-white/10 bg-white/[0.04] text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        {autoCycleQuestions ? "⏸ Pause Auto" : "▶ Auto-Play Q1–Q10"}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -785,7 +851,7 @@ export function SessionResultsPopup() {
                         </h3>
                       </div>
 
-                      {currentQuestion.myPointsEarned !== null && (
+                      {isSessionEnded && currentQuestion.myPointsEarned !== null ? (
                         <div className="rounded-xl border border-emerald-400/35 bg-emerald-500/10 px-3.5 py-2 text-right shrink-0">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
                             Your Score on Q{currentQuestion.position}
@@ -797,10 +863,19 @@ export function SessionResultsPopup() {
                             </span>
                           </p>
                         </div>
-                      )}
+                      ) : !isSessionEnded ? (
+                        <div className="rounded-xl border border-amber-400/35 bg-amber-500/10 px-3.5 py-2 text-right shrink-0">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                            Crowd Breakdown Status
+                          </p>
+                          <p className="font-mono text-xs font-bold text-white">
+                            🔒 Unlocks when session ends
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
 
-                    {/* 10 Options Ranked Table (Matches Screenshot Layout) */}
+                    {/* 10 Options Ranked Table (Revealed for Ended Sessions, Sealed for Ongoing Sessions) */}
                     <div
                       tabIndex={0}
                       role="region"
@@ -814,7 +889,9 @@ export function SessionResultsPopup() {
                         </caption>
                         <thead>
                           <tr className="border-b border-white/10 bg-[#090c14] text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                            <th className="py-3 pl-5 pr-3 w-14">Rank</th>
+                            <th className="py-3 pl-5 pr-3 w-14">
+                              {isSessionEnded ? "Rank" : "Option #"}
+                            </th>
                             <th className="py-3 px-3">Option</th>
                             <th className="py-3 px-3 text-right w-20">Votes</th>
                             <th className="py-3 px-4 w-64">Crowd Share</th>
@@ -826,7 +903,12 @@ export function SessionResultsPopup() {
                           </tr>
                         </thead>
                         <tbody className="stagger">
-                          {currentQuestion.options.map((opt) => {
+                          {(isSessionEnded
+                            ? currentQuestion.options
+                            : [...currentQuestion.options].sort(
+                                (a, b) => a.position - b.position,
+                              )
+                          ).map((opt, idx) => {
                             const hasImage =
                               opt.mediaUrl &&
                               (opt.mediaUrl.startsWith("http") ||
@@ -851,7 +933,7 @@ export function SessionResultsPopup() {
                               <tr
                                 key={opt.optionId}
                                 className={`border-b border-white/5 last:border-0 transition-colors ${
-                                  opt.isMostSelected
+                                  isSessionEnded && opt.isMostSelected
                                     ? "bg-emerald-500/[0.07]"
                                     : opt.isMyPick
                                     ? "bg-accent/[0.08]"
@@ -859,7 +941,7 @@ export function SessionResultsPopup() {
                                 }`}
                               >
                                 <td className="py-3 pl-5 pr-3 font-mono text-xs font-semibold text-slate-400">
-                                  #{opt.rank}
+                                  #{isSessionEnded ? opt.rank : idx + 1}
                                 </td>
 
                                 <th
@@ -896,42 +978,60 @@ export function SessionResultsPopup() {
                                 </th>
 
                                 <td className="py-3 px-3 text-right font-mono text-sm font-bold text-white tabular-nums">
-                                  {opt.selectionCount}
+                                  {isSessionEnded ? opt.selectionCount : "🔒"}
                                 </td>
 
                                 <td className="py-3 px-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-2.5 flex-1 rounded-full bg-white/[0.06] overflow-hidden">
-                                      <div
-                                        className={`h-full rounded-full animate-gw-bar ${barColor}`}
-                                        style={{
-                                          width: `${Math.max(
-                                            opt.percentage,
-                                            opt.selectionCount > 0 ? 4 : 2,
-                                          )}%`,
-                                        }}
-                                      />
+                                  {isSessionEnded ? (
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-2.5 flex-1 rounded-full bg-white/[0.06] overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full animate-gw-bar ${barColor}`}
+                                          style={{
+                                            width: `${Math.max(
+                                              opt.percentage,
+                                              opt.selectionCount > 0 ? 4 : 2,
+                                            )}%`,
+                                          }}
+                                        />
+                                      </div>
+                                      <span className="w-12 text-right font-mono text-xs font-bold text-slate-200 tabular-nums">
+                                        {opt.percentage}%
+                                      </span>
                                     </div>
-                                    <span className="w-12 text-right font-mono text-xs font-bold text-slate-200 tabular-nums">
-                                      {opt.percentage}%
+                                  ) : (
+                                    <span className="text-xs text-slate-500 italic">
+                                      Sealed while session is ongoing
                                     </span>
-                                  </div>
+                                  )}
                                 </td>
 
                                 <td className="py-3 px-3 text-center">
-                                  <span
-                                    className={`inline-flex items-center justify-center rounded-lg border px-2.5 py-1 font-mono text-xs font-bold tabular-nums ${pointsBadgeClass}`}
-                                  >
-                                    {opt.points} {opt.points === 1 ? "pt" : "pts"}
-                                  </span>
+                                  {isSessionEnded ? (
+                                    <span
+                                      className={`inline-flex items-center justify-center rounded-lg border px-2.5 py-1 font-mono text-xs font-bold tabular-nums ${pointsBadgeClass}`}
+                                    >
+                                      {opt.points} {opt.points === 1 ? "pt" : "pts"}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-xs text-slate-400">
+                                      10–1 pts
+                                    </span>
+                                  )}
                                 </td>
 
                                 <td className="py-3 px-3 text-right font-mono text-xs font-semibold text-sky-400 tabular-nums">
-                                  {formatResponseSec(opt.avgResponseMs)}
+                                  {isSessionEnded
+                                    ? formatResponseSec(opt.avgResponseMs)
+                                    : "—"}
                                 </td>
 
                                 <td className="py-3 pl-3 pr-5 text-right">
-                                  {opt.isMostSelected ? (
+                                  {!isSessionEnded ? (
+                                    <span className="font-mono text-xs text-slate-500">
+                                      🔒 Live
+                                    </span>
+                                  ) : opt.isMostSelected ? (
                                     <span className="inline-flex items-center rounded-md bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
                                       MOST SELECTED
                                     </span>
@@ -978,7 +1078,9 @@ export function SessionResultsPopup() {
                           🥈
                         </div>
                         <p className="text-xs font-extrabold uppercase tracking-widest text-slate-300">
-                          2nd Place Winner
+                          {isSessionEnded
+                            ? "2nd Place Winner"
+                            : "Current #2 (Provisional)"}
                         </p>
                         <p className="font-display text-lg font-bold text-white truncate">
                           {top3Winners[1].profiles?.username ?? "Player"}
@@ -1003,7 +1105,9 @@ export function SessionResultsPopup() {
                           👑
                         </div>
                         <p className="text-xs font-extrabold uppercase tracking-widest text-amber-300">
-                          1st Place Champion
+                          {isSessionEnded
+                            ? "1st Place Champion"
+                            : "Current #1 Leader (Provisional)"}
                         </p>
                         <p className="font-display text-xl font-bold text-white truncate">
                           {top3Winners[0].profiles?.username ?? "Player"}
@@ -1028,7 +1132,9 @@ export function SessionResultsPopup() {
                           🥉
                         </div>
                         <p className="text-xs font-extrabold uppercase tracking-widest text-amber-400">
-                          3rd Place Winner
+                          {isSessionEnded
+                            ? "3rd Place Winner"
+                            : "Current #3 (Provisional)"}
                         </p>
                         <p className="font-display text-lg font-bold text-white truncate">
                           {top3Winners[2].profiles?.username ?? "Player"}
@@ -1050,7 +1156,9 @@ export function SessionResultsPopup() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h3 className="font-display text-base sm:text-lg font-bold text-white">
-                        Session Winners &amp; Final Standings
+                        {isSessionEnded
+                          ? "Official Session Winners & Final Standings"
+                          : "Live Provisional Standings (Session Still Ongoing)"}
                       </h3>
                       <p className="text-xs text-slate-400">
                         Ranked by highest crowd-consensus points, then shortest cumulative response time.
@@ -1084,7 +1192,11 @@ export function SessionResultsPopup() {
                       <thead>
                         <tr className="border-b border-white/10 text-left text-xs font-semibold text-slate-400">
                           <th className="py-2.5 pr-4">Position</th>
-                          <th className="py-2.5 pr-4">Prize (₦)</th>
+                          <th className="py-2.5 pr-4">
+                            {isSessionEnded
+                              ? "Official Prize (₦)"
+                              : "Projected Prize (₦)"}
+                          </th>
                           <th className="py-2.5 pr-4">Player</th>
                           <th className="py-2.5 pr-4">Points</th>
                           <th className="py-2.5 text-right">Total Time</th>
@@ -1151,7 +1263,10 @@ export function SessionResultsPopup() {
                     const topOpt = qf.options[0];
                     const myOpt = qf.options.find((o) => o.isMyPick);
                     const matchedTop =
-                      myOpt && topOpt && myOpt.optionId === topOpt.optionId;
+                      isSessionEnded &&
+                      myOpt &&
+                      topOpt &&
+                      myOpt.optionId === topOpt.optionId;
 
                     return (
                       <div
@@ -1171,7 +1286,7 @@ export function SessionResultsPopup() {
                           <span className="text-xs font-bold text-slate-400">
                             Q{qf.position} · {qf.category}
                           </span>
-                          {qf.myPointsEarned !== null ? (
+                          {isSessionEnded && qf.myPointsEarned !== null ? (
                             <span
                               className={`rounded-lg px-2.5 py-0.5 font-mono text-xs font-bold ${
                                 qf.myPointsEarned === 10
@@ -1198,14 +1313,27 @@ export function SessionResultsPopup() {
                             <p className="text-[10px] font-bold uppercase text-emerald-300">
                               Crowd #1 (10 pts)
                             </p>
-                            <p className="font-bold text-white mt-0.5 truncate">
-                              {topOpt?.label ?? "—"}
-                            </p>
-                            <p className="font-mono text-[11px] text-emerald-200/80">
-                              {topOpt
-                                ? `${topOpt.selectionCount} votes (${topOpt.percentage}%)`
-                                : ""}
-                            </p>
+                            {isSessionEnded ? (
+                              <>
+                                <p className="font-bold text-white mt-0.5 truncate">
+                                  {topOpt?.label ?? "—"}
+                                </p>
+                                <p className="font-mono text-[11px] text-emerald-200/80">
+                                  {topOpt
+                                    ? `${topOpt.selectionCount} votes (${topOpt.percentage}%)`
+                                    : ""}
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="font-bold text-amber-200 mt-0.5 truncate">
+                                  🔒 Sealed (Session Live)
+                                </p>
+                                <p className="text-[11px] text-slate-400">
+                                  Revealed when timer ends
+                                </p>
+                              </>
+                            )}
                           </div>
 
                           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
@@ -1217,9 +1345,13 @@ export function SessionResultsPopup() {
                             </p>
                             <p className="font-mono text-[11px] text-slate-400">
                               {myOpt
-                                ? `Rank #${myOpt.rank} · ${formatResponseSec(
-                                    qf.myResponseMs ?? 0,
-                                  )}`
+                                ? isSessionEnded
+                                  ? `Rank #${myOpt.rank} · ${formatResponseSec(
+                                      qf.myResponseMs ?? 0,
+                                    )}`
+                                  : `Locked in · ${formatResponseSec(
+                                      qf.myResponseMs ?? 0,
+                                    )}`
                                 : "—"}
                             </p>
                           </div>

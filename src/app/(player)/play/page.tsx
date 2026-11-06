@@ -41,6 +41,19 @@ function formatOrdinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+function formatLiveCountdown(endsAt: string, nowMs: number = Date.now()): string {
+  const diff = new Date(endsAt).getTime() - nowMs;
+  if (diff <= 0) return "Session ended";
+  const days = Math.floor(diff / 86_400_000);
+  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+  const mins = Math.floor((diff % 3_600_000) / 60_000);
+  const secs = Math.floor((diff % 60_000) / 1_000);
+  if (days > 0) {
+    return `${days}d ${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s`;
+  }
+  return `${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s`;
+}
+
 const FALLBACK_COLORS = [
   "#3B6FD8",
   "#F07B22",
@@ -67,6 +80,7 @@ export default function PlayPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundMuted, setSoundMutedState] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   // Gameplay state
   const [phase, setPhase] = useState<Phase>("lobby");
@@ -82,8 +96,12 @@ export default function PlayPage() {
     };
     syncAudio();
     window.addEventListener("gw-audio-change", syncAudio);
+    const tick = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
     return () => {
       window.removeEventListener("gw-audio-change", syncAudio);
+      clearInterval(tick);
       stopBackgroundMusic();
     };
   }, []);
@@ -237,13 +255,17 @@ export default function PlayPage() {
       playSessionComplete();
       if (stats) setFinalStats(stats);
       setPhase("completed");
-      setTimeout(() => {
-        openSessionResultsPopup({
-          sessionId: activeSession?.id,
-          entryId: entryId ?? undefined,
-          initialTab: "feedback",
-        });
-      }, 280);
+      // Only auto-open the Session Results & Winners Popup if the session itself has ENDED ("completed").
+      // While the 3-day session is still ONGOING ("active"), do NOT auto-open the ended-session popup!
+      if (activeSession?.status === "completed") {
+        setTimeout(() => {
+          openSessionResultsPopup({
+            sessionId: activeSession.id,
+            entryId: entryId ?? undefined,
+            initialTab: "feedback",
+          });
+        }, 280);
+      }
     }
   };
 
@@ -306,15 +328,26 @@ export default function PlayPage() {
         ref={containerRef}
         className="mx-auto max-w-xl py-12 animate-fade-in"
       >
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] px-6 py-14 sm:px-12 sm:py-16 text-center space-y-6">
+        <section className="rounded-2xl border border-emerald-500/20 bg-[#0d111c] px-6 py-12 sm:px-12 sm:py-14 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.4)]">
+          {activeSession && (
+            <div className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-3.5 py-1 text-xs font-bold text-emerald-300">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>LIVE · ONGOING SESSION</span>
+              <span className="text-emerald-200/70">·</span>
+              <span className="font-mono text-white tabular-nums">
+                Closes in {formatLiveCountdown(activeSession.ends_at, nowMs)}
+              </span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-accent">
               Think &amp; Win · Free to Play
             </p>
             <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
-              GUESS WHAT
+              {activeSession?.name ?? "GUESS WHAT"}
             </h1>
-            <p className="text-sm text-slate-400 max-w-md mx-auto">
+            <p className="text-sm text-slate-300 max-w-md mx-auto">
               10 questions · 10 options each. Predict the option that will receive the
               highest number of selections from other players in the shortest time.
             </p>
@@ -339,9 +372,18 @@ export default function PlayPage() {
           </div>
 
           {activeSession && (
-            <p className="text-xs text-slate-500">
-              Prize Pool: <strong className="text-slate-300">{formatNaira(activeSession.prize_pool)}</strong> · Free Entry
-            </p>
+            <div className="space-y-1 text-xs text-slate-400">
+              <p>
+                Prize Pool:{" "}
+                <strong className="text-amber-300">
+                  {formatNaira(activeSession.prize_pool)}
+                </strong>{" "}
+                · Free Entry · Unlimited Replays for Best Score
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Session is currently ongoing. Official winners &amp; crowd feedback unlock when the countdown reaches 00:00:00.
+              </p>
+            </div>
           )}
         </section>
       </div>
@@ -585,65 +627,99 @@ export default function PlayPage() {
     );
   }
 
-  // ── 4. Session Complete Screen (Product Document Pages 6, 18, 19) ──
+  // ── 4. 10/10 Entry Locked In Screen (Product Document Pages 6, 18, 19) ──
   if (phase === "completed") {
+    const isEnded = activeSession.status === "completed";
     return (
       <div className="mx-auto max-w-xl py-10 animate-fade-in">
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-8 sm:p-10 text-center space-y-6">
+        <section className="rounded-2xl border border-emerald-500/20 bg-[#0d111c] p-8 sm:p-10 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.45)]">
+          <div className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-3.5 py-1 text-xs font-bold text-emerald-300">
+            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>
+              {isEnded
+                ? "🏁 SESSION ENDED · OFFICIAL RESULTS"
+                : `🟢 LIVE SESSION ONGOING · Closes in ${formatLiveCountdown(
+                    activeSession.ends_at,
+                    nowMs,
+                  )}`}
+            </span>
+          </div>
+
           <div className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-500/15 border border-emerald-500/30">
             <CheckIcon className="size-7 text-emerald-400" />
           </div>
 
           <div className="space-y-2">
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
-              Session Complete
+              {isEnded ? "Session Complete" : "10/10 Predictions Locked In!"}
             </h1>
-            <p className="text-sm text-slate-400">
-              Your 10 predictions have been added to the live session tally.
+            <p className="text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
+              {isEnded
+                ? "This session has ended! View the official winners and 10–1 crowd consensus breakdown."
+                : `${activeSession.name} is still ONGOING! Your Best Score is active on the Live Leaderboard and updates dynamically as more players guess.`}
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-500">
-                Position
+              <p className="text-[11px] uppercase tracking-wider text-slate-400">
+                {isEnded ? "Final Rank" : "Provisional Rank"}
               </p>
-              <p className="font-display text-xl font-bold text-accent mt-0.5">
+              <p className="font-display text-xl font-bold text-accent mt-0.5 tabular-nums">
                 {finalStats ? formatOrdinal(finalStats.rank) : "Live"}
               </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-500">
-                Points
+              <p className="text-[11px] uppercase tracking-wider text-slate-400">
+                Best Score
               </p>
-              <p className="font-display text-xl font-bold text-white mt-0.5">
-                {finalStats ? finalStats.points : "—"}
+              <p className="font-display text-xl font-bold text-white mt-0.5 tabular-nums">
+                {finalStats ? `${finalStats.points} pts` : "—"}
               </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-500">
+              <p className="text-[11px] uppercase tracking-wider text-slate-400">
                 Total Time
               </p>
-              <p className="font-mono text-xl font-bold text-white mt-0.5">
+              <p className="font-mono text-xl font-bold text-white mt-0.5 tabular-nums">
                 {formatStopwatch(finalStats?.responseMs || totalTimeMs)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-slate-400">
+                {isEnded ? "Prize Won" : "Projected Prize"}
+              </p>
+              <p className="font-display text-xl font-bold text-emerald-400 mt-0.5 tabular-nums">
+                {finalStats && finalStats.prize > 0
+                  ? formatNaira(finalStats.prize)
+                  : "—"}
               </p>
             </div>
           </div>
 
+          {!isEnded && (
+            <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 leading-relaxed">
+              🔒 <strong>Fair-Play Notice:</strong> Official winners &amp; 10–1 crowd vote percentages pop up automatically when the session countdown reaches{" "}
+              <span className="font-mono font-bold">00:00:00</span>. Want a higher rank or faster time? Play again now to beat your Best Score!
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() =>
-                openSessionResultsPopup({
-                  sessionId: activeSession?.id,
-                  entryId: entryId ?? undefined,
-                  initialTab: "feedback",
-                })
-              }
-              className="rounded-xl border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 px-6 py-3.5 text-sm font-bold text-emerald-300 shadow-lg transition-all inline-flex items-center justify-center gap-2"
-            >
-              <span>🎉 Crowd Feedback &amp; Winners Popup</span>
-            </button>
+            {isEnded && (
+              <button
+                type="button"
+                onClick={() =>
+                  openSessionResultsPopup({
+                    sessionId: activeSession.id,
+                    entryId: entryId ?? undefined,
+                    initialTab: "feedback",
+                  })
+                }
+                className="rounded-xl border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 px-6 py-3.5 text-sm font-bold text-emerald-300 shadow-lg transition-all inline-flex items-center justify-center gap-2"
+              >
+                <span>🎉 Crowd Feedback &amp; Winners Popup</span>
+              </button>
+            )}
             <Button
               size="lg"
               href="/leaderboard"
@@ -651,14 +727,14 @@ export default function PlayPage() {
               className="inline-flex items-center justify-center gap-2"
             >
               <TrophyIcon className="size-4" />
-              <span>View Leaderboard</span>
+              <span>View Live Leaderboard</span>
             </Button>
             <Button
               variant="secondary"
               size="lg"
               onClick={handleStartPlay}
             >
-              Try Again
+              Play Again (Beat Best Score)
             </Button>
           </div>
         </section>
