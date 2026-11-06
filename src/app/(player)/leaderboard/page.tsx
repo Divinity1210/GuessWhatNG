@@ -311,6 +311,44 @@ export default function LeaderboardPage() {
     return name.includes(searchQuery.trim().toLowerCase());
   });
 
+  const activeStructure =
+    Array.isArray(selectedSession?.prize_structure) &&
+    selectedSession.prize_structure.length > 0
+      ? selectedSession.prize_structure
+      : [
+          { rank_from: 1, rank_to: 1, amount: 100000 },
+          { rank_from: 2, rank_to: 2, amount: 50000 },
+          { rank_from: 3, rank_to: 3, amount: 20000 },
+          { rank_from: 4, rank_to: 36, amount: 10000 },
+        ];
+
+  const dynamicPrizeTiers = activeStructure.map((t) => {
+    const fromRank = Number(t.rank_from ?? 1);
+    const toRank = Number(t.rank_to ?? fromRank);
+    const count = Math.max(1, toRank - fromRank + 1);
+    const amt = Number(t.amount ?? 0);
+    return {
+      position:
+        fromRank === toRank
+          ? formatOrdinal(fromRank)
+          : `${formatOrdinal(fromRank)}–${formatOrdinal(toRank)}`,
+      winners: `${count} Winner${count > 1 ? "s" : ""}`,
+      count,
+      prize: amt.toLocaleString(),
+      total: (count * amt).toLocaleString(),
+      totalNum: count * amt,
+    };
+  });
+
+  const dynamicTotalWinners = Math.max(
+    ...activeStructure.map((t) => Number(t.rank_to ?? 0)),
+    36
+  );
+  const dynamicTotalPool =
+    Number(selectedSession?.prize_pool ?? 0) > 0
+      ? Number(selectedSession?.prize_pool)
+      : dynamicPrizeTiers.reduce((s, t) => s + t.totalNum, 0);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header & Clean Controls */}
@@ -383,7 +421,7 @@ export default function LeaderboardPage() {
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              Prize Table (36 Winners / ₦500k)
+              Prize Table ({dynamicTotalWinners} Winners / ₦{dynamicTotalPool.toLocaleString()})
             </button>
           </div>
         </div>
@@ -504,7 +542,7 @@ export default function LeaderboardPage() {
                 onClick={() => setTab("prizes")}
                 className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition-colors"
               >
-                🏆 36 Winners / ₦500,000
+                🏆 {dynamicTotalWinners} Winners / ₦{dynamicTotalPool.toLocaleString()}
               </button>
             </div>
 
@@ -705,14 +743,14 @@ export default function LeaderboardPage() {
             </div>
           </section>
 
-          {/* Also display the 36 Winners / ₦500,000 Payout Table below */}
+          {/* Also display the Session Winners / Prize Structure Table below */}
           <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
             <div>
               <h2 className="font-display text-lg font-bold text-white">
-                36 WINNERS / ₦500,000 PRIZE STRUCTURE
+                {dynamicTotalWinners} WINNERS / ₦{dynamicTotalPool.toLocaleString()} PRIZE STRUCTURE
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                The leaderboard displays the scores of the players and rewards the top 36 players every 3 days.
+                The leaderboard displays the scores of the players and rewards the top {dynamicTotalWinners} players.
               </p>
             </div>
 
@@ -732,7 +770,7 @@ export default function LeaderboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {PRIZE_TIERS_36.map((tier) => (
+                  {dynamicPrizeTiers.map((tier) => (
                     <tr
                       key={tier.position}
                       className="border-b border-white/10 text-slate-200"
@@ -747,12 +785,12 @@ export default function LeaderboardPage() {
                   ))}
                   <tr className="font-bold text-white">
                     <th scope="row" className="py-3.5 pr-4 text-left">
-                      Total (36 Winners)
+                      Total ({dynamicTotalWinners} Winners)
                     </th>
-                    <td className="py-3.5 pr-4 text-slate-400">36 Winners</td>
+                    <td className="py-3.5 pr-4 text-slate-400">{dynamicTotalWinners} Winners</td>
                     <td className="py-3.5 pr-4" />
                     <td className="py-3.5 text-right font-mono text-accent tabular-nums">
-                      ₦500,000
+                      ₦{dynamicTotalPool.toLocaleString()}
                     </td>
                   </tr>
                 </tbody>
@@ -768,10 +806,10 @@ export default function LeaderboardPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="font-display text-lg font-bold text-white">
-                36 WINNERS / ₦500,000
+                {dynamicTotalWinners} WINNERS / ₦{dynamicTotalPool.toLocaleString()}
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Every 3-day session rewards the top 36 players based on highest points and shortest completion time.
+                Every session rewards the top {dynamicTotalWinners} players based on highest points and shortest completion time.
               </p>
             </div>
             <button
@@ -799,7 +837,7 @@ export default function LeaderboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {PRIZE_TIERS_36.map((tier) => (
+                {dynamicPrizeTiers.map((tier) => (
                   <tr
                     key={tier.position}
                     className="border-b border-white/10 text-slate-200"
@@ -816,10 +854,10 @@ export default function LeaderboardPage() {
                   <th scope="row" className="py-3.5 pr-4 text-left">
                     Total
                   </th>
-                  <td className="py-3.5 pr-4 text-slate-400">36 Winners</td>
+                  <td className="py-3.5 pr-4 text-slate-400">{dynamicTotalWinners} Winners</td>
                   <td className="py-3.5 pr-4" />
                   <td className="py-3.5 text-right font-mono text-accent tabular-nums">
-                    ₦500,000
+                    ₦{dynamicTotalPool.toLocaleString()}
                   </td>
                 </tr>
               </tbody>
