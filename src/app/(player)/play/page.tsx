@@ -355,6 +355,25 @@ export default function PlayPage() {
                       {lastPick.option.label}
                     </span>
                   </div>
+                ) : (lastPick.questionType === "image" ||
+                    (lastPick.option.media_url &&
+                      (lastPick.option.media_url.startsWith("http") ||
+                        lastPick.option.media_url.startsWith("data:image/")))) &&
+                  lastPick.option.media_url ? (
+                  <div className="flex flex-col items-center gap-2.5">
+                    <div className="w-44 aspect-[4/3] overflow-hidden rounded-xl border-2 border-accent shadow-lg bg-slate-900">
+                      <img
+                        src={lastPick.option.media_url}
+                        alt={lastPick.option.label}
+                        width={352}
+                        height={264}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <span className="text-sm font-semibold text-white">
+                      {lastPick.option.label}
+                    </span>
+                  </div>
                 ) : (
                   <div className="min-w-40 rounded-xl border border-white/20 bg-white/[0.04] px-6 py-3.5 text-base font-semibold text-white">
                     {lastPick.option.label}
@@ -432,10 +451,22 @@ export default function PlayPage() {
           </div>
 
           {/* Question Title */}
-          <div className="text-center py-2">
+          <div className="text-center py-2 space-y-4">
             <h2 className="font-display text-xl sm:text-2xl md:text-3xl font-semibold text-white">
               {q.title}
             </h2>
+            {q.notes &&
+              (q.notes.startsWith("http") || q.notes.startsWith("data:image/")) && (
+                <div className="flex justify-center">
+                  <img
+                    src={q.notes}
+                    alt={q.title}
+                    width={480}
+                    height={300}
+                    className="max-h-56 rounded-2xl object-cover border border-white/15 shadow-lg"
+                  />
+                </div>
+              )}
           </div>
 
           {/* 10 Options in a 5x2 Grid (2 columns on mobile, 5 columns on desktop) */}
@@ -498,6 +529,8 @@ export default function PlayPage() {
                       <img
                         src={opt.media_url}
                         alt={opt.label}
+                        width={400}
+                        height={300}
                         loading="eager"
                         className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                       />

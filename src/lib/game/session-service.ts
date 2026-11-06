@@ -11,6 +11,7 @@ export type SessionQuestion = {
     title: string;
     category: string;
     type: string;
+    notes?: string | null;
     question_options: {
       id: string;
       label: string;
@@ -108,6 +109,7 @@ export async function getSessionQuestions(
           title,
           category,
           type,
+          notes,
           question_options (
             id,
             label,
