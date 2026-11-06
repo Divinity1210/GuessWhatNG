@@ -22,6 +22,7 @@ import {
   setSoundMuted,
   playRankClimb,
 } from "@/lib/audio/sound-effects";
+import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
 
 function formatCountdown(endsAt: string): string {
   const diff = new Date(endsAt).getTime() - Date.now();
@@ -314,7 +315,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="shrink-0">
+          <div className="shrink-0 flex flex-col gap-2.5">
             <Button
               size="lg"
               href="/play"
@@ -323,6 +324,18 @@ export default function DashboardPage() {
               <PlayIcon className="size-5 fill-current" />
               <span>PLAY</span>
             </Button>
+            <button
+              type="button"
+              onClick={() =>
+                openSessionResultsPopup({
+                  sessionId: activeSession?.id,
+                  initialTab: "feedback",
+                })
+              }
+              className="rounded-xl border border-emerald-400/40 bg-emerald-500/15 hover:bg-emerald-500/25 px-4 py-2 text-xs font-bold text-emerald-300 transition-colors"
+            >
+              🎉 Session Feedback &amp; Winners
+            </button>
           </div>
         </div>
       </section>
@@ -465,13 +478,26 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <Link
-              href="/leaderboard?tab=winners"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
-            >
-              <span>Winners Board</span>
-              <ArrowRightIcon className="size-3.5" />
-            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  openSessionResultsPopup({
+                    initialTab: "winners",
+                  })
+                }
+                className="rounded-xl border border-emerald-400/40 bg-emerald-500/15 hover:bg-emerald-500/25 px-3 py-1.5 text-xs font-bold text-emerald-300 transition-colors"
+              >
+                🎉 View Session Feedback &amp; Winners Popup
+              </button>
+              <Link
+                href="/leaderboard?tab=winners"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+              >
+                <span>Winners Board</span>
+                <ArrowRightIcon className="size-3.5" />
+              </Link>
+            </div>
           </div>
 
           <div

@@ -7,6 +7,10 @@ import { MobileNav, Logo } from "@/components/ui";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { playMenuClick } from "@/lib/audio/sound-effects";
 import {
+  SessionResultsPopup,
+  openSessionResultsPopup,
+} from "@/components/game/SessionResultsPopup";
+import {
   TrendingUpIcon,
   PlayIcon,
   TrophyIcon,
@@ -170,6 +174,17 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             </div>
           ))}
 
+          <div className="pt-2 border-t border-white/5">
+            <button
+              type="button"
+              onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
+              className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors"
+            >
+              <span>🎉 Session Results</span>
+              <span>📊</span>
+            </button>
+          </div>
+
           {isAdmin && (
             <div className="space-y-1 pt-2 border-t border-white/5">
               <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-amber-400">
@@ -234,6 +249,15 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
+              aria-label="Open session results and crowd feedback"
+              className="rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25"
+            >
+              🎉 Results
+            </button>
+
             <Link
               href="/inbox"
               onClick={() => playMenuClick()}
@@ -315,7 +339,18 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                 </div>
               ))}
 
-              {isAdmin && (
+              <div className="pt-2 border-t border-white/5">
+            <button
+              type="button"
+              onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
+              className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors"
+            >
+              <span>🎉 Session Results</span>
+              <span>📊</span>
+            </button>
+          </div>
+
+          {isAdmin && (
                 <div className="space-y-2 pt-2 border-t border-white/5">
                   <p className="text-xs font-bold uppercase tracking-wider text-amber-400">
                     Administration
@@ -355,6 +390,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         </div>
       </main>
 
+      <SessionResultsPopup />
       <MobileNav />
     </div>
   );

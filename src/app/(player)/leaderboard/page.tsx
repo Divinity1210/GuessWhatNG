@@ -14,6 +14,7 @@ import {
   setSoundMuted,
   playRankClimb,
 } from "@/lib/audio/sound-effects";
+import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
 
 function formatCountdownLong(endsAt: string): string {
   const diff = new Date(endsAt).getTime() - Date.now();
@@ -363,6 +364,22 @@ export default function LeaderboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              openSessionResultsPopup({
+                sessionId:
+                  tab === "winners"
+                    ? selectedCompletedId || selectedSessionId
+                    : selectedSessionId,
+                initialTab: tab === "winners" ? "winners" : "feedback",
+              })
+            }
+            className="rounded-xl border border-emerald-400/40 bg-emerald-500/15 hover:bg-emerald-500/25 px-3.5 py-2 text-xs font-bold text-emerald-300 transition-colors"
+          >
+            🎉 Session Feedback &amp; Winners Popup
+          </button>
+
           <button
             type="button"
             onClick={toggleSound}

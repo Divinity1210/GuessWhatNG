@@ -11,6 +11,7 @@ import {
   submitAnswer,
   type SessionQuestion,
 } from "@/lib/game/session-service";
+import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
 import {
   isSoundMuted,
   setSoundMuted,
@@ -228,6 +229,13 @@ export default function PlayPage() {
       playSessionComplete();
       if (stats) setFinalStats(stats);
       setPhase("completed");
+      setTimeout(() => {
+        openSessionResultsPopup({
+          sessionId: activeSession?.id,
+          entryId: entryId ?? undefined,
+          initialTab: "feedback",
+        });
+      }, 280);
     }
   };
 
@@ -614,7 +622,20 @@ export default function PlayPage() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() =>
+                openSessionResultsPopup({
+                  sessionId: activeSession?.id,
+                  entryId: entryId ?? undefined,
+                  initialTab: "feedback",
+                })
+              }
+              className="rounded-xl border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 px-6 py-3.5 text-sm font-bold text-emerald-300 shadow-lg transition-all inline-flex items-center justify-center gap-2"
+            >
+              <span>🎉 Crowd Feedback &amp; Winners Popup</span>
+            </button>
             <Button
               size="lg"
               href="/leaderboard"

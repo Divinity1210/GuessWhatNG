@@ -296,6 +296,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("sessionId");
     const includeQuestions = searchParams.get("includeQuestions") === "1";
+    const includeFeedback = searchParams.get("includeFeedback") === "1";
+    const userIdParam = searchParams.get("userId") || "";
+    const entryIdParam = searchParams.get("entryId") || "";
     const supabase = createSupabaseServiceClient();
 
     const { data: allSessions } = await supabase
@@ -389,11 +392,18 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (!targetSession || targetSession.status === "active") {
+    if (!targetSession || targetSession.status === "active" || includeFeedback) {
       await recalculateLiveLeaderboard(supabase, targetSessionId);
     }
 
-    const [{ data: lb }, { count: answerCount }, { data: archivedLogs }] = await Promise.all([
+    const [
+      { data: lb },
+      { count: answerCount },
+      { data: archivedLogs },
+      { data: sqFeedbackData },
+      { data: allSessionAnswers },
+      { data: allSessionEntries },
+    ] = await Promise.all([
       supabase
         .from("leaderboards")
         .select("rank, points, response_ms, prize, user_id, profiles(username, avatar_url)")
@@ -406,9 +416,44 @@ export async function GET(req: NextRequest) {
         .eq("session_id", targetSessionId),
       supabase
         .from("audit_logs")
-        .select("detail")
+        .select("actor_id, detail")
         .eq("target_id", targetSessionId)
         .eq("action", "gameplay_attempt_archived"),
+      includeFeedback
+        ? supabase
+            .from("session_questions")
+            .select(`
+              position,
+              question_id,
+              questions (
+                id,
+                title,
+                category,
+                type,
+                notes,
+                question_options (
+                  id,
+                  label,
+                  media_url,
+                  position
+                )
+              )
+            `)
+            .eq("session_id", targetSessionId)
+            .order("position", { ascending: true })
+        : Promise.resolve({ data: null }),
+      includeFeedback
+        ? supabase
+            .from("answers")
+            .select("entry_id, question_id, option_id, response_ms")
+            .eq("session_id", targetSessionId)
+        : Promise.resolve({ data: null }),
+      includeFeedback
+        ? supabase
+            .from("session_entries")
+            .select("id, user_id, completed_at, total_score, total_response_ms, final_rank, prize_awarded")
+            .eq("session_id", targetSessionId)
+        : Promise.resolve({ data: null }),
     ]);
 
     const archivedAnswersCount = (archivedLogs ?? []).reduce((sum, l) => {
@@ -419,6 +464,214 @@ export async function GET(req: NextRequest) {
 
     const totalGuesses = (answerCount ?? 0) + archivedAnswersCount;
 
+    if (!includeFeedback) {
+      return NextResponse.json({
+        ok: true,
+        sessionId: targetSessionId,
+        session: targetSession,
+        sessions,
+        totalGuesses,
+        leaderboard: lb ?? [],
+      });
+    }
+
+    // Build detailed Question-by-Question Crowd Feedback & Personal Pick Analysis
+    const optCountMap = new Map<string, number>();
+    const optTimeMap = new Map<string, number>();
+    let totalAllAnswersMs = 0;
+    let totalAllAnswersCount = 0;
+
+    for (const ans of allSessionAnswers ?? []) {
+      optCountMap.set(ans.option_id, (optCountMap.get(ans.option_id) ?? 0) + 1);
+      const ms = Number(ans.response_ms ?? 0);
+      optTimeMap.set(ans.option_id, (optTimeMap.get(ans.option_id) ?? 0) + ms);
+      totalAllAnswersMs += ms;
+      totalAllAnswersCount += 1;
+    }
+
+    for (const log of archivedLogs ?? []) {
+      const detail = (log.detail ?? {}) as ArchivedAttemptDetail;
+      if (Array.isArray(detail.answers)) {
+        for (const ans of detail.answers) {
+          if (!ans.option_id) continue;
+          optCountMap.set(ans.option_id, (optCountMap.get(ans.option_id) ?? 0) + 1);
+          const ms = Number(ans.response_ms ?? 0);
+          optTimeMap.set(ans.option_id, (optTimeMap.get(ans.option_id) ?? 0) + ms);
+          totalAllAnswersMs += ms;
+          totalAllAnswersCount += 1;
+        }
+      }
+    }
+
+    // Determine the user's own picks (from current entry or best archived attempt)
+    const myEntry = (allSessionEntries ?? []).find(
+      (e) =>
+        (entryIdParam && e.id === entryIdParam) ||
+        (userIdParam && e.user_id === userIdParam),
+    );
+    const myPickByQuestion = new Map<string, { optionId: string; responseMs: number }>();
+
+    if (myEntry) {
+      const myCurrentAns = (allSessionAnswers ?? []).filter((a) => a.entry_id === myEntry.id);
+      if (myCurrentAns.length > 0) {
+        for (const a of myCurrentAns) {
+          myPickByQuestion.set(a.question_id, {
+            optionId: a.option_id,
+            responseMs: Number(a.response_ms ?? 0),
+          });
+        }
+      } else {
+        const myArchLogs = (archivedLogs ?? []).filter((l) => {
+          const d = (l.detail ?? {}) as ArchivedAttemptDetail;
+          return d.entry_id === myEntry.id || l.actor_id === myEntry.user_id;
+        });
+        if (myArchLogs.length > 0) {
+          const latestArch = myArchLogs[myArchLogs.length - 1];
+          const detail = (latestArch.detail ?? {}) as ArchivedAttemptDetail;
+          for (const a of detail.answers ?? []) {
+            if (a.question_id && a.option_id) {
+              myPickByQuestion.set(a.question_id, {
+                optionId: a.option_id,
+                responseMs: Number(a.response_ms ?? 0),
+              });
+            }
+          }
+        }
+      }
+    }
+
+    let mostSelectedHits = 0;
+    let top3Hits = 0;
+
+    const questionFeedbacks = (sqFeedbackData ?? []).map((sq) => {
+      const q = (Array.isArray(sq.questions) ? sq.questions[0] : sq.questions) as {
+        id: string;
+        title: string;
+        category: string;
+        type: string;
+        notes?: string | null;
+        question_options?: {
+          id: string;
+          label: string;
+          media_url: string | null;
+          position: number;
+        }[];
+      } | null;
+
+      const rawOptions = [...(q?.question_options ?? [])].sort(
+        (a, b) => (a.position ?? 0) - (b.position ?? 0),
+      );
+
+      const questionTotalSelections = rawOptions.reduce(
+        (sum, o) => sum + (optCountMap.get(o.id) ?? 0),
+        0,
+      );
+      const questionTotalMs = rawOptions.reduce(
+        (sum, o) => sum + (optTimeMap.get(o.id) ?? 0),
+        0,
+      );
+
+      // Sort by selection count descending, tie-break by original option position
+      const rankedOptions = [...rawOptions].sort((a, b) => {
+        const countDiff = (optCountMap.get(b.id) ?? 0) - (optCountMap.get(a.id) ?? 0);
+        if (countDiff !== 0) return countDiff;
+        return (a.position ?? 0) - (b.position ?? 0);
+      });
+
+      const myPick = q ? myPickByQuestion.get(q.id) : undefined;
+      let myPointsEarned: number | null = null;
+
+      const options = rankedOptions.map((opt, idx) => {
+        const rank = idx + 1;
+        const points = Math.max(10 - idx, 1);
+        const selectionCount = optCountMap.get(opt.id) ?? 0;
+        const totalOptMs = optTimeMap.get(opt.id) ?? 0;
+        const percentage =
+          questionTotalSelections > 0
+            ? Number(((selectionCount / questionTotalSelections) * 100).toFixed(1))
+            : 0;
+        const avgResponseMs =
+          selectionCount > 0 ? Math.round(totalOptMs / selectionCount) : 0;
+        const isMyPick = myPick?.optionId === opt.id;
+        if (isMyPick) {
+          myPointsEarned = points;
+          if (rank === 1) mostSelectedHits += 1;
+          if (rank <= 3) top3Hits += 1;
+        }
+
+        return {
+          rank,
+          optionId: opt.id,
+          label: opt.label,
+          mediaUrl: opt.media_url,
+          position: opt.position,
+          selectionCount,
+          percentage,
+          points,
+          avgResponseMs,
+          isMostSelected: rank === 1 && selectionCount > 0,
+          isLeastSelected: rank === rankedOptions.length,
+          isMyPick,
+        };
+      });
+
+      return {
+        position: sq.position,
+        questionId: sq.question_id,
+        title: q?.title || `Question ${sq.position}`,
+        category: q?.category || "General",
+        type: q?.type || "text",
+        notes: q?.notes || null,
+        totalSelections: questionTotalSelections,
+        avgResponseMs:
+          questionTotalSelections > 0
+            ? Math.round(questionTotalMs / questionTotalSelections)
+            : 0,
+        mySelectedOptionId: myPick?.optionId ?? null,
+        myResponseMs: myPick?.responseMs ?? null,
+        myPointsEarned,
+        options,
+      };
+    });
+
+    const prizeStructure =
+      Array.isArray(targetSession?.prize_structure) &&
+      targetSession.prize_structure.length > 0
+        ? (targetSession.prize_structure as {
+            rank_from: number;
+            rank_to: number;
+            amount: number;
+          }[])
+        : DEFAULT_PRIZE_STRUCTURE;
+
+    const totalWinners = Math.max(
+      ...prizeStructure.map((t) => Number(t.rank_to ?? 0)),
+      36,
+    );
+
+    const uniquePlayers = new Set(
+      (allSessionEntries ?? []).map((e) => e.user_id),
+    ).size;
+
+    const myLbRow = (lb ?? []).find(
+      (r) =>
+        (userIdParam && r.user_id === userIdParam) ||
+        (myEntry && r.user_id === myEntry.user_id),
+    );
+
+    const myPerformance =
+      myLbRow || myEntry
+        ? {
+            rank: myLbRow?.rank ?? myEntry?.final_rank ?? null,
+            points: myLbRow?.points ?? myEntry?.total_score ?? 0,
+            responseMs: myLbRow?.response_ms ?? myEntry?.total_response_ms ?? 0,
+            prize: myLbRow?.prize ?? myEntry?.prize_awarded ?? 0,
+            mostSelectedHits,
+            top3Hits,
+            questionsAnswered: myPickByQuestion.size,
+          }
+        : null;
+
     return NextResponse.json({
       ok: true,
       sessionId: targetSessionId,
@@ -426,6 +679,19 @@ export async function GET(req: NextRequest) {
       sessions,
       totalGuesses,
       leaderboard: lb ?? [],
+      summary: {
+        totalPlays: (allSessionEntries?.length ?? 0) + (archivedLogs?.length ?? 0),
+        uniquePlayers: Math.max(uniquePlayers, (lb ?? []).length),
+        totalGuesses,
+        avgQuestionMs:
+          totalAllAnswersCount > 0
+            ? Math.round(totalAllAnswersMs / totalAllAnswersCount)
+            : 0,
+        prizePool: Number(targetSession?.prize_pool ?? 500000),
+        totalWinners,
+      },
+      myPerformance,
+      questionFeedbacks,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load session leaderboard";

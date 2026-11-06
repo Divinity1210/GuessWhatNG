@@ -208,11 +208,126 @@ h1, h2, h3, h4, h5, h6 {
 .stagger > *:nth-child(7) { animation-delay: 360ms; }
 .stagger > *:nth-child(8) { animation-delay: 420ms; }
 
+/* ── Native Modal Dialog Top-Layer & Scroll Containment ── */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+dialog.gw-session-results-dialog {
+  opacity: 0;
+  transform: scale(0.92) translateY(14px);
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 0.34s;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-behavior: allow-discrete;
+}
+
+dialog.gw-session-results-dialog::backdrop {
+  background-color: rgba(4, 6, 12, 0);
+  backdrop-filter: blur(0px);
+  transition-property: background-color, backdrop-filter, display, overlay;
+  transition-duration: 0.34s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+:is(dialog.gw-session-results-dialog[open]):where(:not([data-closing])) {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.92) translateY(14px);
+  }
+
+  &::backdrop {
+    background-color: rgba(4, 6, 12, 0.82);
+    backdrop-filter: blur(10px);
+
+    @starting-style {
+      background-color: rgba(4, 6, 12, 0);
+      backdrop-filter: blur(0px);
+    }
+  }
+}
+
+@keyframes gw-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.6) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(110px) scale(1) rotate(220deg);
+  }
+}
+
+@keyframes gw-podium-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scaleY(0.82);
+    transform-origin: bottom;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    transform-origin: bottom;
+  }
+}
+
+@keyframes gw-bar-grow {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+.animate-gw-confetti {
+  animation: gw-confetti-fall 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.animate-gw-podium {
+  animation: gw-podium-rise 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-gw-bar {
+  animation: gw-bar-grow 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* ── Reduced motion ────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
+  dialog.gw-session-results-dialog {
+    transform: none;
+    transition-duration: 0.1s;
+  }
+
+  @starting-style {
+    dialog.gw-session-results-dialog[open] {
+      transform: none;
+    }
+  }
+
   .animate-fade-in,
   .animate-pulse-glow,
   .animate-shimmer,
+  .animate-gw-confetti,
+  .animate-gw-podium,
+  .animate-gw-bar,
   .stagger > * {
     animation: none !important;
   }
