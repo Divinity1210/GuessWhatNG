@@ -58,14 +58,16 @@
   --font-body: var(--font-body-face), system-ui, sans-serif;
 
   /* Radii */
-  --radius-sm: 0.75rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.25rem;
-  --radius-xl: 1.5rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
   --radius-pill: 999px;
-  --radius-btn: var(--radius-sm);
-  --radius-card: var(--radius-lg);
-  --radius-modal: var(--radius-xl);
+  --radius-btn: var(--radius-md);
+  --radius-card: var(--radius-2xl);
+  --radius-modal: 1.25rem;
 }
 
 /* Global body & mobile ergonomics */

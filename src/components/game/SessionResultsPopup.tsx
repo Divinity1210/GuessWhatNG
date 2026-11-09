@@ -11,6 +11,7 @@ import {
   AwardIcon,
   BarChartIcon,
   CheckIcon,
+  ChevronRightIcon,
   CloseIcon,
   CrownIcon,
   LockIcon,
@@ -495,41 +496,21 @@ export function SessionResultsPopup() {
         )}
 
         <div className="relative z-10 flex flex-col gap-3">
-          {/* Status + Session Selector + Close */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {/* Status Eyebrow + Close */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                  isSessionEnded
-                    ? "border-amber-400/35 bg-amber-500/15 text-amber-300"
-                    : "border-emerald-400/35 bg-emerald-500/15 text-emerald-300"
+                className={`size-2 shrink-0 rounded-full ${
+                  isSessionEnded ? "bg-amber-400" : "bg-emerald-400"
+                }`}
+              />
+              <span
+                className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
+                  isSessionEnded ? "text-amber-300" : "text-emerald-300"
                 }`}
               >
-                <span
-                  className={`size-1.5 rounded-full ${
-                    isSessionEnded ? "bg-amber-400" : "bg-emerald-400"
-                  }`}
-                />
-                <span>
-                  {isSessionEnded ? "Session Closed · Official Results" : "Session In Progress"}
-                </span>
+                {isSessionEnded ? "Session Closed · Official Results" : "Session In Progress"}
               </span>
-
-              {sessions.length > 1 && (
-                <select
-                  id="popup-session-select"
-                  aria-label="Switch session"
-                  value={selectedSessionId}
-                  onChange={(e) => void handleSelectSessionInModal(e.target.value)}
-                  className="max-w-44 sm:max-w-none rounded-xl border border-white/15 bg-[#07090e]/90 px-2.5 py-1.5 text-base sm:text-xs font-semibold text-white focus:border-accent focus:outline-none truncate"
-                >
-                  {sessions.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.status === "completed" ? "Ended" : "Live"})
-                    </option>
-                  ))}
-                </select>
-              )}
             </div>
 
             <button
@@ -537,14 +518,14 @@ export function SessionResultsPopup() {
               onClick={() => void closeTopLayer()}
               aria-label="Close session results"
               autoFocus
-              className="grid size-9 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 hover:text-white transition-colors"
+              className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/12 bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 hover:text-white transition-colors"
             >
               <CloseIcon className="size-4.5" />
             </button>
           </div>
 
-          {/* Title & KPIs */}
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+          {/* Title + Optional Session Switcher */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="min-w-0">
               <h2
                 id={titleId}
@@ -552,58 +533,75 @@ export function SessionResultsPopup() {
               >
                 {sessionMeta?.name ?? "Session Results"}
               </h2>
-              <p className="hidden sm:block text-xs text-slate-300 mt-0.5">
+              <p className="hidden sm:block text-xs text-slate-400 mt-0.5">
                 Crowd vote shares, option points (10 to 1), response speeds, and session standings.
               </p>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 shrink-0">
-              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-2.5 py-1.5">
-                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-amber-300/80">
-                  Pool
-                </p>
-                <p className="font-display text-xs sm:text-base font-bold text-amber-300 tabular-nums truncate">
-                  ₦{animatedPrizePool.toLocaleString()}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1.5">
-                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-emerald-300/80">
-                  Guesses
-                </p>
-                <p className="font-display text-xs sm:text-base font-bold text-emerald-300 tabular-nums">
-                  {animatedGuesses.toLocaleString()}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-white/12 bg-white/[0.04] px-2.5 py-1.5">
-                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  Players
-                </p>
-                <p className="font-display text-xs sm:text-base font-bold text-white tabular-nums">
-                  {summary?.uniquePlayers ?? leaderboard.length}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-accent/35 bg-accent/15 px-2.5 py-1.5">
-                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-accent">
-                  Your Score
-                </p>
-                <p className="font-display text-xs sm:text-base font-bold text-white tabular-nums truncate">
-                  {myPerformance?.rank
-                    ? `${formatOrdinal(myPerformance.rank)} · ${animatedMyScore}p`
-                    : `${animatedMyScore} pts`}
-                </p>
-              </div>
-            </div>
+            {sessions.length > 1 && (
+              <select
+                id="popup-session-select"
+                aria-label="Switch session"
+                value={selectedSessionId}
+                onChange={(e) => void handleSelectSessionInModal(e.target.value)}
+                className="min-h-10 w-full sm:w-auto rounded-lg border border-white/12 bg-[#07090e]/90 px-3 py-1.5 text-base sm:text-xs font-medium text-slate-200 focus:border-accent focus:outline-none"
+              >
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.status === "completed" ? "Ended" : "Live"})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
+          {/* Read-Only Metric Strip (No Background Fill, No Button Borders) */}
+          <dl className="grid grid-cols-4 divide-x divide-white/10 border-y border-white/[0.08] py-2.5">
+            <div className="pr-2 sm:pr-4 min-w-0">
+              <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Pool
+              </dt>
+              <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-amber-300 tabular-nums truncate">
+                ₦{animatedPrizePool.toLocaleString()}
+              </dd>
+            </div>
+
+            <div className="px-2 sm:px-4 min-w-0">
+              <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Guesses
+              </dt>
+              <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-white tabular-nums">
+                {animatedGuesses.toLocaleString()}
+              </dd>
+            </div>
+
+            <div className="px-2 sm:px-4 min-w-0">
+              <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Players
+              </dt>
+              <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-white tabular-nums">
+                {summary?.uniquePlayers ?? leaderboard.length}
+              </dd>
+            </div>
+
+            <div className="pl-2 sm:pl-4 min-w-0">
+              <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400 truncate">
+                Your Score
+              </dt>
+              <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-accent tabular-nums truncate">
+                {myPerformance?.rank
+                  ? `${formatOrdinal(myPerformance.rank)} · ${animatedMyScore}p`
+                  : `${animatedMyScore} pts`}
+              </dd>
+            </div>
+          </dl>
+
           {/* Section Tabs */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div
               role="tablist"
               aria-label="Session results sections"
-              className="flex w-full sm:w-auto overflow-x-auto no-scrollbar rounded-xl border border-white/10 bg-[#07090e]/80 p-1 gap-1"
+              className="grid w-full grid-cols-3 sm:flex sm:w-auto rounded-xl border border-white/10 bg-[#07090e]/90 p-1 gap-1"
             >
               <button
                 type="button"
@@ -613,14 +611,15 @@ export function SessionResultsPopup() {
                   setActiveTab("feedback");
                   setBarAnimKey((k) => k + 1);
                 }}
-                className={`flex-1 sm:flex-initial shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === "feedback"
-                    ? "bg-accent text-white"
+                    ? "bg-accent text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                <BarChartIcon className="size-3.5" />
-                <span>Crowd Votes ({questionFeedbacks.length})</span>
+                <BarChartIcon className="size-3.5 shrink-0" />
+                <span className="sm:hidden">Votes ({questionFeedbacks.length})</span>
+                <span className="hidden sm:inline">Crowd Votes ({questionFeedbacks.length})</span>
               </button>
 
               <button
@@ -631,15 +630,15 @@ export function SessionResultsPopup() {
                   setActiveTab("winners");
                   playRankClimb();
                 }}
-                className={`flex-1 sm:flex-initial shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === "winners"
-                    ? "bg-accent text-white"
+                    ? "bg-accent text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                <TrophyIcon className="size-3.5" />
+                <TrophyIcon className="size-3.5 shrink-0" />
                 <span>
-                  {isSessionEnded ? "Winners" : "Standings"} ({leaderboard.length})
+                  {isSessionEnded ? "Winners" : "Ranks"} ({leaderboard.length})
                 </span>
               </button>
 
@@ -648,19 +647,19 @@ export function SessionResultsPopup() {
                 role="tab"
                 aria-selected={activeTab === "mypicks"}
                 onClick={() => setActiveTab("mypicks")}
-                className={`flex-1 sm:flex-initial shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === "mypicks"
-                    ? "bg-accent text-white"
+                    ? "bg-accent text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                <TargetIcon className="size-3.5" />
+                <TargetIcon className="size-3.5 shrink-0" />
                 <span>My Picks</span>
               </button>
             </div>
 
             {myPerformance && myPerformance.prize > 0 && (
-              <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/35 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
                 <CheckIcon className="size-3.5" />
                 <span>
                   {isSessionEnded ? "Prize Won:" : "Projected Prize:"}{" "}
@@ -711,8 +710,72 @@ export function SessionResultsPopup() {
             {/* Tab 1: Question-by-Question Crowd Votes */}
             {activeTab === "feedback" && (
               <div className="space-y-4 animate-fade-in">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-2xl border border-white/10 bg-[#0d111c] p-3">
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                <div className="rounded-xl border border-white/10 bg-[#0d111c] p-3 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-slate-400 tabular-nums">
+                      Question{" "}
+                      <strong className="text-white">
+                        {Math.min(selectedQuestionIdx + 1, Math.max(1, questionFeedbacks.length))}
+                      </strong>{" "}
+                      of {questionFeedbacks.length}
+                    </span>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isSessionEnded && (
+                        <button
+                          type="button"
+                          aria-pressed={autoCycleQuestions}
+                          onClick={() => setAutoCycleQuestions((v) => !v)}
+                          className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors ${
+                            autoCycleQuestions
+                              ? "border-emerald-400/45 bg-emerald-500/15 text-emerald-300"
+                              : "border-white/10 bg-white/[0.03] text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          <PlayIcon className="size-3" />
+                          <span>{autoCycleQuestions ? "Pause" : "Auto-play"}</span>
+                        </button>
+                      )}
+
+                      <div className="inline-flex items-center rounded-lg border border-white/10 bg-white/[0.03] divide-x divide-white/10">
+                        <button
+                          type="button"
+                          aria-label="Previous question"
+                          onClick={() =>
+                            handleSelectQuestionIdx(
+                              (selectedQuestionIdx - 1 + questionFeedbacks.length) %
+                                Math.max(1, questionFeedbacks.length),
+                            )
+                          }
+                          className="inline-flex h-8 items-center gap-1 px-2.5 text-xs font-semibold text-slate-200 hover:bg-white/[0.06] hover:text-white transition-colors"
+                        >
+                          <ChevronRightIcon className="size-3.5 rotate-180" />
+                          <span className="hidden sm:inline">Prev</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Next question"
+                          onClick={() =>
+                            handleSelectQuestionIdx(
+                              (selectedQuestionIdx + 1) %
+                                Math.max(1, questionFeedbacks.length),
+                            )
+                          }
+                          className="inline-flex h-8 items-center gap-1 px-2.5 text-xs font-semibold text-slate-200 hover:bg-white/[0.06] hover:text-white transition-colors"
+                        >
+                          <span className="hidden sm:inline">Next</span>
+                          <ChevronRightIcon className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Uniform 5x2 mobile / 10x1 desktop Question Selector */}
+                  <div
+                    role="group"
+                    aria-label="Select question"
+                    className="grid grid-cols-5 sm:grid-cols-10 gap-1.5"
+                  >
                     {questionFeedbacks.map((qf, idx) => {
                       const isCurrent = idx === selectedQuestionIdx;
                       const earned = isSessionEnded ? qf.myPointsEarned : null;
@@ -720,72 +783,33 @@ export function SessionResultsPopup() {
                         <button
                           key={qf.questionId}
                           type="button"
+                          aria-current={isCurrent ? "step" : undefined}
                           onClick={() => handleSelectQuestionIdx(idx)}
-                          className={`shrink-0 inline-flex min-h-9 items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border ${
+                          className={`flex min-h-9 flex-col items-center justify-center rounded-lg border py-1 text-center transition-all tabular-nums ${
                             isCurrent
-                              ? "border-accent bg-accent text-white"
-                              : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/25 hover:text-white"
+                              ? "border-accent bg-accent text-white shadow-sm"
+                              : "border-white/[0.08] bg-white/[0.025] text-slate-300 hover:border-white/20 hover:text-white"
                           }`}
                         >
-                          <span>Q{qf.position}</span>
+                          <span className="text-xs font-bold leading-none">
+                            Q{qf.position}
+                          </span>
                           {earned !== null && (
                             <span
-                              className={`rounded px-1 py-0.2 text-[10px] font-mono ${
+                              className={`mt-0.5 font-mono text-[9px] font-semibold leading-none ${
                                 isCurrent
-                                  ? "bg-black/30 text-amber-200"
+                                  ? "text-white/90"
                                   : earned === 10
-                                  ? "bg-emerald-500/20 text-emerald-300"
-                                  : "bg-white/10 text-slate-300"
+                                  ? "text-emerald-300"
+                                  : "text-slate-400"
                               }`}
                             >
-                              +{earned}
+                              +{earned}p
                             </span>
                           )}
                         </button>
                       );
                     })}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleSelectQuestionIdx(
-                          (selectedQuestionIdx - 1 + questionFeedbacks.length) %
-                            Math.max(1, questionFeedbacks.length),
-                        )
-                      }
-                      className="min-h-9 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-200"
-                    >
-                      Prev
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleSelectQuestionIdx(
-                          (selectedQuestionIdx + 1) %
-                            Math.max(1, questionFeedbacks.length),
-                        )
-                      }
-                      className="min-h-9 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-200"
-                    >
-                      Next
-                    </button>
-                    {isSessionEnded && (
-                      <button
-                        type="button"
-                        aria-pressed={autoCycleQuestions}
-                        onClick={() => setAutoCycleQuestions((v) => !v)}
-                        className={`min-h-9 inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          autoCycleQuestions
-                            ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-300"
-                            : "border-white/10 bg-white/[0.04] text-slate-300 hover:text-white"
-                        }`}
-                      >
-                        <PlayIcon className="size-3" />
-                        <span>{autoCycleQuestions ? "Pause" : "Auto Q1 to Q10"}</span>
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -794,39 +818,42 @@ export function SessionResultsPopup() {
                     key={`${currentQuestion.questionId}-${barAnimKey}`}
                     className="rounded-2xl border border-white/10 bg-[#0d111c] overflow-hidden animate-fade-in"
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 bg-white/[0.02] px-4 py-3.5 sm:px-5 sm:py-4">
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-lg bg-accent/20 border border-accent/35 px-2.5 py-0.5 text-[11px] font-bold text-accent">
-                            Question {currentQuestion.position}
-                          </span>
-                          <span className="rounded-lg bg-white/[0.05] border border-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
-                            {currentQuestion.category}
-                          </span>
-                          <span className="text-xs text-slate-400">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/10 bg-white/[0.02] px-4 py-3.5 sm:px-5 sm:py-4">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-accent">
+                              Q{currentQuestion.position}
+                            </span>
+                            <span className="text-white/20">/</span>
+                            <span className="font-medium text-slate-300">
+                              {currentQuestion.category}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-400 tabular-nums">
                             {currentQuestion.totalSelections.toLocaleString()} picks · Avg{" "}
                             {formatResponseSec(currentQuestion.avgResponseMs)}
                           </span>
                         </div>
-                        <h3 className="font-display text-base sm:text-xl font-bold text-white">
+                        <h3 className="font-display text-base sm:text-xl font-bold text-white leading-snug">
                           {currentQuestion.title}
                         </h3>
                       </div>
 
                       {isSessionEnded && currentQuestion.myPointsEarned !== null ? (
-                        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 sm:text-right shrink-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                        <div className="flex items-center gap-2 sm:block sm:text-right shrink-0 pt-1 sm:pt-0 border-t border-white/[0.06] sm:border-t-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                             Your Q{currentQuestion.position} Score
                           </p>
-                          <p className="font-mono text-sm font-bold text-white">
+                          <p className="font-mono text-xs sm:text-sm font-bold text-emerald-300 tabular-nums">
                             +{currentQuestion.myPointsEarned} pts{" "}
-                            <span className="text-xs text-slate-300">
+                            <span className="text-xs font-normal text-slate-400">
                               ({formatResponseSec(currentQuestion.myResponseMs ?? 0)})
                             </span>
                           </p>
                         </div>
                       ) : !isSessionEnded ? (
-                        <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 shrink-0">
+                        <div className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-300 shrink-0">
                           <LockIcon className="size-3.5" />
                           <span>Unlocks when session closes</span>
                         </div>

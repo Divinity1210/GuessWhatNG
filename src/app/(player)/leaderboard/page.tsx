@@ -517,17 +517,20 @@ export default function LeaderboardPage() {
       {tab === "live" && (
         <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
               <div
-                className={`rounded-xl border border-accent/35 bg-accent/10 px-3 py-2 text-xs sm:text-sm font-semibold text-white tabular-nums transition-colors ${
-                  guessPulse ? "border-emerald-400/60" : ""
+                className={`font-semibold tabular-nums transition-colors ${
+                  guessPulse ? "text-emerald-400" : "text-white"
                 }`}
               >
-                {totalGuesses.toLocaleString()} Guesses
+                <span className="font-display text-base font-bold">
+                  {totalGuesses.toLocaleString()}
+                </span>{" "}
+                <span className="text-xs font-normal text-slate-400">Guesses</span>
               </div>
 
               {selectedSession && (
-                <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2 text-xs font-medium text-slate-200 flex items-center gap-2">
+                <div className="flex items-center gap-1.5 border-l border-white/10 pl-4 text-xs text-slate-300">
                   <span
                     className={`size-2 rounded-full ${
                       selectedSession.status === "active"
@@ -546,7 +549,7 @@ export default function LeaderboardPage() {
               <button
                 type="button"
                 onClick={() => setTab("prizes")}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"
               >
                 <TrophyIcon className="size-3.5" />
                 <span>₦{dynamicTotalPool.toLocaleString()} Pool</span>

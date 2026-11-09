@@ -333,40 +333,40 @@ export default function DashboardPage() {
               )}
             </p>
 
-            {/* Mobile-First 2x2 KPI Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-              <div className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            {/* Read-Only Session Metric Strip (No Background Fill, No Button Look) */}
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-y-3 border-y border-white/[0.08] py-3">
+              <div className="pr-3 sm:pr-4 border-r border-white/[0.08]">
+                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                   Prize Pool
-                </p>
-                <p className="mt-0.5 font-display text-base sm:text-lg font-bold text-accent tabular-nums">
+                </dt>
+                <dd className="mt-0.5 font-display text-base sm:text-lg font-bold text-accent tabular-nums">
                   {formatNaira(activeSession?.prize_pool ?? 500_000)}
-                </p>
+                </dd>
               </div>
 
-              <div className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="pl-3 sm:px-4 sm:border-r sm:border-white/[0.08]">
+                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                   {isSessionEnded ? "Total Guesses" : "Live Guesses"}
-                </p>
-                <p
+                </dt>
+                <dd
                   className={`mt-0.5 font-display text-base sm:text-lg font-bold tabular-nums transition-colors duration-300 ${
                     guessPulse ? "text-emerald-400" : "text-white"
                   }`}
                 >
                   {totalGuesses.toLocaleString()}
-                </p>
+                </dd>
               </div>
 
               {activeSession && (
-                <div className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2.5">
-                  <p
-                    className={`text-[10px] font-semibold uppercase tracking-wider ${
+                <div className="pr-3 sm:px-4 border-r border-white/[0.08] pt-2.5 sm:pt-0 border-t sm:border-t-0">
+                  <dt
+                    className={`text-[10px] font-medium uppercase tracking-wider ${
                       isSessionEnded ? "text-amber-300" : "text-emerald-400"
                     }`}
                   >
                     {isSessionEnded ? "Status" : "Closes In"}
-                  </p>
-                  <p className="mt-0.5 font-mono text-sm sm:text-base font-bold text-white flex items-center gap-1.5 tabular-nums">
+                  </dt>
+                  <dd className="mt-0.5 font-mono text-sm sm:text-base font-bold text-white flex items-center gap-1.5 tabular-nums">
                     <TimerIcon
                       className={`size-3.5 shrink-0 ${
                         isSessionEnded ? "text-amber-400" : "text-emerald-400"
@@ -377,19 +377,19 @@ export default function DashboardPage() {
                         ? "Closed"
                         : formatCountdown(activeSession.ends_at, nowMs)}
                     </span>
-                  </p>
+                  </dd>
                 </div>
               )}
 
-              <div className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="pl-3 sm:pl-4 pt-2.5 sm:pt-0 border-t border-white/[0.08] sm:border-t-0">
+                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                   {isSessionEnded ? "Your Rank" : "Your Best"}
-                </p>
-                <p className="mt-0.5 font-display text-base sm:text-lg font-bold text-emerald-400 tabular-nums truncate">
+                </dt>
+                <dd className="mt-0.5 font-display text-base sm:text-lg font-bold text-emerald-400 tabular-nums truncate">
                   {myRow ? `${formatOrdinal(myRow.rank)} · ${myRow.points}p` : "Not played"}
-                </p>
+                </dd>
               </div>
-            </div>
+            </dl>
           </div>
 
           <div className="shrink-0 flex flex-col items-stretch lg:items-end gap-2.5">
