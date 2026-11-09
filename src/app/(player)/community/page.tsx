@@ -330,6 +330,10 @@ export default function CommunityPage() {
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   const [activeSession, setActiveSession] = useState<{ id: string; name: string } | null>(null);
+  const [topicSlot, setTopicSlot] = useState<{
+    nextAllowedAt: string | null;
+    lastAuthorUsername: string | null;
+  }>({ nextAllowedAt: null, lastAuthorUsername: null });
   const [myIdentity, setMyIdentity] = useState<MyIdentity | null>(null);
   const [mentionDirectory, setMentionDirectory] = useState<MentionCandidate[]>([]);
   const [remoteMentionUsers, setRemoteMentionUsers] = useState<MentionCandidate[]>([]);
@@ -396,6 +400,13 @@ export default function CommunityPage() {
           setActiveSession(data.activeSession);
         } else if (!silent) {
           setActiveSession(null);
+        }
+
+        if (data.topicSlot) {
+          setTopicSlot({
+            nextAllowedAt: data.topicSlot.nextAllowedAt ?? null,
+            lastAuthorUsername: data.topicSlot.lastAuthorUsername ?? null,
+          });
         }
 
         if (data.myIdentity) {
@@ -519,6 +530,26 @@ export default function CommunityPage() {
               }),
             );
           }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "community_posts" },
+        (payload) => {
+          const newPost = payload.new as {
+            author_id?: string | null;
+            created_at?: string;
+          };
+          if (newPost?.author_id && newPost?.created_at) {
+            const unlockIso = new Date(
+              new Date(newPost.created_at).getTime() + 60 * 60 * 1000,
+            ).toISOString();
+            setTopicSlot((prev) => ({
+              nextAllowedAt: unlockIso,
+              lastAuthorUsername: prev.lastAuthorUsername,
+            }));
+          }
+          loadCommunity(true);
         },
       )
       .subscribe();
@@ -722,6 +753,10 @@ export default function CommunityPage() {
       const data = await res.json();
       if (!res.ok) {
         if (data.nextTopicAllowedAt) {
+          setTopicSlot({
+            nextAllowedAt: data.nextTopicAllowedAt,
+            lastAuthorUsername: data.lastAuthorUsername ?? null,
+          });
           setMyIdentity((prev) =>
             prev ? { ...prev, nextTopicAllowedAt: data.nextTopicAllowedAt } : prev,
           );
@@ -729,6 +764,11 @@ export default function CommunityPage() {
         setTopicError(data.error || "Could not publish topic.");
       } else {
         if (data.nextTopicAllowedAt) {
+          setTopicSlot({
+            nextAllowedAt: data.nextTopicAllowedAt,
+            lastAuthorUsername:
+              data.lastAuthorUsername ?? myIdentity?.username ?? null,
+          });
           setMyIdentity((prev) =>
             prev ? { ...prev, nextTopicAllowedAt: data.nextTopicAllowedAt } : prev,
           );
@@ -1069,18 +1109,37 @@ export default function CommunityPage() {
     });
   };
 
+  // Tick every 1 second so the MM:SS Arena topic/poll countdown updates live
   useEffect(() => {
-    const t = setInterval(() => setNowMs(Date.now()), 15000);
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const topicCooldownMinsLeft = useMemo(() => {
-    const iso = myIdentity?.nextTopicAllowedAt;
+  const topicCooldownSecondsLeft = useMemo(() => {
+    const iso = topicSlot.nextAllowedAt || myIdentity?.nextTopicAllowedAt || null;
     if (!iso) return 0;
     const diffMs = new Date(iso).getTime() - nowMs;
     if (diffMs <= 0) return 0;
-    return Math.max(1, Math.ceil(diffMs / 60000));
-  }, [myIdentity?.nextTopicAllowedAt, nowMs]);
+    return Math.ceil(diffMs / 1000);
+  }, [topicSlot.nextAllowedAt, myIdentity?.nextTopicAllowedAt, nowMs]);
+
+  const formattedTopicCountdown = useMemo(() => {
+    if (topicCooldownSecondsLeft <= 0) return "00:00";
+    const mins = Math.floor(topicCooldownSecondsLeft / 60);
+    const secs = topicCooldownSecondsLeft % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }, [topicCooldownSecondsLeft]);
+
+  const isTopicSlotOpen = topicCooldownSecondsLeft === 0;
+  const validPollOptionsCount = includePoll
+    ? pollOpts.map((o) => o.trim()).filter(Boolean).length
+    : 0;
+  const canPublishTopic =
+    Boolean(user?.id) &&
+    isTopicSlotOpen &&
+    !creatingTopic &&
+    newTitle.trim().length > 0 &&
+    (!includePoll || validPollOptionsCount >= 2);
 
   const displayedPosts = useMemo(() => {
     if (sourceFilter === "official") {
@@ -1143,14 +1202,20 @@ export default function CommunityPage() {
               setTopicError(null);
               setComposerOpen(true);
             }}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-opacity ${
-              topicCooldownMinsLeft > 0
-                ? "border border-white/15 bg-[#121624] text-slate-200 hover:border-white/25"
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+              !isTopicSlotOpen
+                ? "border border-amber-500/35 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15"
                 : "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-[#F7911B]/20 hover:opacity-95"
             }`}
           >
-            {topicCooldownMinsLeft > 0 ? (
-              <span>Next topic/poll in {topicCooldownMinsLeft}m</span>
+            {!isTopicSlotOpen ? (
+              <>
+                <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
+                <span>Next topic/poll in</span>
+                <span className="rounded bg-black/40 px-1.5 py-0.5 font-mono tabular-nums text-amber-300">
+                  {formattedTopicCountdown}
+                </span>
+              </>
             ) : (
               <span>+ Start topic or poll</span>
             )}
@@ -2148,19 +2213,34 @@ export default function CommunityPage() {
               </div>
             ) : (
               <form onSubmit={handleCreateTopic} className="mt-4 space-y-3.5">
-                {topicCooldownMinsLeft > 0 ? (
-                  <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200">
-                    <p className="font-bold text-amber-300">
-                      1-hour cooldown active ({topicCooldownMinsLeft}{" "}
-                      {topicCooldownMinsLeft === 1 ? "minute" : "minutes"} remaining)
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-300">
-                      To prevent Arena clutter, each player can create 1 new topic or poll per hour. You can still vote, @tag rivals, and reply freely!
-                    </p>
+                {!isTopicSlotOpen ? (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-3 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-bold text-amber-300">
+                        Next player topic/poll unlocks in {formattedTopicCountdown}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-300">
+                        {topicSlot.lastAuthorUsername
+                          ? `@${topicSlot.lastAuthorUsername} claimed this hour's Arena slot. `
+                          : "This hour's Arena slot has been used. "}
+                        Publish unlocks automatically at 00:00.
+                      </p>
+                    </div>
+                    <div className="shrink-0 rounded-xl border border-amber-400/40 bg-[#07090e] px-3 py-1.5 font-mono text-base font-extrabold tabular-nums text-amber-300">
+                      {formattedTopicCountdown}
+                    </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-indigo-400/25 bg-indigo-500/10 px-3.5 py-2 text-[11px] text-indigo-200">
-                    Arena rule: Players can publish <span className="font-bold text-white">1 topic or poll per hour</span> to keep discussions sharp.
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs">
+                    <div className="flex items-center gap-2 text-emerald-200">
+                      <span className="size-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>
+                        <span className="font-bold text-white">Arena slot open now</span> — 1 player topic or poll is allowed per hour.
+                      </span>
+                    </div>
+                    <span className="shrink-0 rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                      AVAILABLE
+                    </span>
                   </div>
                 )}
 
@@ -2175,10 +2255,9 @@ export default function CommunityPage() {
                     Category
                   </label>
                   <select
-                    disabled={topicCooldownMinsLeft > 0}
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3 py-2.5 text-xs text-white focus:border-accent focus:outline-none disabled:opacity-50"
+                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3 py-2.5 text-xs text-white focus:border-accent focus:outline-none"
                   >
                     {[
                       "Game Banter",
@@ -2202,12 +2281,11 @@ export default function CommunityPage() {
                   <input
                     type="text"
                     required
-                    disabled={topicCooldownMinsLeft > 0}
                     maxLength={140}
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="e.g. Which city has the sharpest GuessWhat players right now?"
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none disabled:opacity-50"
+                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                   />
                 </div>
 
@@ -2217,12 +2295,11 @@ export default function CommunityPage() {
                   </label>
                   <textarea
                     rows={2}
-                    disabled={topicCooldownMinsLeft > 0}
                     maxLength={400}
                     value={newBody}
                     onChange={(e) => setNewBody(e.target.value)}
                     placeholder="Add your take or @tag a rival to kick off replies..."
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none disabled:opacity-50"
+                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                   />
                 </div>
 
@@ -2232,7 +2309,6 @@ export default function CommunityPage() {
                   </span>
                   <input
                     type="checkbox"
-                    disabled={topicCooldownMinsLeft > 0}
                     checked={includePoll}
                     onChange={(e) => setIncludePoll(e.target.checked)}
                     className="size-4 accent-[#F7911B]"
@@ -2245,7 +2321,6 @@ export default function CommunityPage() {
                       <div key={idx} className="flex items-center gap-2">
                         <input
                           type="text"
-                          disabled={topicCooldownMinsLeft > 0}
                           value={val}
                           maxLength={70}
                           onChange={(e) => {
@@ -2254,7 +2329,7 @@ export default function CommunityPage() {
                             setPollOpts(next);
                           }}
                           placeholder={`Option ${idx + 1}`}
-                          className="flex-1 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-xs text-white focus:border-accent focus:outline-none disabled:opacity-50"
+                          className="flex-1 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-xs text-white focus:border-accent focus:outline-none"
                         />
                         {pollOpts.length > 2 && (
                           <button
@@ -2287,21 +2362,21 @@ export default function CommunityPage() {
                     onClick={() => setComposerOpen(false)}
                     className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white"
                   >
-                    {topicCooldownMinsLeft > 0 ? "Close" : "Cancel"}
+                    Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={
-                      creatingTopic ||
-                      topicCooldownMinsLeft > 0 ||
-                      !newTitle.trim()
-                    }
-                    className="rounded-xl bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-5 py-2 text-xs font-bold text-white disabled:opacity-40"
+                    disabled={!canPublishTopic}
+                    className={`rounded-xl px-5 py-2 text-xs font-bold transition-all ${
+                      canPublishTopic
+                        ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-[#F7911B]/25 hover:opacity-95 cursor-pointer"
+                        : "border border-white/10 bg-white/[0.05] text-slate-500 cursor-not-allowed"
+                    }`}
                   >
                     {creatingTopic
                       ? "Publishing..."
-                      : topicCooldownMinsLeft > 0
-                      ? `Unlocks in ${topicCooldownMinsLeft}m`
+                      : !isTopicSlotOpen
+                      ? `Available in ${formattedTopicCountdown}`
                       : "Publish to Arena"}
                   </button>
                 </div>

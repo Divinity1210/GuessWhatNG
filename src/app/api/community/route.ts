@@ -199,16 +199,14 @@ export async function GET(req: NextRequest) {
             .eq("id", userId)
             .maybeSingle()
         : Promise.resolve({ data: null }),
-      userId
-        ? supabase
-            .from("community_posts")
-            .select("created_at")
-            .eq("author_id", userId)
-            .gte("created_at", oneHourAgoIso)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
+      supabase
+        .from("community_posts")
+        .select("id, author_id, created_at")
+        .not("author_id", "is", null)
+        .gte("created_at", oneHourAgoIso)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     if (postsErr || liveMsgErr) {
@@ -232,6 +230,7 @@ export async function GET(req: NextRequest) {
     for (const m of threadMessages ?? []) if (m.user_id) authorIds.add(m.user_id);
     for (const p of posts ?? []) if (p.author_id) authorIds.add(p.author_id);
     for (const lb of (lbRows ?? []).slice(0, 40)) if (lb.user_id) authorIds.add(lb.user_id);
+    if (recentMyPost?.author_id) authorIds.add(recentMyPost.author_id);
 
     const profileLookup = new Map<
       string,
@@ -454,6 +453,9 @@ export async function GET(req: NextRequest) {
           new Date(recentMyPost.created_at).getTime() + 60 * 60 * 1000,
         ).toISOString()
       : null;
+    const lastSlotAuthorUsername = recentMyPost?.author_id
+      ? profileLookup.get(recentMyPost.author_id)?.username ?? null
+      : null;
 
     return NextResponse.json({
       ok: true,
@@ -462,6 +464,10 @@ export async function GET(req: NextRequest) {
         : latestCompleted
         ? { id: latestCompleted.id, name: latestCompleted.name }
         : null,
+      topicSlot: {
+        nextAllowedAt: nextTopicAllowedAt,
+        lastAuthorUsername: lastSlotAuthorUsername,
+      },
       myIdentity: myProfile
         ? {
             username: myProfile.username,
@@ -816,27 +822,43 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "create_topic") {
-      // Enforce 1 user-created topic or poll per hour to prevent Arena database clogging
+      // Global Arena limit: allow 1 player-created topic or poll per hour across ALL players
       const oneHourAgoIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { data: recentUserPost } = await supabase
+      const { data: recentArenaPost } = await supabase
         .from("community_posts")
-        .select("id, created_at")
-        .eq("author_id", userId)
+        .select("id, author_id, created_at")
+        .not("author_id", "is", null)
         .gte("created_at", oneHourAgoIso)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (recentUserPost?.created_at) {
+      if (recentArenaPost?.created_at) {
         const unlockAtMs =
-          new Date(recentUserPost.created_at).getTime() + 60 * 60 * 1000;
-        const minsLeft = Math.max(1, Math.ceil((unlockAtMs - Date.now()) / 60000));
+          new Date(recentArenaPost.created_at).getTime() + 60 * 60 * 1000;
+        const secsLeft = Math.max(1, Math.ceil((unlockAtMs - Date.now()) / 1000));
+        const minsPart = Math.floor(secsLeft / 60);
+        const secsPart = secsLeft % 60;
+        const formattedWait =
+          minsPart > 0
+            ? `${minsPart}m ${String(secsPart).padStart(2, "0")}s`
+            : `${secsPart}s`;
+
+        let lastAuthor: string | null = null;
+        if (recentArenaPost.author_id) {
+          const { data: ap } = await supabase
+            .from("profiles")
+            .select("username")
+            .eq("id", recentArenaPost.author_id)
+            .maybeSingle();
+          lastAuthor = ap?.username ?? null;
+        }
+
         return NextResponse.json(
           {
-            error: `Players can create 1 topic or poll per hour to keep the Arena clean. You can post your next one in ${minsLeft} ${
-              minsLeft === 1 ? "minute" : "minutes"
-            }.`,
+            error: `Only 1 player topic or poll can be published per hour across the Arena. Next slot opens in ${formattedWait}.`,
             nextTopicAllowedAt: new Date(unlockAtMs).toISOString(),
+            lastAuthorUsername: lastAuthor,
           },
           { status: 429 },
         );
@@ -949,6 +971,7 @@ export async function POST(req: NextRequest) {
         nextTopicAllowedAt: new Date(
           new Date(created.created_at || Date.now()).getTime() + 60 * 60 * 1000,
         ).toISOString(),
+        lastAuthorUsername: profile.username,
       });
     }
 
