@@ -9,7 +9,7 @@ export function Card({ children, className = "", glow = false, gradient = false 
   if (gradient) {
     return (
       <div className="gradient-border">
-        <div className={`p-6 ${className}`}>{children}</div>
+        <div className={`p-4 sm:p-6 ${className}`}>{children}</div>
       </div>
     );
   }
@@ -18,7 +18,7 @@ export function Card({ children, className = "", glow = false, gradient = false 
     <div
       className={`${glow ? "card-glow" : "rounded-card border border-rule bg-paper-2"} ${className}`}
     >
-      {glow ? <div className={`relative z-10 p-6 ${className}`}>{children}</div> : children}
+      {glow ? <div className={`relative z-10 p-4 sm:p-6 ${className}`}>{children}</div> : children}
     </div>
   );
 }

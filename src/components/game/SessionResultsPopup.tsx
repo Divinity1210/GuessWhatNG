@@ -7,6 +7,17 @@ import {
   playRankClimb,
   playOptionSelect,
 } from "@/lib/audio/sound-effects";
+import {
+  AwardIcon,
+  BarChartIcon,
+  CheckIcon,
+  CloseIcon,
+  CrownIcon,
+  LockIcon,
+  PlayIcon,
+  TargetIcon,
+  TrophyIcon,
+} from "@/components/ui/Icons";
 
 export type FeedbackOptionRow = {
   rank: number;
@@ -94,37 +105,6 @@ export function openSessionResultsPopup(detail: OpenSessionResultsDetail = {}) {
   );
 }
 
-let cachedSupportsDisplayTransition: boolean | undefined;
-function canTransitionDisplay(): boolean {
-  if (cachedSupportsDisplayTransition !== undefined) {
-    return cachedSupportsDisplayTransition;
-  }
-  if (
-    typeof window === "undefined" ||
-    !window.CSS?.supports?.("transition-behavior", "allow-discrete") ||
-    !document.body
-  ) {
-    return false;
-  }
-  const probe = document.createElement("div");
-  probe.style.cssText =
-    "transition: display 1s allow-discrete !important; display: block;";
-  document.body.appendChild(probe);
-  void getComputedStyle(probe).display;
-  probe.style.display = "none";
-  cachedSupportsDisplayTransition = getComputedStyle(probe).display === "block";
-  probe.remove();
-  return cachedSupportsDisplayTransition;
-}
-
-function supportsTopLayerExit(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    Boolean(window.CSS?.supports?.("overlay", "auto")) &&
-    canTransitionDisplay()
-  );
-}
-
 function formatOrdinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
@@ -132,7 +112,7 @@ function formatOrdinal(n: number): string {
 }
 
 function formatResponseSec(ms: number): string {
-  if (!ms || ms <= 0) return "—";
+  if (!ms || ms <= 0) return "-";
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
@@ -177,16 +157,13 @@ function useAnimatedNumber(target: number, durationMs = 650): number {
 }
 
 const CONFETTI_PIECES = [
-  { left: "6%", delay: "0s", color: "#10b981" },
-  { left: "14%", delay: "0.35s", color: "#f7911b" },
-  { left: "23%", delay: "0.7s", color: "#38bdf8" },
-  { left: "34%", delay: "0.15s", color: "#f43f5e" },
-  { left: "46%", delay: "0.55s", color: "#eab308" },
-  { left: "58%", delay: "0.25s", color: "#a855f7" },
-  { left: "69%", delay: "0.8s", color: "#10b981" },
-  { left: "79%", delay: "0.4s", color: "#f7911b" },
-  { left: "88%", delay: "0.65s", color: "#38bdf8" },
-  { left: "94%", delay: "0.2s", color: "#eab308" },
+  { left: "8%", delay: "0s", color: "#10b981" },
+  { left: "19%", delay: "0.35s", color: "#f7911b" },
+  { left: "32%", delay: "0.7s", color: "#ff5a1f" },
+  { left: "46%", delay: "0.15s", color: "#eab308" },
+  { left: "61%", delay: "0.55s", color: "#10b981" },
+  { left: "76%", delay: "0.25s", color: "#f7911b" },
+  { left: "89%", delay: "0.65s", color: "#eab308" },
 ];
 
 export function SessionResultsPopup() {
@@ -219,7 +196,6 @@ export function SessionResultsPopup() {
   const [winnerSearch, setWinnerSearch] = useState("");
   const [barAnimKey, setBarAnimKey] = useState(0);
 
-  // Track known active session status so if a session transitions from active -> completed, we auto-open!
   const knownSessionStatusRef = useRef<Map<string, string>>(new Map());
 
   const animatedGuesses = useAnimatedNumber(summary?.totalGuesses ?? 0);
@@ -315,7 +291,6 @@ export function SessionResultsPopup() {
     [fetchSessionFeedback],
   );
 
-  // Listen for custom open events anywhere in the app
   useEffect(() => {
     const handleOpenEvent = (e: Event) => {
       const custom = e as CustomEvent<OpenSessionResultsDetail>;
@@ -326,7 +301,6 @@ export function SessionResultsPopup() {
       window.removeEventListener("gw-open-session-results", handleOpenEvent);
   }, [openModalWithSession]);
 
-  // Native <dialog> cancel & light-dismiss fallback (per modern-web-guidance `dialog` & `animate-to-from-top-layer`)
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -345,7 +319,6 @@ export function SessionResultsPopup() {
     dialog.addEventListener("cancel", onCancel);
     dialog.addEventListener("close", onClose);
 
-    // Light-dismiss fallback for browsers without native `closedBy` (e.g., Safari)
     let cleanupOutside: (() => void) | undefined;
     if (
       typeof HTMLDialogElement !== "undefined" &&
@@ -384,7 +357,6 @@ export function SessionResultsPopup() {
     };
   }, [closeTopLayer]);
 
-  // Monitor sessions for automatic popup when an active session ends (status transitions to "completed")
   useEffect(() => {
     let mounted = true;
 
@@ -408,7 +380,6 @@ export function SessionResultsPopup() {
               : s.status;
           knownSessionStatusRef.current.set(s.id, effectiveStatus);
 
-          // 1) If a session just transitioned from active/closing -> completed while the user is online:
           if (
             prevStatus &&
             prevStatus !== "completed" &&
@@ -424,7 +395,6 @@ export function SessionResultsPopup() {
             return;
           }
 
-          // 2) If a session ended recently (within the last 12 hours) and the user hasn't seen its end popup yet:
           const endedAgoMs = now - new Date(s.ends_at).getTime();
           if (
             effectiveStatus === "completed" &&
@@ -457,7 +427,6 @@ export function SessionResultsPopup() {
     };
   }, [openModalWithSession]);
 
-  // Auto-cycle through Q1..Q10 when enabled
   useEffect(() => {
     if (!isOpen || !autoCycleQuestions || questionFeedbacks.length <= 1) return;
     const timer = setInterval(() => {
@@ -502,156 +471,139 @@ export function SessionResultsPopup() {
       ref={dialogRef}
       aria-labelledby={titleId}
       {...({ closedby: "any" } as Record<string, string>)}
-      className="gw-session-results-dialog m-auto w-[min(96vw,1080px)] max-h-[92dvh] rounded-3xl border border-white/15 bg-[#090d16] text-slate-100 shadow-[0_28px_90px_rgba(0,0,0,0.85)] p-0 overflow-hidden"
+      className="gw-session-results-dialog mt-auto mb-0 mx-0 sm:m-auto w-full max-w-full sm:w-[min(95vw,1040px)] max-h-[92dvh] rounded-t-3xl sm:rounded-3xl border border-white/15 bg-[#090d16] text-slate-100 shadow-[0_28px_90px_rgba(0,0,0,0.85)] p-0 overflow-hidden"
     >
-      {/* ── Top Animated Celebration Header ── */}
-      <div className="relative overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#141c2f] via-[#0d1220] to-[#1a1118] px-5 py-5 sm:px-8 sm:py-6 shrink-0">
-        {/* Confetti Particle Layer */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden"
-        >
-          {CONFETTI_PIECES.map((piece, idx) => (
-            <span
-              key={idx}
-              style={{
-                left: piece.left,
-                animationDelay: piece.delay,
-                backgroundColor: piece.color,
-              }}
-              className="animate-gw-confetti absolute top-0 size-2 rounded-sm opacity-0"
-            />
-          ))}
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 h-48 w-96 rounded-full bg-accent/15 blur-3xl" />
-          <div className="absolute -bottom-20 right-10 h-40 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-        </div>
-
-        <div className="relative z-10 flex flex-col gap-4">
-          {/* Top Row: Badge + Session Switcher + Close Button */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2.5">
+      {/* Modal Header */}
+      <div className="relative overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#141c2f] via-[#0d1220] to-[#1a1118] px-4 py-4 sm:px-7 sm:py-5 shrink-0">
+        {isSessionEnded && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+          >
+            {CONFETTI_PIECES.map((piece, idx) => (
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider shadow-sm ${
+                key={idx}
+                style={{
+                  left: piece.left,
+                  animationDelay: piece.delay,
+                  backgroundColor: piece.color,
+                }}
+                className="animate-gw-confetti absolute top-0 size-2 rounded-sm opacity-0"
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="relative z-10 flex flex-col gap-3">
+          {/* Status + Session Selector + Close */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                   isSessionEnded
-                    ? "border-amber-400/40 bg-amber-500/15 text-amber-300"
-                    : "border-emerald-400/40 bg-emerald-500/15 text-emerald-300"
+                    ? "border-amber-400/35 bg-amber-500/15 text-amber-300"
+                    : "border-emerald-400/35 bg-emerald-500/15 text-emerald-300"
                 }`}
               >
                 <span
-                  className={`size-2 rounded-full ${
-                    isSessionEnded
-                      ? "bg-amber-400"
-                      : "bg-emerald-400 animate-pulse"
+                  className={`size-1.5 rounded-full ${
+                    isSessionEnded ? "bg-amber-400" : "bg-emerald-400"
                   }`}
                 />
                 <span>
-                  {isSessionEnded
-                    ? "🏁 Session Ended · Official Results & Winners"
-                    : "🟢 Session Ongoing · In Progress (Not Ended Yet)"}
+                  {isSessionEnded ? "Session Closed · Official Results" : "Session In Progress"}
                 </span>
               </span>
 
               {sessions.length > 1 && (
-                <div className="flex items-center gap-1.5">
-                  <label htmlFor="popup-session-select" className="sr-only">
-                    Switch Session
-                  </label>
-                  <select
-                    id="popup-session-select"
-                    value={selectedSessionId}
-                    onChange={(e) =>
-                      void handleSelectSessionInModal(e.target.value)
-                    }
-                    className="rounded-xl border border-white/15 bg-[#07090e]/90 px-3 py-1.5 text-xs font-semibold text-white focus:border-accent focus:outline-none"
-                  >
-                    {sessions.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} (
-                        {s.status === "completed"
-                          ? "🏁 ENDED · Final Results"
-                          : "🟢 ONGOING · Live Session"}
-                        )
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  id="popup-session-select"
+                  aria-label="Switch session"
+                  value={selectedSessionId}
+                  onChange={(e) => void handleSelectSessionInModal(e.target.value)}
+                  className="max-w-44 sm:max-w-none rounded-xl border border-white/15 bg-[#07090e]/90 px-2.5 py-1.5 text-base sm:text-xs font-semibold text-white focus:border-accent focus:outline-none truncate"
+                >
+                  {sessions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.status === "completed" ? "Ended" : "Live"})
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
 
             <button
               type="button"
               onClick={() => void closeTopLayer()}
-              aria-label="Close session results popup"
+              aria-label="Close session results"
               autoFocus
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white transition-colors"
+              className="grid size-9 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 hover:text-white transition-colors"
             >
-              <span>✕ Close</span>
+              <CloseIcon className="size-4.5" />
             </button>
           </div>
 
-          {/* Title & Subtitle */}
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-            <div>
+          {/* Title & KPIs */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+            <div className="min-w-0">
               <h2
                 id={titleId}
-                className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight flex flex-wrap items-center gap-2.5"
+                className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight truncate"
               >
-                <span>🏆 {sessionMeta?.name ?? "Session Results & Crowd Feedback"}</span>
+                {sessionMeta?.name ?? "Session Results"}
               </h2>
-              <p className="text-xs sm:text-sm text-slate-300 mt-1">
-                Full crowd selection percentages, assigned option points (10–1), response speeds, and top session winners.
+              <p className="hidden sm:block text-xs text-slate-300 mt-0.5">
+                Crowd vote shares, option points (10 to 1), response speeds, and session standings.
               </p>
             </div>
 
-            {/* Animated KPI Pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300/80">
-                  Prize Pool
+            <div className="grid grid-cols-4 gap-2 shrink-0">
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-2.5 py-1.5">
+                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-amber-300/80">
+                  Pool
                 </p>
-                <p className="font-display text-base sm:text-lg font-bold text-amber-300 tabular-nums">
+                <p className="font-display text-xs sm:text-base font-bold text-amber-300 tabular-nums truncate">
                   ₦{animatedPrizePool.toLocaleString()}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/80">
-                  Crowd Guesses
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1.5">
+                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-emerald-300/80">
+                  Guesses
                 </p>
-                <p className="font-display text-base sm:text-lg font-bold text-emerald-300 tabular-nums">
+                <p className="font-display text-xs sm:text-base font-bold text-emerald-300 tabular-nums">
                   {animatedGuesses.toLocaleString()}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3.5 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-sky-300/80">
-                  Players · Speed
+              <div className="rounded-xl border border-white/12 bg-white/[0.04] px-2.5 py-1.5">
+                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Players
                 </p>
-                <p className="font-display text-base sm:text-lg font-bold text-sky-300 tabular-nums">
-                  {summary?.uniquePlayers ?? leaderboard.length} ·{" "}
-                  {formatResponseSec(summary?.avgQuestionMs ?? 0)}
+                <p className="font-display text-xs sm:text-base font-bold text-white tabular-nums">
+                  {summary?.uniquePlayers ?? leaderboard.length}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-accent/40 bg-accent/15 px-3.5 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-accent">
-                  Your Best Score
+              <div className="rounded-xl border border-accent/35 bg-accent/15 px-2.5 py-1.5">
+                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-accent">
+                  Your Score
                 </p>
-                <p className="font-display text-base sm:text-lg font-bold text-white tabular-nums">
+                <p className="font-display text-xs sm:text-base font-bold text-white tabular-nums truncate">
                   {myPerformance?.rank
-                    ? `${formatOrdinal(myPerformance.rank)} · ${animatedMyScore} pts`
+                    ? `${formatOrdinal(myPerformance.rank)} · ${animatedMyScore}p`
                     : `${animatedMyScore} pts`}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Navigation Tabs inside Popup */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          {/* Section Tabs */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
             <div
               role="tablist"
               aria-label="Session results sections"
-              className="inline-flex flex-wrap rounded-2xl border border-white/10 bg-[#07090e]/80 p-1 gap-1"
+              className="flex w-full sm:w-auto overflow-x-auto no-scrollbar rounded-xl border border-white/10 bg-[#07090e]/80 p-1 gap-1"
             >
               <button
                 type="button"
@@ -661,13 +613,14 @@ export function SessionResultsPopup() {
                   setActiveTab("feedback");
                   setBarAnimKey((k) => k + 1);
                 }}
-                className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                className={`flex-1 sm:flex-initial shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
                   activeTab === "feedback"
-                    ? "bg-accent text-white shadow-md"
+                    ? "bg-accent text-white"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                📊 Crowd Feedback ({questionFeedbacks.length} Questions)
+                <BarChartIcon className="size-3.5" />
+                <span>Crowd Votes ({questionFeedbacks.length})</span>
               </button>
 
               <button
@@ -678,15 +631,16 @@ export function SessionResultsPopup() {
                   setActiveTab("winners");
                   playRankClimb();
                 }}
-                className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                className={`flex-1 sm:flex-initial shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
                   activeTab === "winners"
-                    ? "bg-accent text-white shadow-md"
+                    ? "bg-accent text-white"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                {isSessionEnded
-                  ? `🏆 Official Winners & Podium (${leaderboard.length})`
-                  : `⏳ Live Provisional Standings (${leaderboard.length})`}
+                <TrophyIcon className="size-3.5" />
+                <span>
+                  {isSessionEnded ? "Winners" : "Standings"} ({leaderboard.length})
+                </span>
               </button>
 
               <button
@@ -694,30 +648,25 @@ export function SessionResultsPopup() {
                 role="tab"
                 aria-selected={activeTab === "mypicks"}
                 onClick={() => setActiveTab("mypicks")}
-                className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                className={`flex-1 sm:flex-initial shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
                   activeTab === "mypicks"
-                    ? "bg-accent text-white shadow-md"
+                    ? "bg-accent text-white"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                🎯 My Picks
-                {isSessionEnded &&
-                myPerformance &&
-                myPerformance.questionsAnswered > 0
-                  ? ` (${myPerformance.mostSelectedHits}/10 #1 Hits)`
-                  : ""}
+                <TargetIcon className="size-3.5" />
+                <span>My Picks</span>
               </button>
             </div>
 
             {myPerformance && myPerformance.prize > 0 && (
-              <div className="inline-flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-1.5 text-xs font-bold text-emerald-300">
+              <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/35 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+                <CheckIcon className="size-3.5" />
                 <span>
-                  {isSessionEnded
-                    ? "🎉 Official Winner! Prize Won:"
-                    : "⏳ In Winning Zone! Projected Prize:"}
-                </span>
-                <span className="font-mono text-sm text-white">
-                  ₦{myPerformance.prize.toLocaleString()}
+                  {isSessionEnded ? "Prize Won:" : "Projected Prize:"}{" "}
+                  <strong className="font-mono text-white">
+                    ₦{myPerformance.prize.toLocaleString()}
+                  </strong>
                 </span>
               </div>
             )}
@@ -725,35 +674,23 @@ export function SessionResultsPopup() {
         </div>
       </div>
 
-      {/* ── Scrollable Modal Body ── */}
-      <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6 space-y-6">
+      {/* Scrollable Body */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-7 sm:py-5 space-y-5">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <div className="size-9 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
             <p className="text-xs font-medium text-slate-400">
-              Calculating crowd consensus &amp; session winners...
+              Loading session results...
             </p>
           </div>
         ) : (
           <>
-            {/* ════════════════════════════════════════════════════════════════
-                ONGOING SESSION FAIR-PLAY NOTICE BANNER (when status !== "completed")
-               ════════════════════════════════════════════════════════════════ */}
             {!isSessionEnded && (
-              <div className="rounded-2xl border border-emerald-400/35 bg-emerald-500/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <p className="text-xs font-extrabold uppercase tracking-wider text-emerald-300">
-                      🟢 Live Session Ongoing — Fair-Play Crowd Lock Active
-                    </p>
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-                    <strong>{sessionMeta?.name}</strong> is still in progress! To keep competition fair while players can still play and improve their Best Score, crowd vote percentages and{" "}
-                    <span className="text-emerald-300 font-semibold">
-                      #1 MOST SELECTED (10 pts)
-                    </span>{" "}
-                    answers are sealed until the session timer ends.
+              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <LockIcon className="size-4 shrink-0 text-emerald-300 mt-0.5" />
+                  <p className="text-xs text-slate-200 leading-relaxed">
+                    <strong className="text-emerald-300">{sessionMeta?.name}</strong> is still active. Crowd vote shares stay sealed while players can still submit rounds.
                   </p>
                 </div>
 
@@ -763,22 +700,19 @@ export function SessionResultsPopup() {
                     onClick={() =>
                       void handleSelectSessionInModal(completedSessionOption.id)
                     }
-                    className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/20 hover:bg-amber-500/30 px-4 py-2.5 text-xs font-bold text-amber-200 transition-colors"
+                    className="min-h-9 self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-amber-400/35 bg-amber-500/15 hover:bg-amber-500/25 px-3.5 py-2 text-xs font-semibold text-amber-200 transition-colors"
                   >
-                    <span>🏁 View Ended Session ({completedSessionOption.name})</span>
+                    <span>View {completedSessionOption.name}</span>
                   </button>
                 )}
               </div>
             )}
 
-            {/* ════════════════════════════════════════════════════════════════
-                TAB 1: CROWD FEEDBACK RESULTS (Question-by-Question 10–1 Table)
-               ════════════════════════════════════════════════════════════════ */}
+            {/* Tab 1: Question-by-Question Crowd Votes */}
             {activeTab === "feedback" && (
-              <div className="space-y-5 animate-fade-in">
-                {/* Question Switcher Pills (Q1 - Q10) + Auto-Play Story Toggle */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0d111c] p-3.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
+              <div className="space-y-4 animate-fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-2xl border border-white/10 bg-[#0d111c] p-3">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                     {questionFeedbacks.map((qf, idx) => {
                       const isCurrent = idx === selectedQuestionIdx;
                       const earned = isSessionEnded ? qf.myPointsEarned : null;
@@ -787,16 +721,16 @@ export function SessionResultsPopup() {
                           key={qf.questionId}
                           type="button"
                           onClick={() => handleSelectQuestionIdx(idx)}
-                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border ${
+                          className={`shrink-0 inline-flex min-h-9 items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border ${
                             isCurrent
-                              ? "border-accent bg-accent text-white shadow-sm scale-105"
+                              ? "border-accent bg-accent text-white"
                               : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/25 hover:text-white"
                           }`}
                         >
                           <span>Q{qf.position}</span>
                           {earned !== null && (
                             <span
-                              className={`rounded-md px-1.5 py-0.2 text-[10px] font-mono ${
+                              className={`rounded px-1 py-0.2 text-[10px] font-mono ${
                                 isCurrent
                                   ? "bg-black/30 text-amber-200"
                                   : earned === 10
@@ -804,7 +738,7 @@ export function SessionResultsPopup() {
                                   : "bg-white/10 text-slate-300"
                               }`}
                             >
-                              +{earned}p
+                              +{earned}
                             </span>
                           )}
                         </button>
@@ -812,7 +746,7 @@ export function SessionResultsPopup() {
                     })}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center justify-end gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() =>
@@ -821,9 +755,9 @@ export function SessionResultsPopup() {
                             Math.max(1, questionFeedbacks.length),
                         )
                       }
-                      className="rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-200"
+                      className="min-h-9 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-200"
                     >
-                      ← Prev
+                      Prev
                     </button>
                     <button
                       type="button"
@@ -833,58 +767,56 @@ export function SessionResultsPopup() {
                             Math.max(1, questionFeedbacks.length),
                         )
                       }
-                      className="rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-200"
+                      className="min-h-9 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-200"
                     >
-                      Next →
+                      Next
                     </button>
                     {isSessionEnded && (
                       <button
                         type="button"
                         aria-pressed={autoCycleQuestions}
                         onClick={() => setAutoCycleQuestions((v) => !v)}
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-colors ${
+                        className={`min-h-9 inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
                           autoCycleQuestions
                             ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-300"
                             : "border-white/10 bg-white/[0.04] text-slate-300 hover:text-white"
                         }`}
                       >
-                        {autoCycleQuestions ? "⏸ Pause Auto" : "▶ Auto-Play Q1–Q10"}
+                        <PlayIcon className="size-3" />
+                        <span>{autoCycleQuestions ? "Pause" : "Auto Q1 to Q10"}</span>
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Active Question Feedback Breakdown Card */}
                 {currentQuestion ? (
                   <div
                     key={`${currentQuestion.questionId}-${barAnimKey}`}
                     className="rounded-2xl border border-white/10 bg-[#0d111c] overflow-hidden animate-fade-in"
                   >
-                    {/* Question Header Bar */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 bg-white/[0.02] px-5 py-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 bg-white/[0.02] px-4 py-3.5 sm:px-5 sm:py-4">
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-lg bg-accent/20 border border-accent/40 px-2.5 py-0.5 text-[11px] font-bold text-accent">
-                            Question #{currentQuestion.position}
+                          <span className="rounded-lg bg-accent/20 border border-accent/35 px-2.5 py-0.5 text-[11px] font-bold text-accent">
+                            Question {currentQuestion.position}
                           </span>
                           <span className="rounded-lg bg-white/[0.05] border border-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
                             {currentQuestion.category}
                           </span>
                           <span className="text-xs text-slate-400">
-                            {currentQuestion.totalSelections.toLocaleString()}{" "}
-                            selections · Avg{" "}
+                            {currentQuestion.totalSelections.toLocaleString()} picks · Avg{" "}
                             {formatResponseSec(currentQuestion.avgResponseMs)}
                           </span>
                         </div>
-                        <h3 className="font-display text-lg sm:text-xl font-bold text-white">
+                        <h3 className="font-display text-base sm:text-xl font-bold text-white">
                           {currentQuestion.title}
                         </h3>
                       </div>
 
                       {isSessionEnded && currentQuestion.myPointsEarned !== null ? (
-                        <div className="rounded-xl border border-emerald-400/35 bg-emerald-500/10 px-3.5 py-2 text-right shrink-0">
+                        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 sm:text-right shrink-0">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
-                            Your Score on Q{currentQuestion.position}
+                            Your Q{currentQuestion.position} Score
                           </p>
                           <p className="font-mono text-sm font-bold text-white">
                             +{currentQuestion.myPointsEarned} pts{" "}
@@ -894,33 +826,101 @@ export function SessionResultsPopup() {
                           </p>
                         </div>
                       ) : !isSessionEnded ? (
-                        <div className="rounded-xl border border-amber-400/35 bg-amber-500/10 px-3.5 py-2 text-right shrink-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                            Crowd Breakdown Status
-                          </p>
-                          <p className="font-mono text-xs font-bold text-white">
-                            🔒 Unlocks when session ends
-                          </p>
+                        <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 shrink-0">
+                          <LockIcon className="size-3.5" />
+                          <span>Unlocks when session closes</span>
                         </div>
                       ) : null}
                     </div>
 
-                    {/* 10 Options Ranked Table (Revealed for Ended Sessions, Sealed for Ongoing Sessions) */}
+                    {/* Mobile Stacked Option Cards (<640px) */}
+                    <div className="divide-y divide-white/[0.06] sm:hidden">
+                      {(isSessionEnded
+                        ? currentQuestion.options
+                        : [...currentQuestion.options].sort(
+                            (a, b) => a.position - b.position,
+                          )
+                      ).map((opt, idx) => {
+                        const barColor = opt.isMostSelected
+                          ? "bg-emerald-400"
+                          : opt.isLeastSelected
+                          ? "bg-rose-500"
+                          : "bg-amber-400";
+                        return (
+                          <div
+                            key={opt.optionId}
+                            className={`p-3.5 space-y-2 ${
+                              isSessionEnded && opt.isMostSelected
+                                ? "bg-emerald-500/[0.06]"
+                                : opt.isMyPick
+                                ? "bg-accent/[0.08]"
+                                : ""
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-mono text-xs text-slate-400 shrink-0">
+                                  #{isSessionEnded ? opt.rank : idx + 1}
+                                </span>
+                                <span className="text-sm font-bold text-white truncate">
+                                  {opt.label}
+                                </span>
+                                {opt.isMyPick && (
+                                  <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-2 py-0.5 text-[10px] font-bold text-accent">
+                                    Your pick
+                                  </span>
+                                )}
+                              </div>
+
+                              <span className="shrink-0 font-mono text-xs font-bold text-amber-300 tabular-nums">
+                                {isSessionEnded
+                                  ? `${opt.points} ${opt.points === 1 ? "pt" : "pts"}`
+                                  : "10 to 1 pts"}
+                              </span>
+                            </div>
+
+                            {isSessionEnded ? (
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-2 flex-1 rounded-full bg-white/[0.06] overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full animate-gw-bar ${barColor}`}
+                                    style={{
+                                      width: `${Math.max(
+                                        opt.percentage,
+                                        opt.selectionCount > 0 ? 4 : 2,
+                                      )}%`,
+                                    }}
+                                  />
+                                </div>
+                                <span className="font-mono text-xs text-slate-300 tabular-nums shrink-0">
+                                  {opt.percentage}% ({opt.selectionCount})
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-slate-500">
+                                Vote share sealed until session closes
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop 7-Column Table (>=640px) */}
                     <div
                       tabIndex={0}
                       role="region"
                       aria-labelledby={feedbackTableCaptionId}
-                      className="overflow-x-auto"
+                      className="hidden sm:block overflow-x-auto"
                     >
                       <table className="w-full text-sm border-collapse">
                         <caption id={feedbackTableCaptionId} className="sr-only">
-                          Crowd selection feedback and points for{" "}
-                          {currentQuestion.title}
+                          Crowd selection feedback for {currentQuestion.title}
                         </caption>
                         <thead>
                           <tr className="border-b border-white/10 bg-[#090c14] text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                             <th className="py-3 pl-5 pr-3 w-14">
-                              {isSessionEnded ? "Rank" : "Option #"}
+                              {isSessionEnded ? "Rank" : "No."}
                             </th>
                             <th className="py-3 px-3">Option</th>
                             <th className="py-3 px-3 text-right w-20">Votes</th>
@@ -928,7 +928,7 @@ export function SessionResultsPopup() {
                             <th className="py-3 px-3 text-center w-24">Points</th>
                             <th className="py-3 px-3 text-right w-20">Avg Time</th>
                             <th className="py-3 pl-3 pr-5 text-right w-36">
-                              Crowd Rank
+                              Standing
                             </th>
                           </tr>
                         </thead>
@@ -985,22 +985,22 @@ export function SessionResultsPopup() {
                                         alt={opt.label}
                                         width={56}
                                         height={40}
-                                        className="h-10 w-14 rounded-lg object-cover border border-white/15 bg-slate-900 shrink-0 shadow-sm"
+                                        className="h-10 w-14 rounded-lg object-cover border border-white/15 bg-slate-900 shrink-0"
                                       />
                                     ) : hasColor && opt.mediaUrl ? (
                                       <span
-                                        className="size-8 rounded-full border-2 border-white/80 shrink-0 shadow-sm"
+                                        className="size-8 rounded-full border-2 border-white/80 shrink-0"
                                         style={{ backgroundColor: opt.mediaUrl }}
                                       />
                                     ) : null}
 
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <span className="text-sm sm:text-base font-bold text-white">
+                                      <span className="text-sm font-bold text-white">
                                         {opt.label}
                                       </span>
                                       {opt.isMyPick && (
-                                        <span className="inline-flex items-center gap-1 rounded-full border border-accent/50 bg-accent/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-accent">
-                                          ★ Your Pick
+                                        <span className="inline-flex items-center rounded-full border border-accent/50 bg-accent/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
+                                          Your Pick
                                         </span>
                                       )}
                                     </div>
@@ -1008,7 +1008,11 @@ export function SessionResultsPopup() {
                                 </th>
 
                                 <td className="py-3 px-3 text-right font-mono text-sm font-bold text-white tabular-nums">
-                                  {isSessionEnded ? opt.selectionCount : "🔒"}
+                                  {isSessionEnded ? (
+                                    opt.selectionCount
+                                  ) : (
+                                    <LockIcon className="inline size-3.5 text-slate-500" />
+                                  )}
                                 </td>
 
                                 <td className="py-3 px-4">
@@ -1030,8 +1034,8 @@ export function SessionResultsPopup() {
                                       </span>
                                     </div>
                                   ) : (
-                                    <span className="text-xs text-slate-500 italic">
-                                      Sealed while session is ongoing
+                                    <span className="text-xs text-slate-500">
+                                      Sealed until session closes
                                     </span>
                                   )}
                                 </td>
@@ -1045,29 +1049,29 @@ export function SessionResultsPopup() {
                                     </span>
                                   ) : (
                                     <span className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-xs text-slate-400">
-                                      10–1 pts
+                                      10 to 1 pts
                                     </span>
                                   )}
                                 </td>
 
-                                <td className="py-3 px-3 text-right font-mono text-xs font-semibold text-sky-400 tabular-nums">
+                                <td className="py-3 px-3 text-right font-mono text-xs font-semibold text-slate-300 tabular-nums">
                                   {isSessionEnded
                                     ? formatResponseSec(opt.avgResponseMs)
-                                    : "—"}
+                                    : "-"}
                                 </td>
 
                                 <td className="py-3 pl-3 pr-5 text-right">
                                   {!isSessionEnded ? (
                                     <span className="font-mono text-xs text-slate-500">
-                                      🔒 Live
+                                      Sealed
                                     </span>
                                   ) : opt.isMostSelected ? (
-                                    <span className="inline-flex items-center rounded-md bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
-                                      MOST SELECTED
+                                    <span className="inline-flex items-center rounded-md bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                                      Most Picked
                                     </span>
                                   ) : opt.isLeastSelected ? (
-                                    <span className="inline-flex items-center rounded-md bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-rose-300">
-                                      LEAST SELECTED
+                                    <span className="inline-flex items-center rounded-md bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300">
+                                      Least Picked
                                     </span>
                                   ) : (
                                     <span className="font-mono text-xs text-slate-400">
@@ -1083,96 +1087,84 @@ export function SessionResultsPopup() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-10 text-center text-sm text-slate-400">
-                    No question feedback available for this session yet.
+                  <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-8 text-center text-sm text-slate-400">
+                    No question breakdown available for this session yet.
                   </div>
                 )}
               </div>
             )}
 
-            {/* ════════════════════════════════════════════════════════════════
-                TAB 2: WINNERS & ANIMATED TOP 3 PODIUM
-               ════════════════════════════════════════════════════════════════ */}
+            {/* Tab 2: Winners & Podium */}
             {activeTab === "winners" && (
-              <div className="space-y-6 animate-fade-in">
-                {/* Animated Top 3 Podium Cards */}
+              <div className="space-y-5 animate-fade-in">
                 {top3Winners.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end pt-2">
-                    {/* 2nd Place */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 items-end pt-1">
                     {top3Winners[1] && (
                       <div
                         style={{ animationDelay: "120ms" }}
-                        className="animate-gw-podium order-2 sm:order-1 rounded-2xl border border-slate-400/30 bg-gradient-to-b from-slate-400/15 to-[#0d111c] p-5 text-center space-y-2"
+                        className="animate-gw-podium order-2 sm:order-1 rounded-2xl border border-slate-400/25 bg-gradient-to-b from-slate-400/12 to-[#0d111c] p-4 text-center space-y-1.5"
                       >
-                        <div className="mx-auto grid size-12 place-items-center rounded-full bg-slate-300/20 border border-slate-300/40 text-2xl">
-                          🥈
+                        <div className="mx-auto grid size-10 place-items-center rounded-full bg-slate-300/15 border border-slate-300/35 text-slate-200">
+                          <AwardIcon className="size-5" />
                         </div>
-                        <p className="text-xs font-extrabold uppercase tracking-widest text-slate-300">
-                          {isSessionEnded
-                            ? "2nd Place Winner"
-                            : "Current #2 (Provisional)"}
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                          {isSessionEnded ? "2nd Place" : "Provisional #2"}
                         </p>
-                        <p className="font-display text-lg font-bold text-white truncate">
+                        <p className="font-display text-base font-bold text-white truncate">
                           {top3Winners[1].profiles?.username ?? "Player"}
                         </p>
-                        <p className="font-display text-xl font-extrabold text-emerald-300 tabular-nums">
+                        <p className="font-display text-lg font-extrabold text-emerald-300 tabular-nums">
                           ₦{Number(top3Winners[1].prize || 50000).toLocaleString()}
                         </p>
-                        <p className="font-mono text-xs text-slate-300">
+                        <p className="font-mono text-xs text-slate-400">
                           {top3Winners[1].points} pts ·{" "}
                           {formatTotalClock(top3Winners[1].response_ms)}
                         </p>
                       </div>
                     )}
 
-                    {/* 1st Place Champion */}
                     {top3Winners[0] && (
                       <div
                         style={{ animationDelay: "0ms" }}
-                        className="animate-gw-podium order-1 sm:order-2 rounded-2xl border-2 border-amber-400/50 bg-gradient-to-b from-amber-500/25 via-amber-500/10 to-[#0d111c] p-6 text-center space-y-2.5 shadow-[0_0_40px_rgba(245,158,11,0.2)]"
+                        className="animate-gw-podium order-1 sm:order-2 rounded-2xl border border-amber-400/45 bg-gradient-to-b from-amber-500/20 via-amber-500/8 to-[#0d111c] p-5 text-center space-y-2"
                       >
-                        <div className="mx-auto grid size-14 place-items-center rounded-full bg-amber-400/25 border-2 border-amber-300 text-3xl">
-                          👑
+                        <div className="mx-auto grid size-12 place-items-center rounded-full bg-amber-400/20 border border-amber-300/60 text-amber-300">
+                          <CrownIcon className="size-6" />
                         </div>
-                        <p className="text-xs font-extrabold uppercase tracking-widest text-amber-300">
-                          {isSessionEnded
-                            ? "1st Place Champion"
-                            : "Current #1 Leader (Provisional)"}
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                          {isSessionEnded ? "1st Place Champion" : "Provisional #1"}
                         </p>
-                        <p className="font-display text-xl font-bold text-white truncate">
+                        <p className="font-display text-lg font-bold text-white truncate">
                           {top3Winners[0].profiles?.username ?? "Player"}
                         </p>
                         <p className="font-display text-2xl font-extrabold text-amber-300 tabular-nums">
                           ₦{Number(top3Winners[0].prize || 100000).toLocaleString()}
                         </p>
-                        <p className="font-mono text-xs text-amber-100/90">
+                        <p className="font-mono text-xs text-amber-100/85">
                           {top3Winners[0].points} pts ·{" "}
                           {formatTotalClock(top3Winners[0].response_ms)}
                         </p>
                       </div>
                     )}
 
-                    {/* 3rd Place */}
                     {top3Winners[2] && (
                       <div
                         style={{ animationDelay: "220ms" }}
-                        className="animate-gw-podium order-3 rounded-2xl border border-amber-700/40 bg-gradient-to-b from-amber-700/20 to-[#0d111c] p-5 text-center space-y-2"
+                        className="animate-gw-podium order-3 rounded-2xl border border-amber-700/35 bg-gradient-to-b from-amber-700/15 to-[#0d111c] p-4 text-center space-y-1.5"
                       >
-                        <div className="mx-auto grid size-12 place-items-center rounded-full bg-amber-700/25 border border-amber-600/40 text-2xl">
-                          🥉
+                        <div className="mx-auto grid size-10 place-items-center rounded-full bg-amber-700/20 border border-amber-600/35 text-amber-400">
+                          <AwardIcon className="size-5" />
                         </div>
-                        <p className="text-xs font-extrabold uppercase tracking-widest text-amber-400">
-                          {isSessionEnded
-                            ? "3rd Place Winner"
-                            : "Current #3 (Provisional)"}
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                          {isSessionEnded ? "3rd Place" : "Provisional #3"}
                         </p>
-                        <p className="font-display text-lg font-bold text-white truncate">
+                        <p className="font-display text-base font-bold text-white truncate">
                           {top3Winners[2].profiles?.username ?? "Player"}
                         </p>
-                        <p className="font-display text-xl font-extrabold text-emerald-300 tabular-nums">
+                        <p className="font-display text-lg font-extrabold text-emerald-300 tabular-nums">
                           ₦{Number(top3Winners[2].prize || 20000).toLocaleString()}
                         </p>
-                        <p className="font-mono text-xs text-slate-300">
+                        <p className="font-mono text-xs text-slate-400">
                           {top3Winners[2].points} pts ·{" "}
                           {formatTotalClock(top3Winners[2].response_ms)}
                         </p>
@@ -1181,22 +1173,19 @@ export function SessionResultsPopup() {
                   </div>
                 )}
 
-                {/* Full Winners & Leaderboard Table */}
-                <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-5 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h3 className="font-display text-base sm:text-lg font-bold text-white">
-                        {isSessionEnded
-                          ? "Official Session Winners & Final Standings"
-                          : "Live Provisional Standings (Session Still Ongoing)"}
+                        {isSessionEnded ? "Final Session Standings" : "Provisional Standings"}
                       </h3>
                       <p className="text-xs text-slate-400">
-                        Ranked by highest crowd-consensus points, then shortest cumulative response time.
+                        Ranked by crowd points, then shortest completion time.
                       </p>
                     </div>
                     <div className="w-full sm:w-60">
                       <label htmlFor="popup-winner-search" className="sr-only">
-                        Search winners
+                        Search players
                       </label>
                       <input
                         id="popup-winner-search"
@@ -1204,16 +1193,52 @@ export function SessionResultsPopup() {
                         value={winnerSearch}
                         onChange={(e) => setWinnerSearch(e.target.value)}
                         placeholder="Search player..."
-                        className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                        className="min-h-10 w-full rounded-xl border border-white/15 bg-white/[0.03] px-3 py-1.5 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                       />
                     </div>
                   </div>
 
+                  {/* Mobile Rows */}
+                  <div className="space-y-2 sm:hidden">
+                    {filteredLeaderboard.map((row) => {
+                      const isMe = row.user_id === user?.id;
+                      return (
+                        <div
+                          key={row.user_id}
+                          className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 ${
+                            isMe
+                              ? "border-accent/35 bg-accent/10"
+                              : "border-white/[0.06] bg-white/[0.02]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="font-display text-xs font-bold text-amber-300 w-8 shrink-0">
+                              {formatOrdinal(row.rank)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-white">
+                                {row.profiles?.username ?? "Player"}
+                                {isMe ? " (You)" : ""}
+                              </p>
+                              <p className="font-mono text-xs text-slate-400 tabular-nums">
+                                {row.points} pts · {formatTotalClock(row.response_ms)}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="font-mono text-xs font-bold text-emerald-300 tabular-nums shrink-0">
+                            {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "-"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Table */}
                   <div
                     tabIndex={0}
                     role="region"
                     aria-labelledby={winnersTableCaptionId}
-                    className="overflow-x-auto"
+                    className="hidden sm:block overflow-x-auto"
                   >
                     <table className="w-full text-sm">
                       <caption id={winnersTableCaptionId} className="sr-only">
@@ -1221,15 +1246,13 @@ export function SessionResultsPopup() {
                       </caption>
                       <thead>
                         <tr className="border-b border-white/10 text-left text-xs font-semibold text-slate-400">
-                          <th className="py-2.5 pr-4">Position</th>
+                          <th className="py-2.5 pr-4">Rank</th>
                           <th className="py-2.5 pr-4">
-                            {isSessionEnded
-                              ? "Official Prize (₦)"
-                              : "Projected Prize (₦)"}
+                            {isSessionEnded ? "Prize (₦)" : "Projected Prize (₦)"}
                           </th>
                           <th className="py-2.5 pr-4">Player</th>
                           <th className="py-2.5 pr-4">Points</th>
-                          <th className="py-2.5 text-right">Total Time</th>
+                          <th className="py-2.5 text-right">Time</th>
                         </tr>
                       </thead>
                       <tbody className="stagger">
@@ -1250,18 +1273,12 @@ export function SessionResultsPopup() {
                                 scope="row"
                                 className="py-3 pr-4 font-display font-bold text-left"
                               >
-                                {row.rank === 1
-                                  ? "🥇 1st"
-                                  : row.rank === 2
-                                  ? "🥈 2nd"
-                                  : row.rank === 3
-                                  ? "🥉 3rd"
-                                  : formatOrdinal(row.rank)}
+                                {formatOrdinal(row.rank)}
                               </th>
                               <td className="py-3 pr-4 font-mono text-emerald-300 font-semibold tabular-nums">
                                 {row.prize > 0
                                   ? `₦${row.prize.toLocaleString()}`
-                                  : "—"}
+                                  : "-"}
                               </td>
                               <td className="py-3 pr-4">
                                 {row.profiles?.username ?? "Player"}
@@ -1283,12 +1300,10 @@ export function SessionResultsPopup() {
               </div>
             )}
 
-            {/* ════════════════════════════════════════════════════════════════
-                TAB 3: MY PICKS VS. CROWD #1 SCORECARD
-               ════════════════════════════════════════════════════════════════ */}
+            {/* Tab 3: My Picks Scorecard */}
             {activeTab === "mypicks" && (
               <div className="space-y-4 animate-fade-in">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 stagger">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 stagger">
                   {questionFeedbacks.map((qf) => {
                     const topOpt = qf.options[0];
                     const myOpt = qf.options.find((o) => o.isMyPick);
@@ -1299,14 +1314,15 @@ export function SessionResultsPopup() {
                       myOpt.optionId === topOpt.optionId;
 
                     return (
-                      <div
+                      <button
                         key={qf.questionId}
+                        type="button"
                         onClick={() => {
                           setSelectedQuestionIdx(qf.position - 1);
                           setActiveTab("feedback");
                           setBarAnimKey((k) => k + 1);
                         }}
-                        className={`cursor-pointer rounded-2xl border p-4 transition-all hover:border-accent/50 ${
+                        className={`text-left rounded-2xl border p-4 transition-all hover:border-accent/50 ${
                           matchedTop
                             ? "border-emerald-500/35 bg-emerald-500/[0.06]"
                             : "border-white/10 bg-[#0d111c]"
@@ -1325,11 +1341,11 @@ export function SessionResultsPopup() {
                               }`}
                             >
                               +{qf.myPointsEarned} pts
-                              {matchedTop ? " · 🎯 #1 Match!" : ""}
+                              {matchedTop ? " · Top Pick" : ""}
                             </span>
                           ) : (
-                            <span className="text-[11px] text-slate-500">
-                              Click to inspect →
+                            <span className="text-[11px] text-accent font-semibold">
+                              Inspect
                             </span>
                           )}
                         </div>
@@ -1346,7 +1362,7 @@ export function SessionResultsPopup() {
                             {isSessionEnded ? (
                               <>
                                 <p className="font-bold text-white mt-0.5 truncate">
-                                  {topOpt?.label ?? "—"}
+                                  {topOpt?.label ?? "-"}
                                 </p>
                                 <p className="font-mono text-[11px] text-emerald-200/80">
                                   {topOpt
@@ -1357,10 +1373,10 @@ export function SessionResultsPopup() {
                             ) : (
                               <>
                                 <p className="font-bold text-amber-200 mt-0.5 truncate">
-                                  🔒 Sealed (Session Live)
+                                  Sealed
                                 </p>
                                 <p className="text-[11px] text-slate-400">
-                                  Revealed when timer ends
+                                  Unlocks at 00:00
                                 </p>
                               </>
                             )}
@@ -1368,7 +1384,7 @@ export function SessionResultsPopup() {
 
                           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
                             <p className="text-[10px] font-bold uppercase text-slate-400">
-                              Your Selection
+                              Your Pick
                             </p>
                             <p className="font-bold text-white mt-0.5 truncate">
                               {myOpt ? myOpt.label : "Not played"}
@@ -1382,11 +1398,11 @@ export function SessionResultsPopup() {
                                   : `Locked in · ${formatResponseSec(
                                       qf.myResponseMs ?? 0,
                                     )}`
-                                : "—"}
+                                : "-"}
                             </p>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -1396,23 +1412,19 @@ export function SessionResultsPopup() {
         )}
       </div>
 
-      {/* ── Modal Footer ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#0b0f19] px-5 py-3.5 sm:px-8 shrink-0">
-        <p className="text-xs text-slate-400">
-          💡 Tip: Click any question tab (`Q1`–`Q10`) or press{" "}
-          <strong className="text-slate-200">▶ Auto-Play Q1–Q10</strong> to watch
-          the crowd feedback breakdown animate question by question.
+      {/* Modal Footer */}
+      <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-[#0b0f19] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-7 sm:py-3.5 shrink-0">
+        <p className="hidden sm:block text-xs text-slate-400">
+          Select Q1 through Q10 above to inspect option-by-option crowd shares.
         </p>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => void closeTopLayer()}
-            className="rounded-xl bg-accent hover:bg-accent-hover px-5 py-2 text-xs font-bold text-white shadow-md transition-colors"
-          >
-            Done
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void closeTopLayer()}
+          className="min-h-10 w-full sm:w-auto rounded-xl bg-accent hover:bg-accent-hover px-6 py-2 text-xs font-bold text-white shadow-md transition-colors ml-auto"
+        >
+          Done
+        </button>
       </div>
     </dialog>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Avatar, Button } from "@/components/ui";
+import { CopyIcon, CheckIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 const NIGERIAN_BANKS = [
@@ -29,7 +30,7 @@ export default function ProfilePage() {
   const [gender, setGender] = useState("");
   const [location, setLocation] = useState("");
 
-  // Bank Account Details for Prize Payouts (Product Document Page 6, 25, 35)
+  // Bank Account Details for Prize Payouts
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
@@ -121,24 +122,24 @@ export default function ProfilePage() {
 
   const displayName = username || profile?.username || "Player";
   const inputClass =
-    "w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none";
+    "min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2.5 text-base sm:text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none";
 
   return (
-    <div className="max-w-3xl space-y-6 animate-fade-in">
+    <div className="max-w-3xl space-y-5 animate-fade-in">
       {/* Header Card */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5 min-w-0">
           <Avatar name={displayName} size="lg" />
-          <div>
-            <h1 className="font-display text-xl font-bold text-white">
+          <div className="min-w-0">
+            <h1 className="font-display text-lg sm:text-xl font-bold text-white truncate">
               {displayName}
             </h1>
-            <p className="text-xs text-slate-400">{user?.email}</p>
+            <p className="text-xs text-slate-400 truncate">{user?.email}</p>
           </div>
         </div>
 
         {profile?.referral_code && (
-          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2">
+          <div className="flex items-center justify-between sm:justify-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">
                 Referral Code
@@ -154,18 +155,28 @@ export default function ProfilePage() {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
-              className="ml-2 rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1 text-xs font-medium text-white"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors"
             >
-              {copied ? "Copied" : "Copy"}
+              {copied ? (
+                <>
+                  <CheckIcon className="size-3.5 text-emerald-400" />
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <CopyIcon className="size-3.5 text-slate-300" />
+                  <span>Copy</span>
+                </>
+              )}
             </button>
           </div>
         )}
       </section>
 
-      {/* Main Profile & Bank Payout Form (Product Document Pages 25 & 35) */}
+      {/* Main Profile & Bank Payout Form */}
       <form
         onSubmit={handleSave}
-        className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 sm:p-8 space-y-8"
+        className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-7 space-y-7"
       >
         {errorMsg && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -184,7 +195,7 @@ export default function ProfilePage() {
             Personal Details
           </legend>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div>
               <label
                 htmlFor="profile-fullname"
@@ -250,7 +261,7 @@ export default function ProfilePage() {
                 htmlFor="profile-dob"
                 className="mb-1.5 block text-xs font-medium text-slate-400"
               >
-                Date of Birth (DOB)
+                Date of Birth
               </label>
               <input
                 id="profile-dob"
@@ -303,14 +314,14 @@ export default function ProfilePage() {
           </div>
         </fieldset>
 
-        {/* Bank Account Details for Direct Prize Payouts (Page 6, 25, 35) */}
+        {/* Bank Account Details for Direct Prize Payouts */}
         <fieldset className="space-y-4 border-t border-white/10 pt-6">
           <div>
             <legend className="font-display text-base font-bold text-white">
-              Bank Account Details (For Prize Payouts)
+              Bank Account Details (Prize Payouts)
             </legend>
             <p className="text-xs text-slate-400 mt-0.5">
-              Leaderboard cash prizes are paid directly to your bank account when a session ends.
+              Leaderboard cash prizes are sent directly to your bank account when a session ends.
             </p>
           </div>
 
@@ -378,8 +389,8 @@ export default function ProfilePage() {
           </div>
         </fieldset>
 
-        <div className="pt-2">
-          <Button type="submit" disabled={saving}>
+        <div className="pt-1">
+          <Button type="submit" disabled={saving} className="w-full sm:w-auto">
             {saving ? "Saving..." : "Save Profile"}
           </Button>
         </div>

@@ -4,6 +4,16 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  FlameIcon,
+  SmileIcon,
+  TargetIcon,
+  ShieldCheckIcon,
+  CloseIcon,
+  ExternalLinkIcon,
+  PlusIcon,
+  SendIcon,
+} from "@/components/ui/Icons";
 
 type ChatMessage = {
   id: number;
@@ -137,11 +147,17 @@ const NIGERIAN_STATES = [
   "Diaspora",
 ];
 
-const REACTION_MAP: { key: string; symbol: string; label: string }[] = [
-  { key: "fire", symbol: "🔥", label: "Fire" },
-  { key: "laugh", symbol: "😂", label: "Laugh" },
-  { key: "target", symbol: "🎯", label: "Spot on" },
+const REACTION_MAP: { key: "fire" | "laugh" | "target"; label: string }[] = [
+  { key: "fire", label: "Hot take" },
+  { key: "laugh", label: "Funny" },
+  { key: "target", label: "Spot on" },
 ];
+
+function ReactionGlyph({ kind }: { kind: "fire" | "laugh" | "target" }) {
+  if (kind === "fire") return <FlameIcon className="size-3.5 text-orange-400" />;
+  if (kind === "laugh") return <SmileIcon className="size-3.5 text-amber-300" />;
+  return <TargetIcon className="size-3.5 text-emerald-400" />;
+}
 
 function timeAgo(iso: string): string {
   const diffSec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -157,27 +173,27 @@ function RankBadge({ rank }: { rank: number | null | undefined }) {
   if (!rank || rank <= 0) return null;
   if (rank === 1) {
     return (
-      <span className="inline-flex items-center rounded-md bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+      <span className="inline-flex items-center rounded-md bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-amber-300">
         #1
       </span>
     );
   }
   if (rank === 2 || rank === 3) {
     return (
-      <span className="inline-flex items-center rounded-md bg-orange-500/20 border border-orange-400/35 px-1.5 py-0.5 text-[10px] font-bold text-orange-300">
+      <span className="inline-flex items-center rounded-md bg-orange-500/20 border border-orange-400/35 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-orange-300">
         #{rank}
       </span>
     );
   }
   if (rank <= 36) {
     return (
-      <span className="inline-flex items-center rounded-md bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+      <span className="inline-flex items-center rounded-md bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-300">
         #{rank}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
+    <span className="inline-flex items-center rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-slate-300">
       #{rank}
     </span>
   );
@@ -267,9 +283,9 @@ function MentionPopover({
     >
       <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#080b12] px-3 py-1.5 text-[10px] text-slate-400">
         <span>
-          {query ? `Matching "@${query}"` : "Tag a player in this arena"}
+          {query ? `Matching "@${query}"` : "Tag a player"}
         </span>
-        <span className="hidden sm:inline text-slate-500">↑↓ · Enter to tag</span>
+        <span className="hidden sm:inline text-slate-500">Arrows + Enter to tag</span>
       </div>
       <div className="max-h-52 overflow-y-auto py-1">
         {candidates.map((cand, idx) => {
@@ -286,7 +302,7 @@ function MentionPopover({
                 onSelect(cand);
               }}
               onMouseEnter={() => onHover(idx)}
-              className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors ${
+              className={`flex min-h-10 w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors ${
                 active
                   ? "bg-accent/20 text-white"
                   : "text-slate-200 hover:bg-white/[0.05]"
@@ -462,7 +478,7 @@ export default function CommunityPage() {
     loadCommunity(false);
   }, [loadCommunity]);
 
-  // Realtime WebSocket subscription for instant Live Chat & Poll updates + 6s resilient fallback
+  // Realtime WebSocket subscription for instant Live Chat & Poll updates + resilient fallback
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
@@ -580,7 +596,7 @@ export default function CommunityPage() {
   const handleSendChat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) {
-      setChatError("Sign in to post in the Live Arena.");
+      setChatError("Sign in to post in the Live Banter Room.");
       return;
     }
     const trimmed = chatInput.trim();
@@ -609,7 +625,7 @@ export default function CommunityPage() {
         );
       }
     } catch {
-      setChatError("Network hiccup — try sending again.");
+      setChatError("Connection issue. Please try sending again.");
     } finally {
       setSendingChat(false);
     }
@@ -617,7 +633,7 @@ export default function CommunityPage() {
 
   const handleVotePoll = async (postId: string, optionId: string) => {
     if (!user?.id) {
-      setChatError("Sign in to vote on Pulse Polls.");
+      setChatError("Sign in to vote on polls.");
       return;
     }
     if (votingPostId) return;
@@ -696,7 +712,6 @@ export default function CommunityPage() {
   };
 
   const handleReactMessage = async (messageId: number, emoji: string) => {
-    // Optimistic increment
     setLiveChat((prev) =>
       prev.map((m) =>
         m.id === messageId
@@ -884,7 +899,6 @@ export default function CommunityPage() {
       }
     };
 
-    // 1. If replying inside a specific post thread, prioritize speakers in that thread first
     if (activeMention.target !== "chat") {
       const targetPost = posts.find((p) => p.id === activeMention.target);
       if (targetPost) {
@@ -902,13 +916,11 @@ export default function CommunityPage() {
       }
     }
 
-    // 2. Recent speakers in Live Banter Room
     for (let i = liveChat.length - 1; i >= 0; i--) {
       const m = liveChat[i];
       if (!m.isSystem) pushCandidate(m.username, m.state, m.rank);
     }
 
-    // 3. Thread speakers across all visible posts
     for (const p of posts) {
       for (let i = p.replies.length - 1; i >= 0; i--) {
         const r = p.replies[i];
@@ -916,12 +928,10 @@ export default function CommunityPage() {
       }
     }
 
-    // 4. Server mention directory (Leaderboard rivals + recent active players)
     for (const d of mentionDirectory) {
       pushCandidate(d.username, d.state, d.rank);
     }
 
-    // 5. Server prefix/substring search matches
     for (const u of remoteMentionUsers) {
       pushCandidate(u.username, u.state, u.rank);
     }
@@ -1161,33 +1171,33 @@ export default function CommunityPage() {
     !demoDismissed;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-5 pb-28 md:px-6 md:py-7 md:pb-10">
+    <div className="mx-auto w-full max-w-7xl px-3.5 py-4 md:px-6 md:py-7">
       {/* Top Arena Header */}
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="font-display text-2xl font-bold tracking-tight text-white">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-white">
               Community Arena
             </h1>
             {activeSession && (
               <Link
                 href="/leaderboard"
-                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/25 transition-colors"
               >
                 <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>{activeSession.name}</span>
+                <span className="truncate max-w-[180px]">{activeSession.name}</span>
               </Link>
             )}
           </div>
-          <p className="mt-1 text-sm text-slate-400">
-            Live session banter, city rivalries, and daily Nigerian pulse polls.
+          <p className="mt-0.5 text-xs sm:text-sm text-slate-400">
+            Live session banter, state rivalries, and daily Nigerian polls.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           {myIdentity && (
             <div className="hidden xl:flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#0b0e17] px-3 py-2 text-xs">
-              <span className="text-slate-400">Your badge:</span>
+              <span className="text-slate-400">Badge:</span>
               <span className="font-semibold text-white">{myIdentity.username}</span>
               <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-slate-300">
                 {myIdentity.state}
@@ -1202,7 +1212,7 @@ export default function CommunityPage() {
               setTopicError(null);
               setComposerOpen(true);
             }}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+            className={`inline-flex min-h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
               !isTopicSlotOpen
                 ? "border border-amber-500/35 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15"
                 : "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-[#F7911B]/20 hover:opacity-95"
@@ -1217,7 +1227,10 @@ export default function CommunityPage() {
                 </span>
               </>
             ) : (
-              <span>+ Start topic or poll</span>
+              <>
+                <PlusIcon className="size-4 shrink-0" />
+                <span>Start topic or poll</span>
+              </>
             )}
           </button>
         </div>
@@ -1225,8 +1238,8 @@ export default function CommunityPage() {
 
       {/* Active States Rivalry Strip */}
       {topStates.length > 0 && (
-        <div className="mb-5 flex items-center gap-2 overflow-x-auto rounded-xl border border-white/[0.06] bg-[#0b0e17] px-3.5 py-2 text-xs">
-          <span className="shrink-0 font-semibold text-slate-400">Loudest states right now:</span>
+        <div className="mb-4 flex items-center gap-2 overflow-x-auto no-scrollbar rounded-xl border border-white/[0.06] bg-[#0b0e17] px-3 py-2 text-xs">
+          <span className="shrink-0 font-semibold text-slate-400">Loudest states:</span>
           {topStates.map((item, idx) => (
             <span
               key={item.state}
@@ -1237,7 +1250,7 @@ export default function CommunityPage() {
               }`}
             >
               <span>{item.state}</span>
-              <span className="text-[10px] opacity-75">({item.count})</span>
+              <span className="text-[10px] tabular-nums opacity-75">({item.count})</span>
             </span>
           ))}
         </div>
@@ -1248,38 +1261,38 @@ export default function CommunityPage() {
         <button
           type="button"
           onClick={() => setMobileTab("chat")}
-          className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-colors ${
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
             mobileTab === "chat"
               ? "bg-accent text-white"
               : "text-slate-400 hover:text-white"
           }`}
         >
-          <span className="size-2 rounded-full bg-emerald-400" />
-          <span>Live Chat Room ({liveChat.length})</span>
+          <span className="size-2 shrink-0 rounded-full bg-emerald-400" />
+          <span className="truncate">Live Chat ({liveChat.length})</span>
         </button>
         <button
           type="button"
           onClick={() => setMobileTab("feed")}
-          className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-colors ${
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
             mobileTab === "feed"
               ? "bg-accent text-white"
               : "text-slate-400 hover:text-white"
           }`}
         >
-          <span>Polls &amp; Topics ({posts.length})</span>
+          <span className="truncate">Polls &amp; Topics ({posts.length})</span>
         </button>
       </div>
 
       {/* Main Split Grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
-        {/* LEFT COLUMN (7 cols): Pulse Polls, Topics, Verdicts & Native Feed Ads */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+        {/* LEFT COLUMN (7 cols): Polls, Topics, Verdicts & Native Feed Ads */}
         <section
           aria-label="Polls and topic threads"
           className={`lg:col-span-7 space-y-4 ${
             mobileTab === "feed" ? "block" : "hidden lg:block"
           }`}
         >
-          {/* 10-Second State & Demographic Badge Unlocker (High-value B2B/Gov Data Completion) */}
+          {/* State & Demographic Badge Unlocker */}
           {needsStateBadgeUnlock && (
             <form
               onSubmit={handleSaveQuickDemographics}
@@ -1291,13 +1304,13 @@ export default function CommunityPage() {
                     Unlock your State Badge in chat
                   </h2>
                   <p className="mt-0.5 text-xs text-slate-300">
-                    Represent your state in Live Arena banter and city-vs-city polls.
+                    Represent your state in Live Arena banter and state-vs-state polls.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setDemoDismissed(true)}
-                  className="text-xs text-slate-400 hover:text-white"
+                  className="min-h-8 px-2 text-xs text-slate-400 hover:text-white"
                 >
                   Later
                 </button>
@@ -1308,7 +1321,7 @@ export default function CommunityPage() {
                   aria-label="Select your state"
                   value={quickState}
                   onChange={(e) => setQuickState(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="min-h-11 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
                 >
                   {NIGERIAN_STATES.map((st) => (
                     <option key={st} value={st}>
@@ -1321,7 +1334,7 @@ export default function CommunityPage() {
                   aria-label="Select gender"
                   value={quickGender}
                   onChange={(e) => setQuickGender(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="min-h-11 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
@@ -1333,15 +1346,15 @@ export default function CommunityPage() {
                   max={2010}
                   value={quickBirthYear}
                   onChange={(e) => setQuickBirthYear(e.target.value)}
-                  placeholder="Birth year (e.g. 1998)"
+                  placeholder="Birth year (1998)"
                   aria-label="Birth year"
-                  className="rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="min-h-11 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
                 />
 
                 <button
                   type="submit"
                   disabled={savingDemo}
-                  className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+                  className="min-h-11 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-colors"
                 >
                   {savingDemo ? "Saving..." : "Activate badge"}
                 </button>
@@ -1350,13 +1363,13 @@ export default function CommunityPage() {
           )}
 
           {/* Source Filter: All vs GuessWhat Official vs Player Created */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="inline-flex rounded-xl border border-white/[0.08] bg-[#0b0e17] p-1">
+          <div className="flex items-center overflow-x-auto no-scrollbar">
+            <div className="inline-flex shrink-0 rounded-xl border border-white/[0.08] bg-[#0b0e17] p-1">
               {(
                 [
                   { id: "all", label: "All Posts" },
-                  { id: "official", label: "✦ GuessWhat Official" },
-                  { id: "player", label: "Player Polls & Topics" },
+                  { id: "official", label: "GuessWhat Official" },
+                  { id: "player", label: "Player Created" },
                 ] as const
               ).map((tab) => {
                 const active = sourceFilter === tab.id;
@@ -1365,15 +1378,18 @@ export default function CommunityPage() {
                     key={tab.id}
                     type="button"
                     onClick={() => setSourceFilter(tab.id)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                       active
                         ? tab.id === "player"
-                          ? "bg-indigo-500 text-white"
+                          ? "bg-emerald-600 text-white"
                           : "bg-accent text-white"
                         : "text-slate-400 hover:text-white"
                     }`}
                   >
-                    {tab.label}
+                    {tab.id === "official" && (
+                      <ShieldCheckIcon className="size-3.5 shrink-0" />
+                    )}
+                    <span>{tab.label}</span>
                   </button>
                 );
               })}
@@ -1381,7 +1397,7 @@ export default function CommunityPage() {
           </div>
 
           {/* Category Filter Bar */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
             {CATEGORIES.map((cat) => {
               const active = selectedCategory === cat;
               return (
@@ -1389,7 +1405,7 @@ export default function CommunityPage() {
                   key={cat}
                   type="button"
                   onClick={() => setSelectedCategory(cat)}
-                  className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  className={`min-h-9 shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
                     active
                       ? "bg-accent text-white"
                       : "bg-[#0b0e17] border border-white/[0.06] text-slate-400 hover:text-white"
@@ -1423,7 +1439,7 @@ export default function CommunityPage() {
                   setTopicError(null);
                   setComposerOpen(true);
                 }}
-                className="mt-4 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white"
+                className="mt-4 inline-flex min-h-10 items-center justify-center rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white"
               >
                 Start a topic
               </button>
@@ -1449,23 +1465,23 @@ export default function CommunityPage() {
                         ? "border-sky-500/25 bg-[#0b0e17] hover:border-sky-400/40"
                         : post.isOfficial
                         ? "border-[#F7911B]/30 bg-gradient-to-br from-[#F7911B]/[0.06] via-[#0b0e17] to-[#0b0e17] hover:border-[#F7911B]/45"
-                        : "border-indigo-400/20 bg-[#0b0e17] hover:border-indigo-400/35"
+                        : "border-emerald-500/20 bg-[#0b0e17] hover:border-emerald-500/35"
                     }`}
                   >
                     {/* Post Meta Header */}
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {post.sponsorName ? (
                           <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/15 border border-sky-500/35 px-2 py-0.5 text-[11px] font-bold text-sky-300">
                             Sponsored · {post.sponsorName}
                           </span>
                         ) : post.isOfficial ? (
                           <span className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-[#FF0400]/20 to-[#F7911B]/25 border border-[#F7911B]/45 px-2 py-0.5 text-[11px] font-bold text-[#ffb457]">
-                            <span>✦</span>
+                            <ShieldCheckIcon className="size-3 shrink-0" />
                             <span>GuessWhat {hasPoll ? "Official Poll" : "Official"}</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/15 border border-indigo-400/35 px-2 py-0.5 text-[11px] font-bold text-indigo-300">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 text-[11px] font-bold text-emerald-300">
                             <span>{hasPoll ? "Player Poll" : "Player Topic"}</span>
                           </span>
                         )}
@@ -1487,11 +1503,13 @@ export default function CommunityPage() {
                         )}
                       </div>
 
-                      <span className="text-[11px] text-slate-500">{timeAgo(post.createdAt)} ago</span>
+                      <span className="text-[11px] tabular-nums text-slate-500">
+                        {timeAgo(post.createdAt)} ago
+                      </span>
                     </div>
 
                     {/* Author Line */}
-                    <div className="mt-2.5 flex items-center gap-2 text-xs">
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
                       {post.isOfficial && !post.sponsorName ? (
                         <>
                           <span className="grid size-5 shrink-0 place-items-center rounded-md bg-gradient-to-br from-[#FF0400] to-[#F7911B] text-[9px] font-black text-white">
@@ -1499,12 +1517,12 @@ export default function CommunityPage() {
                           </span>
                           <span className="font-bold text-white">GuessWhat</span>
                           <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
-                            Official Pulse
+                            Host
                           </span>
                         </>
                       ) : isPlayerPost ? (
                         <>
-                          <span className="grid size-5 shrink-0 place-items-center rounded-md bg-indigo-500/25 border border-indigo-400/30 text-[9px] font-bold text-indigo-200">
+                          <span className="grid size-5 shrink-0 place-items-center rounded-md bg-emerald-500/20 border border-emerald-500/30 text-[9px] font-bold text-emerald-200">
                             {(post.authorUsername || "PL").slice(0, 2).toUpperCase()}
                           </span>
                           <span className="text-slate-400">By</span>
@@ -1515,7 +1533,7 @@ export default function CommunityPage() {
                               quickTagUser(post.id, post.authorUsername);
                             }}
                             title={`Tag @${post.authorUsername}`}
-                            className="font-bold text-white hover:text-indigo-300 transition-colors"
+                            className="font-bold text-white hover:text-emerald-300 transition-colors"
                           >
                             @{post.authorUsername}
                           </button>
@@ -1550,7 +1568,7 @@ export default function CommunityPage() {
                       </p>
                     )}
 
-                    {/* Interactive 1-Tap Pulse Poll */}
+                    {/* Interactive 1-Tap Poll */}
                     {hasPoll && (
                       <div className="mt-4 space-y-2">
                         {post.pollOptions.map((opt) => {
@@ -1565,7 +1583,7 @@ export default function CommunityPage() {
                               type="button"
                               disabled={votingPostId === post.id || post.isLocked}
                               onClick={() => handleVotePoll(post.id, opt.id)}
-                              className={`relative w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all ${
+                              className={`relative min-h-11 w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all ${
                                 isSelected
                                   ? "border-accent bg-accent/10"
                                   : "border-white/[0.08] bg-[#07090e] hover:border-white/20"
@@ -1580,7 +1598,7 @@ export default function CommunityPage() {
                                 />
                               )}
                               <div className="relative flex items-center justify-between gap-3 text-xs sm:text-sm">
-                                <span className="font-medium text-white flex items-center gap-2">
+                                <span className="font-medium text-white flex flex-wrap items-center gap-2">
                                   <span>{opt.label}</span>
                                   {isSelected && (
                                     <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -1589,7 +1607,7 @@ export default function CommunityPage() {
                                   )}
                                 </span>
                                 {showResults ? (
-                                  <span className="shrink-0 font-bold text-slate-200">
+                                  <span className="shrink-0 font-bold tabular-nums text-slate-200">
                                     {opt.percentage}%{" "}
                                     <span className="text-[11px] font-normal text-slate-400">
                                       ({opt.votes})
@@ -1597,7 +1615,7 @@ export default function CommunityPage() {
                                   </span>
                                 ) : (
                                   <span className="shrink-0 text-[11px] font-semibold text-slate-400">
-                                    Tap to vote
+                                    Vote
                                   </span>
                                 )}
                               </div>
@@ -1605,13 +1623,13 @@ export default function CommunityPage() {
                           );
                         })}
 
-                        <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
-                          <span>
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
+                          <span className="tabular-nums">
                             {post.totalVotes.toLocaleString()}{" "}
                             {post.totalVotes === 1 ? "player voted" : "players voted"}
                           </span>
                           {!post.myVoteOptionId && (
-                            <span>Vote to reveal live state &amp; crowd percentages</span>
+                            <span>Vote to reveal live percentages</span>
                           )}
                         </div>
                       </div>
@@ -1627,19 +1645,19 @@ export default function CommunityPage() {
                           className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-300 hover:text-sky-200 underline underline-offset-4"
                         >
                           <span>{post.sponsorCtaLabel || "Visit sponsor"}</span>
-                          <span>↗</span>
+                          <ExternalLinkIcon className="size-3.5 shrink-0" />
                         </a>
                       </div>
                     )}
 
                     {/* Thread Footer & Replies Toggle */}
-                    <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3">
+                    <div className="mt-4 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
                       <button
                         type="button"
                         onClick={() =>
                           setExpandedPostId(isExpanded ? null : post.id)
                         }
-                        className="text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+                        className="min-h-8 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
                       >
                         {isExpanded
                           ? "Hide replies"
@@ -1647,14 +1665,14 @@ export default function CommunityPage() {
                           ? `Join banter (${post.replyCount} ${
                               post.replyCount === 1 ? "reply" : "replies"
                             })`
-                          : "Drop the first reply"}
+                          : "Write the first reply"}
                       </button>
 
                       {!isExpanded && post.replies.length > 0 && (
                         <button
                           type="button"
                           onClick={() => setExpandedPostId(post.id)}
-                          className="text-[11px] text-accent hover:underline"
+                          className="truncate text-[11px] text-accent hover:underline"
                         >
                           Latest from {post.replies[post.replies.length - 1].username}
                         </button>
@@ -1672,13 +1690,13 @@ export default function CommunityPage() {
                           return (
                             <div
                               key={rep.id}
-                              className={`border-b border-white/[0.04] pb-2 last:border-b-0 last:pb-0 ${
+                              className={`border-b border-white/[0.04] pb-2.5 last:border-b-0 last:pb-0 ${
                                 taggedMe
                                   ? "rounded-lg bg-amber-500/[0.08] px-2 py-1.5 border border-amber-400/30"
                                   : ""
                               }`}
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center justify-between gap-1.5">
                                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
                                   <button
                                     type="button"
@@ -1697,7 +1715,7 @@ export default function CommunityPage() {
                                       Tagged you
                                     </span>
                                   )}
-                                  <span className="text-[10px] text-slate-500">
+                                  <span className="text-[10px] tabular-nums text-slate-500">
                                     {timeAgo(rep.createdAt)}
                                   </span>
                                 </div>
@@ -1707,7 +1725,7 @@ export default function CommunityPage() {
                                     <button
                                       type="button"
                                       onClick={() => quickTagUser(post.id, rep.username)}
-                                      className="inline-flex items-center rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
+                                      className="inline-flex min-h-7 items-center rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
                                     >
                                       @ Reply
                                     </button>
@@ -1720,9 +1738,9 @@ export default function CommunityPage() {
                                         type="button"
                                         onClick={() => handleReactMessage(rep.id, rx.key)}
                                         aria-label={rx.label}
-                                        className="inline-flex items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-white/10"
+                                        className="inline-flex min-h-7 items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300 hover:bg-white/10"
                                       >
-                                        <span>{rx.symbol}</span>
+                                        <ReactionGlyph kind={rx.key} />
                                         {count > 0 && <span>{count}</span>}
                                       </button>
                                     );
@@ -1794,14 +1812,12 @@ export default function CommunityPage() {
                                 }}
                                 placeholder={
                                   user
-                                    ? `Reply or @tag someone as ${
-                                        myIdentity?.username || "player"
-                                      }...`
+                                    ? "Write a reply or @tag..."
                                     : "Sign in to reply..."
                                 }
                                 disabled={!user}
                                 maxLength={400}
-                                className="w-full rounded-xl border border-white/10 bg-[#0b0e17] pl-3 pr-9 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                                className="min-h-10 w-full rounded-xl border border-white/10 bg-[#0b0e17] pl-3 pr-9 py-2 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                               />
                               {user && (
                                 <button
@@ -1811,7 +1827,7 @@ export default function CommunityPage() {
                                     e.preventDefault();
                                     triggerAtPicker(post.id);
                                   }}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-bold text-slate-300 hover:bg-accent/25 hover:text-accent transition-colors"
+                                  className="absolute right-1.5 top-1/2 -translate-y-1/2 grid size-7 place-items-center rounded-lg bg-white/[0.06] text-xs font-bold text-slate-300 hover:bg-accent/25 hover:text-accent transition-colors"
                                 >
                                   @
                                 </button>
@@ -1828,7 +1844,7 @@ export default function CommunityPage() {
                                 setActiveMention(null);
                                 handleSendReply(post.id);
                               }}
-                              className="rounded-xl bg-accent px-3.5 py-2 text-xs font-bold text-white disabled:opacity-40"
+                              className="min-h-10 shrink-0 rounded-xl bg-accent px-3.5 py-2 text-xs font-bold text-white disabled:opacity-40"
                             >
                               {sendingReplyId === post.id ? "..." : "Reply"}
                             </button>
@@ -1876,10 +1892,10 @@ export default function CommunityPage() {
                           target={injectedAd.ctaUrl.startsWith("http") ? "_blank" : undefined}
                           rel="noopener noreferrer"
                           onClick={() => trackAdClick(injectedAd.id)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-white/10 border border-white/15 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/15 transition-colors"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/10 border border-white/15 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/15 transition-colors"
                         >
                           <span>{injectedAd.ctaLabel}</span>
-                          <span>↗</span>
+                          <ExternalLinkIcon className="size-3.5 shrink-0" />
                         </a>
                       </div>
                     </div>
@@ -1897,21 +1913,21 @@ export default function CommunityPage() {
             mobileTab === "chat" ? "block" : "hidden lg:block"
           }`}
         >
-          <div className="flex h-[calc(100vh-14.5rem)] min-h-[500px] lg:h-[calc(100vh-5rem)] flex-col overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0b0e17]">
+          <div className="flex h-[calc(100dvh-16rem)] min-h-[380px] max-h-[680px] lg:max-h-none lg:h-[calc(100dvh-5rem)] flex-col overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0b0e17]">
             {/* Chat Room Header */}
-            <div className="border-b border-white/[0.07] px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="size-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <div>
-                  <h2 className="text-sm font-bold text-white">Live Banter Room</h2>
-                  <p className="text-[11px] text-slate-400">
-                    Rank &amp; state badges update live as scores move
+            <div className="border-b border-white/[0.07] px-3.5 py-3 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="size-2.5 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-bold text-white">Live Banter Room</h2>
+                  <p className="truncate text-[11px] text-slate-400">
+                    Live rank and state badges
                   </p>
                 </div>
               </div>
               <Link
                 href="/play"
-                className="rounded-lg bg-accent/15 border border-accent/30 px-2.5 py-1 text-[11px] font-bold text-accent hover:bg-accent/25 transition-colors"
+                className="shrink-0 rounded-lg bg-accent/15 border border-accent/30 px-2.5 py-1.5 text-[11px] font-bold text-accent hover:bg-accent/25 transition-colors"
               >
                 Play live
               </Link>
@@ -1924,7 +1940,7 @@ export default function CommunityPage() {
                 target={chatBannerAd.ctaUrl.startsWith("http") ? "_blank" : undefined}
                 rel="noopener noreferrer"
                 onClick={() => trackAdClick(chatBannerAd.id)}
-                className="flex items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-500/[0.08] px-4 py-2.5 hover:bg-amber-500/[0.13] transition-colors"
+                className="flex items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-500/[0.08] px-3.5 py-2.5 hover:bg-amber-500/[0.13] transition-colors"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-300">
@@ -1946,7 +1962,7 @@ export default function CommunityPage() {
             <div
               ref={chatScrollRef}
               onScroll={handleChatScroll}
-              className="flex-1 space-y-2.5 overflow-y-auto p-3.5"
+              className="flex-1 space-y-2.5 overflow-y-auto p-3"
             >
               {liveChat.map((msg) => {
                 if (msg.isSystem) {
@@ -1955,7 +1971,7 @@ export default function CommunityPage() {
                       key={msg.id}
                       className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
                     >
-                      <span className="font-bold text-amber-300">Arena Alert: </span>
+                      <span className="font-bold text-amber-300">Room Notice: </span>
                       <span>{msg.body}</span>
                     </div>
                   );
@@ -2009,7 +2025,7 @@ export default function CommunityPage() {
                               Tagged you
                             </span>
                           )}
-                          <span className="ml-auto text-[10px] text-slate-500">
+                          <span className="ml-auto text-[10px] tabular-nums text-slate-500">
                             {timeAgo(msg.createdAt)}
                           </span>
                         </div>
@@ -2022,12 +2038,12 @@ export default function CommunityPage() {
                           )}
                         </p>
 
-                        <div className="mt-1.5 flex items-center gap-1.5">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           {!isMe && (
                             <button
                               type="button"
                               onClick={() => quickTagUser("chat", msg.username)}
-                              className="inline-flex items-center rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
+                              className="inline-flex min-h-7 items-center rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
                             >
                               @ Reply
                             </button>
@@ -2040,13 +2056,13 @@ export default function CommunityPage() {
                                 type="button"
                                 onClick={() => handleReactMessage(msg.id, rx.key)}
                                 aria-label={rx.label}
-                                className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] transition-colors ${
+                                className={`inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] tabular-nums transition-colors ${
                                   count > 0
                                     ? "bg-white/10 text-white font-semibold"
                                     : "bg-white/[0.03] text-slate-400 hover:bg-white/10 hover:text-white"
                                 }`}
                               >
-                                <span>{rx.symbol}</span>
+                                <ReactionGlyph kind={rx.key} />
                                 {count > 0 && <span>{count}</span>}
                               </button>
                             );
@@ -2069,9 +2085,9 @@ export default function CommunityPage() {
                       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
                     }
                   }}
-                  className="text-[11px] font-bold text-accent hover:underline"
+                  className="min-h-7 text-[11px] font-bold text-accent hover:underline"
                 >
-                  Jump to latest messages ↓
+                  Jump to latest messages
                 </button>
               </div>
             )}
@@ -2082,7 +2098,7 @@ export default function CommunityPage() {
                 setActiveMention(null);
                 handleSendChat(e);
               }}
-              className="border-t border-white/[0.08] bg-[#07090e] p-3"
+              className="border-t border-white/[0.08] bg-[#07090e] p-2.5 sm:p-3"
             >
               {chatError && (
                 <p className="mb-2 rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1.5 text-[11px] text-rose-300">
@@ -2133,14 +2149,12 @@ export default function CommunityPage() {
                     }}
                     placeholder={
                       user
-                        ? `Drop banter or @tag a rival as ${
-                            myIdentity?.username || "player"
-                          }...`
+                        ? "Write a message or @tag..."
                         : "Sign in to chat live..."
                     }
                     disabled={!user}
                     maxLength={360}
-                    className="w-full rounded-xl border border-white/10 bg-[#0b0e17] pl-3.5 pr-9 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                    className="min-h-11 w-full rounded-xl border border-white/10 bg-[#0b0e17] pl-3.5 pr-10 py-2.5 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                   />
                   {user && (
                     <button
@@ -2150,7 +2164,7 @@ export default function CommunityPage() {
                         e.preventDefault();
                         triggerAtPicker("chat");
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-bold text-slate-300 hover:bg-accent/25 hover:text-accent transition-colors"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 grid size-8 place-items-center rounded-lg bg-white/[0.06] text-xs font-bold text-slate-300 hover:bg-accent/25 hover:text-accent transition-colors"
                     >
                       @
                     </button>
@@ -2159,19 +2173,20 @@ export default function CommunityPage() {
                 <button
                   type="submit"
                   disabled={!user || sendingChat || !chatInput.trim()}
-                  className="rounded-xl bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-40"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-3.5 sm:px-4 py-2.5 text-xs font-bold text-white disabled:opacity-40"
                 >
-                  {sendingChat ? "..." : "Send"}
+                  <SendIcon className="size-3.5 sm:hidden" />
+                  <span>{sendingChat ? "..." : "Send"}</span>
                 </button>
               </div>
 
               {myIdentity && (
-                <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-500">
-                  <span>
-                    Showing as {myIdentity.username} · {myIdentity.state}
+                <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-slate-500">
+                  <span className="truncate">
+                    Posting as {myIdentity.username} · {myIdentity.state}
                     {myIdentity.rank ? ` · #${myIdentity.rank}` : ""}
                   </span>
-                  <span>{chatInput.length}/360</span>
+                  <span className="shrink-0 tabular-nums">{chatInput.length}/360</span>
                 </div>
               )}
             </form>
@@ -2179,10 +2194,10 @@ export default function CommunityPage() {
         </aside>
       </div>
 
-      {/* Start Topic / Community Poll Modal */}
+      {/* Start Topic / Community Poll Modal (Mobile Bottom Sheet -> Desktop Modal) */}
       {composerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0b0e17] p-5 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4 backdrop-blur-sm">
+          <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl sm:rounded-2xl border-t sm:border border-white/10 bg-[#0b0e17] p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-5 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
               <div>
                 <h2 className="text-base font-bold text-white">Start a player topic or poll</h2>
@@ -2192,10 +2207,11 @@ export default function CommunityPage() {
               </div>
               <button
                 type="button"
+                aria-label="Close modal"
                 onClick={() => setComposerOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:text-white"
+                className="grid size-9 place-items-center rounded-xl text-slate-400 hover:bg-white/[0.06] hover:text-white transition-colors"
               >
-                ✕
+                <CloseIcon className="size-4" />
               </button>
             </div>
 
@@ -2206,7 +2222,7 @@ export default function CommunityPage() {
                 </p>
                 <Link
                   href="/login"
-                  className="mt-4 inline-block rounded-xl bg-accent px-5 py-2.5 text-xs font-bold text-white"
+                  className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 py-2.5 text-xs font-bold text-white"
                 >
                   Sign in
                 </Link>
@@ -2235,11 +2251,11 @@ export default function CommunityPage() {
                     <div className="flex items-center gap-2 text-emerald-200">
                       <span className="size-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
                       <span>
-                        <span className="font-bold text-white">Arena slot open now</span> — 1 player topic or poll is allowed per hour.
+                        <span className="font-bold text-white">Arena slot open now.</span> Limit: 1 player topic or poll per hour.
                       </span>
                     </div>
                     <span className="shrink-0 rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                      AVAILABLE
+                      OPEN
                     </span>
                   </div>
                 )}
@@ -2257,7 +2273,7 @@ export default function CommunityPage() {
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3 py-2.5 text-xs text-white focus:border-accent focus:outline-none"
+                    className="min-h-11 w-full rounded-xl border border-white/10 bg-[#07090e] px-3 py-2.5 text-base sm:text-xs text-white focus:border-accent focus:outline-none"
                   >
                     {[
                       "Game Banter",
@@ -2284,8 +2300,8 @@ export default function CommunityPage() {
                     maxLength={140}
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder="e.g. Which city has the sharpest GuessWhat players right now?"
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                    placeholder="e.g. Which state has the sharpest players right now?"
+                    className="min-h-11 w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2.5 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                   />
                 </div>
 
@@ -2298,12 +2314,12 @@ export default function CommunityPage() {
                     maxLength={400}
                     value={newBody}
                     onChange={(e) => setNewBody(e.target.value)}
-                    placeholder="Add your take or @tag a rival to kick off replies..."
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                    placeholder="Add your take or @tag a rival to start replies..."
+                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2.5 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                   />
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-[#07090e] px-3.5 py-2.5">
+                <label className="flex min-h-11 cursor-pointer items-center justify-between rounded-xl border border-white/[0.07] bg-[#07090e] px-3.5 py-2.5">
                   <span className="text-xs font-semibold text-slate-200">
                     Include voting options (poll)
                   </span>
@@ -2313,7 +2329,7 @@ export default function CommunityPage() {
                     onChange={(e) => setIncludePoll(e.target.checked)}
                     className="size-4 accent-[#F7911B]"
                   />
-                </div>
+                </label>
 
                 {includePoll && (
                   <div className="space-y-2">
@@ -2329,7 +2345,7 @@ export default function CommunityPage() {
                             setPollOpts(next);
                           }}
                           placeholder={`Option ${idx + 1}`}
-                          className="flex-1 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-xs text-white focus:border-accent focus:outline-none"
+                          className="min-h-11 flex-1 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-accent focus:outline-none"
                         />
                         {pollOpts.length > 2 && (
                           <button
@@ -2337,7 +2353,7 @@ export default function CommunityPage() {
                             onClick={() =>
                               setPollOpts(pollOpts.filter((_, i) => i !== idx))
                             }
-                            className="text-xs text-slate-400 hover:text-rose-400 px-2"
+                            className="min-h-11 px-2 text-xs text-slate-400 hover:text-rose-400"
                           >
                             Remove
                           </button>
@@ -2348,7 +2364,7 @@ export default function CommunityPage() {
                       <button
                         type="button"
                         onClick={() => setPollOpts([...pollOpts, ""])}
-                        className="text-xs font-semibold text-accent hover:underline"
+                        className="min-h-9 text-xs font-semibold text-accent hover:underline"
                       >
                         + Add another option
                       </button>
@@ -2356,18 +2372,18 @@ export default function CommunityPage() {
                   </div>
                 )}
 
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setComposerOpen(false)}
-                    className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white"
+                    className="min-h-11 rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={!canPublishTopic}
-                    className={`rounded-xl px-5 py-2 text-xs font-bold transition-all ${
+                    className={`min-h-11 rounded-xl px-5 py-2 text-xs font-bold transition-all ${
                       canPublishTopic
                         ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-[#F7911B]/25 hover:opacity-95 cursor-pointer"
                         : "border border-white/10 bg-white/[0.05] text-slate-500 cursor-not-allowed"

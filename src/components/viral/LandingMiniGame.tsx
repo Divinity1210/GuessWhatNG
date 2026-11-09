@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { VIRAL_DEMO_QUESTIONS, buildWhatsAppShareUrl } from "@/lib/game/viral-engine";
-import { FlameIcon, TimerIcon, TrophyIcon, ZapIcon, ArrowRightIcon, CheckIcon } from "@/components/ui/Icons";
+import {
+  FlameIcon,
+  TimerIcon,
+  TrophyIcon,
+  ZapIcon,
+  ArrowRightIcon,
+  CrownIcon,
+  ShareIcon,
+  GiftIcon,
+} from "@/components/ui/Icons";
 
 export function LandingMiniGame() {
   const demoQuestions = VIRAL_DEMO_QUESTIONS.slice(0, 3);
@@ -68,23 +77,23 @@ export function LandingMiniGame() {
   if (finished) {
     const timeSec = (totalMs / 1000).toFixed(1);
     const waUrl = buildWhatsAppShareUrl({
-      sessionName: "GuessWhat 3-Question Street Challenge",
+      sessionName: "GuessWhat 3-Question Demo",
       timeSeconds: timeSec,
       challengeQuestion: demoQuestions[0].title,
       prizePool: 250_000,
     });
 
     return (
-      <div className="rounded-3xl border border-[#F7911B]/50 bg-gradient-to-b from-[oklch(22%_0.03_60)] to-[oklch(12%_0.01_60)] p-6 shadow-2xl backdrop-blur-xl animate-fade-in">
+      <div className="rounded-3xl border border-[#F7911B]/50 bg-gradient-to-b from-[oklch(22%_0.03_60)] to-[oklch(12%_0.01_60)] p-5 sm:p-6 shadow-2xl backdrop-blur-xl animate-fade-in">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-xs font-black text-emerald-300">
             <TrophyIcon className="size-3.5" />
-            <span>CROWD IQ RESULT</span>
+            <span>CROWD SCORE</span>
           </span>
           <button
             type="button"
             onClick={handleReset}
-            className="text-xs font-semibold text-gray-400 hover:text-white underline"
+            className="min-h-8 text-xs font-semibold text-gray-400 hover:text-white underline"
           >
             Replay Demo
           </button>
@@ -94,29 +103,30 @@ export function LandingMiniGame() {
           <p className="text-xs font-bold uppercase tracking-widest text-[#F7911B]">
             Your Crowd Prediction Score
           </p>
-          <p className="font-display text-5xl font-black text-white">
-            {totalPoints} <span className="text-2xl text-[#F7911B]">/ 40 pts</span>
+          <p className="font-display text-4xl sm:text-5xl font-black tabular-nums text-white">
+            {totalPoints} <span className="text-xl sm:text-2xl text-[#F7911B]">/ 40 pts</span>
           </p>
           <p className="text-xs text-gray-300">
-            Total Speed: <strong className="text-emerald-400">{timeSec}s</strong> ·{" "}
+            Total Speed: <strong className="text-emerald-400 tabular-nums">{timeSec}s</strong> ·{" "}
             {totalPoints >= 35
-              ? "🔥 Pure Odogwu! You read Nigerians like a book!"
-              : "⚡ Sharp intuition! You're ready for the ₦250k pot."}
+              ? "Spot-on crowd intuition."
+              : "Strong read. Ready for the live prize pool."}
           </p>
         </div>
 
         <div className="mt-5 rounded-2xl border border-[#F7911B]/30 bg-[#F7911B]/10 p-3.5 text-center">
-          <p className="text-xs font-bold text-white">
-            🎁 Sign up now to lock in <span className="text-[#F7911B]">100 FREE COINS</span> + enter Weekend Showdown
+          <p className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-white">
+            <GiftIcon className="size-4 shrink-0 text-[#F7911B]" />
+            <span>Create a free account to enter the live session</span>
           </p>
         </div>
 
         <div className="mt-5 space-y-2.5">
           <Link
             href="/sign-up"
-            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F7911B] to-[#FF0400] px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-orange-500/25 hover:brightness-110 transition-all"
+            className="min-h-11 w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F7911B] to-[#FF0400] px-5 py-3 text-sm font-black text-white shadow-lg shadow-orange-500/25 hover:brightness-110 transition-all"
           >
-            <span>Claim 100 Free Coins & Play For Cash</span>
+            <span>Play Live Session</span>
             <ArrowRightIcon className="size-4" />
           </Link>
 
@@ -124,9 +134,10 @@ export function LandingMiniGame() {
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/25 transition-all"
+            className="min-h-11 w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/25 transition-all"
           >
-            <span>📲 Challenge Your WhatsApp Squad to Beat {totalPoints} pts</span>
+            <ShareIcon className="size-3.5 shrink-0" />
+            <span>Challenge Friends on WhatsApp ({totalPoints} pts)</span>
           </a>
         </div>
       </div>
@@ -134,8 +145,7 @@ export function LandingMiniGame() {
   }
 
   return (
-    <div className="rounded-3xl border border-[#F7911B]/40 bg-gradient-to-b from-[oklch(20%_0.02_60)] to-[oklch(12%_0.01_60)] p-6 shadow-2xl backdrop-blur-xl">
-      {/* Header */}
+    <div className="rounded-3xl border border-[#F7911B]/40 bg-gradient-to-b from-[oklch(20%_0.02_60)] to-[oklch(12%_0.01_60)] p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
       <div className="flex items-center justify-between text-xs text-gray-400 border-b border-white/10 pb-3">
         <div className="flex items-center gap-2">
           <span className="inline-block size-2 rounded-full bg-emerald-400 animate-ping" />
@@ -143,13 +153,12 @@ export function LandingMiniGame() {
             TRY LIVE DEMO · Q{step + 1}/3
           </span>
         </div>
-        <span className="font-mono text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
+        <span className="font-mono tabular-nums text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
           <TimerIcon className="size-3.5" />
           <span>{(elapsedMs / 1000).toFixed(1)}s</span>
         </span>
       </div>
 
-      {/* Category & 2x Lock toggle */}
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-gray-200">
           {currentQ.category}
@@ -160,31 +169,29 @@ export function LandingMiniGame() {
             type="button"
             disabled={!!selectedId}
             onClick={() => setUse2xLock((v) => !v)}
-            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black transition-all ${
+            className={`inline-flex min-h-8 items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black transition-all ${
               use2xLock
-                ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-md shadow-orange-500/30 scale-105"
+                ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-md shadow-orange-500/30"
                 : "border border-[#F7911B]/40 bg-[#F7911B]/10 text-[#F7911B] hover:bg-[#F7911B]/20"
             }`}
           >
             <FlameIcon className="size-3.5" />
-            <span>{use2xLock ? "2x SURE LOCK ARMED!" : "Use 2x Sure Lock (1 left)"}</span>
+            <span>{use2xLock ? "2X BOOST ACTIVE" : "Use 2x Boost (1 left)"}</span>
           </button>
         ) : (
           <span className="text-[11px] font-semibold text-gray-400">
-            {lockUsedOnStep === step ? "🔥 2x Lock Applied!" : "2x Lock Used"}
+            {lockUsedOnStep === step ? "2x Boost Applied" : "2x Boost Used"}
           </span>
         )}
       </div>
 
-      {/* Question Title */}
-      <h3 className="mt-3 font-display text-lg sm:text-xl font-bold text-white leading-snug">
+      <h3 className="mt-3 font-display text-base sm:text-xl font-bold text-white leading-snug">
         {currentQ.title}
       </h3>
       <p className="mt-1 text-xs text-gray-400">
         Tap the option you think <strong className="text-white">most Nigerians</strong> will choose:
       </p>
 
-      {/* Options */}
       <div className="mt-4 space-y-2.5">
         {currentQ.options.map((item) => {
           const isPicked = selectedId === item.id;
@@ -197,7 +204,7 @@ export function LandingMiniGame() {
               type="button"
               disabled={!!selectedId}
               onClick={() => handlePick(item.id)}
-              className={`w-full text-left relative overflow-hidden rounded-xl border p-3 transition-all ${
+              className={`min-h-12 w-full text-left relative overflow-hidden rounded-xl border p-3 transition-all ${
                 selectedId
                   ? isPicked
                     ? "border-[#F7911B] bg-[#F7911B]/20"
@@ -220,14 +227,18 @@ export function LandingMiniGame() {
                 <div className="min-w-0">
                   <p className="font-bold text-white text-xs sm:text-sm truncate">{item.label}</p>
                   {selectedId && (
-                    <p className="text-[11px] text-[#F7911B] font-semibold mt-0.5">
-                      {isTop ? "👑 #1 Crowd Favorite" : `#${item.rank} Most Picked`} · +{item.points * (isPicked ? multiplier : 1)} pts
+                    <p className="inline-flex items-center gap-1 text-[11px] text-[#F7911B] font-semibold mt-0.5">
+                      {isTop && <CrownIcon className="size-3 shrink-0" />}
+                      <span>
+                        {isTop ? "#1 Crowd Favorite" : `#${item.rank} Most Picked`} · +
+                        {item.points * (isPicked ? multiplier : 1)} pts
+                      </span>
                     </p>
                   )}
                 </div>
 
                 {selectedId ? (
-                  <span className="font-display font-black text-base text-white shrink-0">
+                  <span className="font-display font-black tabular-nums text-base text-white shrink-0">
                     {item.crowdPct}%
                   </span>
                 ) : (
@@ -241,17 +252,16 @@ export function LandingMiniGame() {
         })}
       </div>
 
-      {/* Footer / Next button */}
       <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
         <div className="text-xs text-gray-300">
-          Score: <strong className="text-[#F7911B] font-bold">{totalPoints} pts</strong>
+          Score: <strong className="text-[#F7911B] font-bold tabular-nums">{totalPoints} pts</strong>
         </div>
 
         {selectedId ? (
           <button
             type="button"
             onClick={handleNext}
-            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#F7911B] to-[#FF0400] px-4 py-2 text-xs font-black text-white shadow-md hover:brightness-110 transition-all"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#F7911B] to-[#FF0400] px-4 py-2 text-xs font-black text-white shadow-md hover:brightness-110 transition-all"
           >
             <span>{step < demoQuestions.length - 1 ? "Next Question" : "See My Score"}</span>
             <ArrowRightIcon className="size-3.5" />
@@ -259,7 +269,7 @@ export function LandingMiniGame() {
         ) : (
           <span className="text-[11px] text-[#F7911B] font-semibold flex items-center gap-1">
             <ZapIcon className="size-3.5" />
-            <span>Tap an option to test your intuition</span>
+            <span>Tap an option to test your read</span>
           </span>
         )}
       </div>

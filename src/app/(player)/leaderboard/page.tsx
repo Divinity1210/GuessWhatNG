@@ -15,6 +15,12 @@ import {
   playRankClimb,
 } from "@/lib/audio/sound-effects";
 import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
+import {
+  BarChartIcon,
+  TrophyIcon,
+  VolumeIcon,
+  VolumeMuteIcon,
+} from "@/components/ui/Icons";
 
 function formatCountdownLong(endsAt: string): string {
   const diff = new Date(endsAt).getTime() - Date.now();
@@ -24,9 +30,9 @@ function formatCountdownLong(endsAt: string): string {
   const mins = Math.floor((diff % 3_600_000) / 60_000);
   const secs = Math.floor((diff % 60_000) / 1_000);
   if (days > 0) {
-    return `${days}d ${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s remaining`;
+    return `${days}d ${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s left`;
   }
-  return `${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s remaining`;
+  return `${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s left`;
 }
 
 function formatDuration(ms: number): string {
@@ -42,21 +48,6 @@ function formatOrdinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-function prizeForRank(rank: number): number {
-  if (rank === 1) return 100_000;
-  if (rank === 2) return 50_000;
-  if (rank === 3) return 20_000;
-  if (rank >= 4 && rank <= 36) return 10_000;
-  return 0;
-}
-
-const PRIZE_TIERS_36 = [
-  { position: "1st", winners: "1 Winner", prize: "100,000", total: "100,000" },
-  { position: "2nd", winners: "1 Winner", prize: "50,000", total: "50,000" },
-  { position: "3rd", winners: "1 Winner", prize: "20,000", total: "20,000" },
-  { position: "4th–36th", winners: "33 Winners", prize: "10,000", total: "330,000" },
-];
-
 export default function LeaderboardPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState<"live" | "winners" | "prizes">("live");
@@ -68,7 +59,6 @@ export default function LeaderboardPage() {
   const [countdownStr, setCountdownStr] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Animation & Sound states
   const [climbedMap, setClimbedMap] = useState<Record<string, number>>({});
   const [guessPulse, setGuessPulse] = useState(false);
   const [livePaused, setLivePaused] = useState(false);
@@ -242,7 +232,6 @@ export default function LeaderboardPage() {
     await loadSessionStandings(sessionId);
   };
 
-  // Live Leaderboard Ticker: polls real server updates & animates crowd rank shifts on active session
   useEffect(() => {
     if (!activeSession || !isViewingActive || livePaused || tab !== "live") return;
 
@@ -336,7 +325,7 @@ export default function LeaderboardPage() {
       position:
         fromRank === toRank
           ? formatOrdinal(fromRank)
-          : `${formatOrdinal(fromRank)}–${formatOrdinal(toRank)}`,
+          : `${formatOrdinal(fromRank)} to ${formatOrdinal(toRank)}`,
       winners: `${count} Winner${count > 1 ? "s" : ""}`,
       count,
       prize: amt.toLocaleString(),
@@ -355,102 +344,111 @@ export default function LeaderboardPage() {
       : dynamicPrizeTiers.reduce((s, t) => s + t.totalNum, 0);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header & Clean Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-white">
-            Leaderboard &amp; Winners Board
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Points update dynamically as more players guess. Shortest cumulative time breaks ties.
-          </p>
+    <div className="space-y-5 animate-fade-in">
+      {/* Header & Controls */}
+      <div className="flex flex-col gap-3.5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-white">
+              Standings &amp; Winners
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Ranked by live crowd points first, then fastest total time.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                openSessionResultsPopup({
+                  sessionId: selectedCompletedId || undefined,
+                  initialTab: tab === "winners" ? "winners" : "feedback",
+                })
+              }
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-amber-400/35 bg-amber-500/12 hover:bg-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-300 transition-colors"
+            >
+              <BarChartIcon className="size-3.5" />
+              <span>Crowd Breakdown</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleSound}
+              aria-pressed={!soundMuted}
+              aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
+              className="inline-flex size-10 sm:w-auto sm:px-3 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#0d111c] text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+            >
+              {soundMuted ? (
+                <VolumeMuteIcon className="size-4 text-slate-400" />
+              ) : (
+                <VolumeIcon className="size-4 text-accent" />
+              )}
+              <span className="hidden sm:inline">{soundMuted ? "Muted" : "Sound"}</span>
+            </button>
+
+            {isViewingActive && tab === "live" && (
+              <button
+                type="button"
+                onClick={() => setLivePaused(!livePaused)}
+                aria-pressed={!livePaused}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/10 bg-[#0d111c] px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+              >
+                <span
+                  className={`size-2 rounded-full ${
+                    livePaused ? "bg-slate-500" : "bg-emerald-400"
+                  }`}
+                />
+                <span>{livePaused ? "Paused" : "Live"}</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Mobile-First 3-Tab Segmented Bar */}
+        <div className="grid grid-cols-3 sm:inline-flex sm:w-fit rounded-xl border border-white/10 bg-[#0d111c] p-1 gap-1">
           <button
             type="button"
-            onClick={() =>
-              openSessionResultsPopup({
-                sessionId: selectedCompletedId || undefined,
-                initialTab: tab === "winners" ? "winners" : "feedback",
-              })
-            }
-            className="rounded-xl border border-amber-400/40 bg-amber-500/15 hover:bg-amber-500/25 px-3.5 py-2 text-xs font-bold text-amber-300 transition-colors"
+            onClick={() => setTab("live")}
+            className={`min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+              tab === "live"
+                ? "bg-accent text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
           >
-            🏁 Ended Session Feedback &amp; Winners
+            Standings
           </button>
-
           <button
             type="button"
-            onClick={toggleSound}
-            aria-pressed={!soundMuted}
-            aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
-            className="rounded-xl border border-white/10 bg-[#0d111c] px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+            onClick={() => setTab("winners")}
+            className={`min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+              tab === "winners"
+                ? "bg-accent text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
           >
-            {soundMuted ? "🔇 Muted" : "🔊 Sound"}
+            Winners
           </button>
-
-          {isViewingActive && tab === "live" && (
-            <button
-              type="button"
-              onClick={() => setLivePaused(!livePaused)}
-              aria-pressed={!livePaused}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#0d111c] px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
-            >
-              <span
-                className={`size-2 rounded-full ${
-                  livePaused ? "bg-slate-500" : "bg-emerald-400 animate-pulse"
-                }`}
-              />
-              <span>{livePaused ? "Paused" : "Live"}</span>
-            </button>
-          )}
-
-          <div className="inline-flex flex-wrap rounded-xl border border-white/10 bg-[#0d111c] p-1">
-            <button
-              type="button"
-              onClick={() => setTab("live")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                tab === "live"
-                  ? "bg-accent text-white"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              Live Leaderboard
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("winners")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                tab === "winners"
-                  ? "bg-accent text-white"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              Winners Board
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("prizes")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                tab === "prizes"
-                  ? "bg-accent text-white"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              Prize Table ({dynamicTotalWinners} Winners / ₦{dynamicTotalPool.toLocaleString()})
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setTab("prizes")}
+            className={`min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+              tab === "prizes"
+                ? "bg-accent text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Prizes ({dynamicTotalWinners})
+          </button>
         </div>
       </div>
 
-      {/* ── Session-to-Session Switcher Bar (Pages 19, 20, 27, 28) ── */}
+      {/* Session Switcher */}
       {allSessions.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="hidden sm:flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">
-              Session Switcher:
+              Session:
             </span>
             {allSessions.map((sess) => {
               const isSelected =
@@ -468,36 +466,27 @@ export default function LeaderboardPage() {
                       setSelectedCompletedId(sess.id);
                     } else {
                       if (tab === "prizes") setTab("live");
-                      handleSelectSession(sess.id);
+                      void handleSelectSession(sess.id);
                     }
                   }}
-                  className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border ${
+                  className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all border ${
                     isSelected
-                      ? "bg-accent/15 border-accent text-white shadow-sm"
+                      ? "bg-accent/15 border-accent text-white"
                       : "bg-white/[0.02] border-white/10 text-slate-400 hover:text-white hover:border-white/20"
                   }`}
                 >
                   <span
                     className={`size-2 rounded-full ${
-                      isLive ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
+                      isLive ? "bg-emerald-400" : "bg-amber-400"
                     }`}
                   />
                   <span>{sess.name}</span>
-                  <span
-                    className={`rounded-md px-1.5 py-0.5 text-[10px] uppercase font-bold ${
-                      isLive
-                        ? "bg-emerald-500/20 text-emerald-300"
-                        : "bg-amber-500/15 text-amber-300"
-                    }`}
-                  >
-                    {isLive ? "Live · Ongoing" : "Ended"}
-                  </span>
                 </button>
               );
             })}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="w-full sm:w-auto shrink-0">
             <label htmlFor="session-select-dropdown" className="sr-only">
               Select Session
             </label>
@@ -509,14 +498,14 @@ export default function LeaderboardPage() {
                 if (tab === "winners") {
                   setSelectedCompletedId(val);
                 } else {
-                  handleSelectSession(val);
+                  void handleSelectSession(val);
                 }
               }}
-              className="rounded-xl border border-white/15 bg-[#07090e] px-3 py-2 text-xs font-medium text-white focus:border-accent focus:outline-none"
+              className="min-h-11 w-full sm:w-auto rounded-xl border border-white/15 bg-[#07090e] px-3.5 py-2 text-base sm:text-xs font-medium text-white focus:border-accent focus:outline-none"
             >
               {allSessions.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.status === "active" ? "LIVE · ONGOING" : "ENDED · Final Results"})
+                  {s.name} ({s.status === "active" ? "Live" : "Ended"})
                 </option>
               ))}
             </select>
@@ -524,33 +513,32 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* ── Tab 1: Live / Selected Session Leaderboard (Product Document Pages 19, 27, 28, 32) ── */}
+      {/* Tab 1: Live / Selected Session Standings */}
       {tab === "live" && (
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-5">
-          {/* Top Bar: Guesses Count Up (Left), Session Status/Countdown (Middle), Search (Right) — Page 27 */}
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <div
-                className={`rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-white tabular-nums transition-transform duration-300 ${
-                  guessPulse ? "scale-105 border-emerald-400/60" : "scale-100"
+                className={`rounded-xl border border-accent/35 bg-accent/10 px-3 py-2 text-xs sm:text-sm font-semibold text-white tabular-nums transition-colors ${
+                  guessPulse ? "border-emerald-400/60" : ""
                 }`}
               >
                 {totalGuesses.toLocaleString()} Guesses
               </div>
 
               {selectedSession && (
-                <div className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 flex items-center gap-2">
+                <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2 text-xs font-medium text-slate-200 flex items-center gap-2">
                   <span
                     className={`size-2 rounded-full ${
                       selectedSession.status === "active"
-                        ? "bg-emerald-400 animate-pulse"
+                        ? "bg-emerald-400"
                         : "bg-amber-400"
                     }`}
                   />
-                  <span className="font-mono text-xs sm:text-sm tabular-nums">
+                  <span className="font-mono tabular-nums">
                     {selectedSession.status === "active"
-                      ? `ONGOING · ${countdownStr || formatCountdownLong(selectedSession.ends_at)}`
-                      : `ENDED · ${selectedSession.name}`}
+                      ? countdownStr || formatCountdownLong(selectedSession.ends_at)
+                      : `Closed · ${selectedSession.name}`}
                   </span>
                 </div>
               )}
@@ -558,9 +546,10 @@ export default function LeaderboardPage() {
               <button
                 type="button"
                 onClick={() => setTab("prizes")}
-                className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"
               >
-                🏆 {dynamicTotalWinners} Winners / ₦{dynamicTotalPool.toLocaleString()}
+                <TrophyIcon className="size-3.5" />
+                <span>₦{dynamicTotalPool.toLocaleString()} Pool</span>
               </button>
             </div>
 
@@ -573,21 +562,80 @@ export default function LeaderboardPage() {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search player name..."
+                placeholder="Search player..."
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck={false}
-                className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-base sm:text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Leaderboard Table: Position | Prize | Name | Points | Time (Page 27 & 28) */}
+          {/* Mobile Compact Standings (<640px) */}
+          <div
+            className={`space-y-2 sm:hidden transition-opacity ${
+              switchingSession ? "opacity-50" : "opacity-100"
+            }`}
+          >
+            {filteredLiveRows.length > 0 ? (
+              filteredLiveRows.map((row) => {
+                const isMe = row.user_id === user?.id;
+                const climbDelta = climbedMap[row.user_id] ?? 0;
+                return (
+                  <div
+                    key={row.user_id}
+                    className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${
+                      climbDelta > 0
+                        ? "border-emerald-500/35 bg-emerald-500/12"
+                        : isMe
+                        ? "border-accent/35 bg-accent/10"
+                        : "border-white/[0.06] bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`grid size-8 shrink-0 place-items-center rounded-lg font-display text-xs font-bold ${
+                          row.rank === 1
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/35"
+                            : row.rank <= 3
+                            ? "bg-white/[0.08] text-white"
+                            : "bg-white/[0.04] text-slate-300"
+                        }`}
+                      >
+                        {formatOrdinal(row.rank)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">
+                          {row.profiles?.username ?? "Player"}
+                          {isMe ? " (You)" : ""}
+                        </p>
+                        <p className="font-mono text-xs text-slate-400 tabular-nums">
+                          {row.points} pts · {formatDuration(row.response_ms)}
+                          {climbDelta > 0 ? ` · +${climbDelta}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="font-mono text-xs font-bold text-emerald-400 tabular-nums shrink-0">
+                      {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "-"}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="py-8 text-center text-sm text-slate-500">
+                {searchQuery
+                  ? `No player matching "${searchQuery}"`
+                  : "No plays recorded in this session yet."}
+              </p>
+            )}
+          </div>
+
+          {/* Desktop Standings Table (>=640px) */}
           <div
             tabIndex={0}
             role="region"
             aria-labelledby="live-lb-caption"
-            className={`overflow-x-auto transition-opacity ${
+            className={`hidden sm:block overflow-x-auto transition-opacity ${
               switchingSession ? "opacity-50" : "opacity-100"
             }`}
           >
@@ -597,13 +645,13 @@ export default function LeaderboardPage() {
               </caption>
               <thead>
                 <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
-                  <th className="py-3 pr-4">Position</th>
+                  <th className="py-3 pr-4">Rank</th>
                   <th className="py-3 pr-4">
                     {selectedSession?.status === "active"
                       ? "Projected Prize (₦)"
                       : "Official Prize (₦)"}
                   </th>
-                  <th className="py-3 pr-4">Name</th>
+                  <th className="py-3 pr-4">Player</th>
                   <th className="py-3 pr-4">Points</th>
                   <th className="py-3 text-right">Time</th>
                 </tr>
@@ -624,7 +672,7 @@ export default function LeaderboardPage() {
                             : isMe
                             ? "text-accent font-semibold"
                             : row.rank === 1
-                            ? "text-sky-400 font-medium"
+                            ? "text-amber-300 font-medium"
                             : "text-slate-200"
                         }`}
                       >
@@ -636,13 +684,13 @@ export default function LeaderboardPage() {
                             <span>{formatOrdinal(row.rank)}</span>
                             {climbDelta > 0 && (
                               <span className="inline-flex items-center rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-black text-emerald-300">
-                                ▲ +{climbDelta}
+                                +{climbDelta}
                               </span>
                             )}
                           </span>
                         </th>
-                        <td className="py-3.5 pr-4 font-mono tabular-nums">
-                          {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "—"}
+                        <td className="py-3.5 pr-4 font-mono text-emerald-400 tabular-nums">
+                          {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "-"}
                         </td>
                         <td className="py-3.5 pr-4">
                           {row.profiles?.username ?? "Player"}
@@ -665,7 +713,7 @@ export default function LeaderboardPage() {
                     >
                       {searchQuery
                         ? `No player matching "${searchQuery}"`
-                        : "No plays recorded yet in this session."}
+                        : "No plays recorded in this session yet."}
                     </td>
                   </tr>
                 )}
@@ -675,33 +723,33 @@ export default function LeaderboardPage() {
         </section>
       )}
 
-      {/* ── Tab 2: Winners Board (Session-to-Session Completed Winners + Page 20 Payouts) ── */}
+      {/* Tab 2: Winners Board */}
       {tab === "winners" && (
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
+        <div className="space-y-5">
+          <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-lg font-bold text-white">
-                  Previous Session Winners
+                  Completed Session Winners
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Switch between completed sessions to inspect verified winners and payouts.
+                  Verified rankings and cash payouts from ended sessions.
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <input
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search winner..."
-                  className="rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                  className="min-h-11 rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                 />
                 {completedSessions.length > 0 && (
                   <select
                     value={selectedCompletedId}
                     onChange={(e) => setSelectedCompletedId(e.target.value)}
                     aria-label="Select completed session"
-                    className="rounded-xl border border-white/15 bg-[#07090e] px-3.5 py-2 text-xs text-white focus:border-accent focus:outline-none"
+                    className="min-h-11 rounded-xl border border-white/15 bg-[#07090e] px-3.5 py-2 text-base sm:text-xs text-white focus:border-accent focus:outline-none"
                   >
                     {completedSessions.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -713,18 +761,52 @@ export default function LeaderboardPage() {
               </div>
             </div>
 
+            {/* Mobile Winners Cards */}
+            <div className="space-y-2 sm:hidden">
+              {filteredCompletedWinners.length > 0 ? (
+                filteredCompletedWinners.map((w) => (
+                  <div
+                    key={w.user_id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/[0.06] font-display text-xs font-bold text-white">
+                        {formatOrdinal(w.rank)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">
+                          {w.profiles?.username ?? "Player"}
+                        </p>
+                        <p className="font-mono text-xs text-slate-400 tabular-nums">
+                          {w.points} pts · {formatDuration(w.response_ms)}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="font-mono text-xs font-bold text-accent tabular-nums shrink-0">
+                      {w.prize > 0 ? `₦${w.prize.toLocaleString()}` : "-"}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  No winners matching your filter.
+                </p>
+              )}
+            </div>
+
+            {/* Desktop Winners Table */}
             <div
               tabIndex={0}
               role="region"
               aria-label="Completed session winners"
-              className="overflow-x-auto"
+              className="hidden sm:block overflow-x-auto"
             >
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
-                    <th className="py-3 pr-4">Position</th>
+                    <th className="py-3 pr-4">Rank</th>
                     <th className="py-3 pr-4">Prize (₦)</th>
-                    <th className="py-3 pr-4">Name</th>
+                    <th className="py-3 pr-4">Player</th>
                     <th className="py-3 pr-4">Points</th>
                     <th className="py-3 text-right">Time</th>
                   </tr>
@@ -740,7 +822,7 @@ export default function LeaderboardPage() {
                           {formatOrdinal(w.rank)}
                         </th>
                         <td className="py-3.5 pr-4 font-mono text-accent font-semibold tabular-nums">
-                          {w.prize > 0 ? `₦${w.prize.toLocaleString()}` : "—"}
+                          {w.prize > 0 ? `₦${w.prize.toLocaleString()}` : "-"}
                         </td>
                         <td className="py-3.5 pr-4">
                           {w.profiles?.username ?? "Player"}
@@ -764,82 +846,27 @@ export default function LeaderboardPage() {
               </table>
             </div>
           </section>
-
-          {/* Also display the Session Winners / Prize Structure Table below */}
-          <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
-            <div>
-              <h2 className="font-display text-lg font-bold text-white">
-                {dynamicTotalWinners} WINNERS / ₦{dynamicTotalPool.toLocaleString()} PRIZE STRUCTURE
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                The leaderboard displays the scores of the players and rewards the top {dynamicTotalWinners} players.
-              </p>
-            </div>
-
-            <div
-              tabIndex={0}
-              role="region"
-              aria-label="Prize breakdown table"
-              className="overflow-x-auto"
-            >
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
-                    <th className="py-3 pr-4">Position</th>
-                    <th className="py-3 pr-4">Winners</th>
-                    <th className="py-3 pr-4">Prize Per Winner (₦)</th>
-                    <th className="py-3 text-right">Total (₦)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dynamicPrizeTiers.map((tier) => (
-                    <tr
-                      key={tier.position}
-                      className="border-b border-white/10 text-slate-200"
-                    >
-                      <th scope="row" className="py-3 pr-4 font-display font-bold text-left">
-                        {tier.position}
-                      </th>
-                      <td className="py-3 pr-4 text-slate-400">{tier.winners}</td>
-                      <td className="py-3 pr-4 font-mono tabular-nums">₦{tier.prize}</td>
-                      <td className="py-3 text-right font-mono tabular-nums">₦{tier.total}</td>
-                    </tr>
-                  ))}
-                  <tr className="font-bold text-white">
-                    <th scope="row" className="py-3.5 pr-4 text-left">
-                      Total ({dynamicTotalWinners} Winners)
-                    </th>
-                    <td className="py-3.5 pr-4 text-slate-400">{dynamicTotalWinners} Winners</td>
-                    <td className="py-3.5 pr-4" />
-                    <td className="py-3.5 text-right font-mono text-accent tabular-nums">
-                      ₦{dynamicTotalPool.toLocaleString()}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
         </div>
       )}
 
-      {/* ── Tab 3: Prize Table (Product Document Page 20) ── */}
+      {/* Tab 3: Prize Breakdown */}
       {tab === "prizes" && (
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="font-display text-lg font-bold text-white">
-                {dynamicTotalWinners} WINNERS / ₦{dynamicTotalPool.toLocaleString()}
+                {dynamicTotalWinners} Winners Share ₦{dynamicTotalPool.toLocaleString()}
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Every session rewards the top {dynamicTotalWinners} players based on highest points and shortest completion time.
+                Top {dynamicTotalWinners} players win based on highest points and fastest completion time.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setTab("live")}
-              className="self-start sm:self-auto rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-accent hover:bg-white/[0.08] transition-colors"
+              className="min-h-10 self-start sm:self-auto rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-accent hover:bg-white/[0.08] transition-colors"
             >
-              ← Back to Live Standings
+              Back to Standings
             </button>
           </div>
 
@@ -852,9 +879,9 @@ export default function LeaderboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
-                  <th className="py-3 pr-4">Position</th>
-                  <th className="py-3 pr-4">Winners</th>
-                  <th className="py-3 pr-4">Prize (₦)</th>
+                  <th className="py-3 pr-3">Rank</th>
+                  <th className="py-3 pr-3">Winners</th>
+                  <th className="py-3 pr-3">Each (₦)</th>
                   <th className="py-3 text-right">Total (₦)</th>
                 </tr>
               </thead>
@@ -864,20 +891,20 @@ export default function LeaderboardPage() {
                     key={tier.position}
                     className="border-b border-white/10 text-slate-200"
                   >
-                    <th scope="row" className="py-3.5 pr-4 font-display font-bold text-left">
+                    <th scope="row" className="py-3.5 pr-3 font-display font-bold text-left whitespace-nowrap">
                       {tier.position}
                     </th>
-                    <td className="py-3.5 pr-4 text-slate-400">{tier.winners}</td>
-                    <td className="py-3.5 pr-4 font-mono tabular-nums">₦{tier.prize}</td>
+                    <td className="py-3.5 pr-3 text-slate-400 whitespace-nowrap">{tier.winners}</td>
+                    <td className="py-3.5 pr-3 font-mono tabular-nums">₦{tier.prize}</td>
                     <td className="py-3.5 text-right font-mono tabular-nums">₦{tier.total}</td>
                   </tr>
                 ))}
                 <tr className="font-bold text-white">
-                  <th scope="row" className="py-3.5 pr-4 text-left">
+                  <th scope="row" className="py-3.5 pr-3 text-left">
                     Total
                   </th>
-                  <td className="py-3.5 pr-4 text-slate-400">{dynamicTotalWinners} Winners</td>
-                  <td className="py-3.5 pr-4" />
+                  <td className="py-3.5 pr-3 text-slate-400">{dynamicTotalWinners} Winners</td>
+                  <td className="py-3.5 pr-3" />
                   <td className="py-3.5 text-right font-mono text-accent tabular-nums">
                     ₦{dynamicTotalPool.toLocaleString()}
                   </td>

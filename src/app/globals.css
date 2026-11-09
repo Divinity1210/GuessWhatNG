@@ -1,49 +1,48 @@
 @import "tailwindcss";
 
 /*
-  GUESS WHAT — Design System Tokens
-  Source of truth: guess-what-player-prototype/colors_and_type.css
-  Brand: Candy Apple Red → Deep Orange → Princeton Orange
-  Theme: Dark (paper/ink), glassmorphic cards, glow accents
+  GuessWhat Design System Tokens
+  Brand: Candy Apple Red -> Deep Orange -> Princeton Orange
+  Theme: Dark (paper/ink), elevated surfaces, warm brand accents
 */
 @theme {
-  /* ── Surfaces ──────────────────────────────────── */
+  /* Surfaces */
   --color-paper: #0f1117;
   --color-paper-2: #151925;
   --color-paper-3: #1b2030;
   --color-paper-4: #242c3f;
 
-  /* ── Text ──────────────────────────────────────── */
+  /* Text */
   --color-ink: #ffffff;
   --color-ink-2: #d5d9e6;
   --color-ink-3: #9ea6ba;
   --color-ink-muted: #778099;
 
-  /* ── Rules & Borders ───────────────────────────── */
+  /* Rules & Borders */
   --color-rule: #2a3142;
   --color-rule-2: #394158;
   --color-neutral: #697389;
 
-  /* ── Brand accent ──────────────────────────────── */
+  /* Brand accent */
   --color-accent: #f7911b;
   --color-accent-hover: #ff9f1c;
   --color-accent-muted: rgba(247, 145, 27, 0.18);
   --color-accent-2: #ff5a1f;
   --color-accent-3: #ff0400;
-  --color-accent-purple: #6c4cff;
-  --color-accent-purple-soft: rgba(108, 76, 255, 0.18);
+  --color-accent-purple: #475569;
+  --color-accent-purple-soft: rgba(71, 85, 105, 0.22);
 
-  /* ── Surface boost (glass) ─────────────────────── */
+  /* Surface boost */
   --color-surface-boost: rgba(255, 255, 255, 0.04);
 
-  /* ── Semantic ──────────────────────────────────── */
+  /* Semantic */
   --color-success: #22c55e;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-info: #3b82f6;
   --color-focus: #ffb95b;
 
-  /* ── Legacy aliases (Tailwind usage) ───────────── */
+  /* Legacy aliases (Tailwind usage) */
   --color-bg: var(--color-paper);
   --color-sidebar: var(--color-paper-2);
   --color-card: var(--color-paper-3);
@@ -53,12 +52,12 @@
   --color-brand-orange: var(--color-accent);
   --color-brand-orange-soft: var(--color-accent-hover);
 
-  /* ── Typography ────────────────────────────────── */
+  /* Typography */
   --font-display: var(--font-baloo), "Poppins", system-ui, sans-serif;
   --font-heading: "Poppins", "Inter", system-ui, sans-serif;
   --font-body: var(--font-body-face), system-ui, sans-serif;
 
-  /* ── Radii ─────────────────────────────────────── */
+  /* Radii */
   --radius-sm: 0.75rem;
   --radius-md: 1rem;
   --radius-lg: 1.25rem;
@@ -69,18 +68,52 @@
   --radius-modal: var(--radius-xl);
 }
 
-/* ── Global body ───────────────────────────────────── */
+/* Global body & mobile ergonomics */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-body);
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a,
+button,
+input,
+select,
+textarea,
+[role="button"],
+[role="tab"] {
+  touch-action: manipulation;
+}
+
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
 
-/* ── Gradients ─────────────────────────────────────── */
+/* Gradients */
 .gradient-brand {
   background-image: linear-gradient(135deg, #ff0400 0%, #ff6a1a 46%, #f7911b 100%);
 }
@@ -106,7 +139,7 @@ h1, h2, h3, h4, h5, h6 {
   color: transparent;
 }
 
-/* ── Shadows ───────────────────────────────────────── */
+/* Shadows */
 .shadow-soft {
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
 }
@@ -119,7 +152,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 18px 50px rgba(255, 92, 25, 0.18);
 }
 
-/* ── Card glass border effect ──────────────────────── */
+/* Card glass border effect */
 .card-glow {
   position: relative;
   background: var(--color-paper-2);
@@ -136,7 +169,7 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
-/* ── Gradient border wrapper ───────────────────────── */
+/* Gradient border wrapper */
 .gradient-border {
   background: linear-gradient(135deg, #ff0400 0%, #ff6a1a 46%, #f7911b 100%);
   padding: 1px;
@@ -148,7 +181,7 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: calc(var(--radius-card) - 1px);
 }
 
-/* ── Scrollbar ─────────────────────────────────────── */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -167,7 +200,7 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--color-rule-2);
 }
 
-/* ── Animations ────────────────────────────────────── */
+/* Animations */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -208,7 +241,7 @@ h1, h2, h3, h4, h5, h6 {
 .stagger > *:nth-child(7) { animation-delay: 360ms; }
 .stagger > *:nth-child(8) { animation-delay: 420ms; }
 
-/* ── Native Modal Dialog Top-Layer & Scroll Containment ── */
+/* Native Modal Dialog Top-Layer & Scroll Containment */
 dialog:modal {
   overscroll-behavior: contain;
 }
@@ -289,7 +322,7 @@ dialog.gw-session-results-dialog::backdrop {
   animation: gw-bar-grow 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* ── Reduced motion ────────────────────────────────── */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   dialog.gw-session-results-dialog {
     transform: none;

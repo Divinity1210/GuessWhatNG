@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Guess What — Think & Win",
-    short_name: "Guess What",
+    name: "GuessWhat | Predict the Crowd & Win",
+    short_name: "GuessWhat",
     description:
-      "The social prediction game. Guess what most players will pick, climb the leaderboard, and win rewards.",
+      "Live social prediction rounds across Nigeria. Pick what most players choose, climb the standings, and win cash prizes.",
     start_url: "/",
     display: "standalone",
     background_color: "#0f1117",

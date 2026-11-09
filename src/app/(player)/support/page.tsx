@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Button, Badge } from "@/components/ui";
-import { HelpCircleIcon, StarIcon } from "@/components/ui/Icons";
+import {
+  HelpCircleIcon,
+  StarIcon,
+  PlusIcon,
+  CloseIcon,
+} from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   getMyTickets,
@@ -86,7 +91,7 @@ export default function SupportPage() {
       setShowNew(false);
       setSubmitBanner(
         category === "feedback"
-          ? "Thank you! Your gameplay feedback has been submitted."
+          ? "Thank you. Your gameplay feedback has been submitted."
           : "Your customer support ticket has been created.",
       );
       const t = await getMyTickets(user?.id ?? "");
@@ -119,7 +124,7 @@ export default function SupportPage() {
   };
 
   const inputClass =
-    "w-full rounded-xl border border-white/15 bg-[#07090e] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none";
+    "min-h-11 w-full rounded-xl border border-white/15 bg-[#07090e] px-3.5 py-2.5 text-base sm:text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none";
 
   if (loading) {
     return (
@@ -139,18 +144,18 @@ export default function SupportPage() {
   const activeTicketObj = tickets.find((t) => t.id === selectedTicket);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-white">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-white">
             Support &amp; Gameplay Feedback
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Submit a customer support ticket or share gameplay feedback with the Guess What team.
+            Submit a support ticket or share gameplay feedback with the GuessWhat team.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex items-center gap-2">
           <Button
             size="sm"
             onClick={() => {
@@ -158,7 +163,8 @@ export default function SupportPage() {
               setShowNew(true);
             }}
           >
-            + Support Ticket
+            <PlusIcon className="size-3.5 mr-1.5" />
+            Support Ticket
           </Button>
           <Button
             size="sm"
@@ -168,7 +174,8 @@ export default function SupportPage() {
               setShowNew(true);
             }}
           >
-            ★ Gameplay Feedback
+            <StarIcon className="size-3.5 mr-1.5 text-amber-400" />
+            Feedback
           </Button>
         </div>
       </div>
@@ -176,33 +183,34 @@ export default function SupportPage() {
       {submitBanner && (
         <div
           role="status"
-          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 flex items-center justify-between"
+          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 flex items-center justify-between gap-3"
         >
           <span>{submitBanner}</span>
           <button
             type="button"
+            aria-label="Dismiss alert"
             onClick={() => setSubmitBanner(null)}
-            className="text-xs text-emerald-200 hover:text-white"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-emerald-200 hover:bg-white/10 hover:text-white"
           >
-            ✕
+            <CloseIcon className="size-4" />
           </button>
         </div>
       )}
 
-      {/* ── New ticket / feedback form ── */}
+      {/* New ticket / feedback form */}
       {showNew && (
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-lg font-bold text-white">
+            <h2 className="font-display text-base sm:text-lg font-bold text-white">
               {category === "feedback"
                 ? "Submit Gameplay Feedback"
-                : "Create Customer Support Ticket"}
+                : "Create Support Ticket"}
             </h2>
             <div className="inline-flex rounded-xl border border-white/10 bg-[#07090e] p-1">
               <button
                 type="button"
                 onClick={() => setCategory("support")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`min-h-9 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                   category === "support"
                     ? "bg-accent text-white"
                     : "text-slate-400 hover:text-white"
@@ -213,7 +221,7 @@ export default function SupportPage() {
               <button
                 type="button"
                 onClick={() => setCategory("feedback")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`min-h-9 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                   category === "feedback"
                     ? "bg-accent text-white"
                     : "text-slate-400 hover:text-white"
@@ -236,7 +244,7 @@ export default function SupportPage() {
                       key={star}
                       type="button"
                       onClick={() => setRating(star)}
-                      className={`inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-bold transition-colors ${
+                      className={`inline-flex min-h-10 items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-bold transition-colors ${
                         rating >= star
                           ? "border-amber-400/50 bg-amber-400/15 text-amber-300"
                           : "border-white/10 bg-white/[0.02] text-slate-500"
@@ -276,7 +284,7 @@ export default function SupportPage() {
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={
                   category === "feedback"
-                    ? "Tell us what you love or what we should improve..."
+                    ? "Tell us what works well or what we should improve..."
                     : "Describe your issue in detail..."
                 }
                 required
@@ -284,8 +292,8 @@ export default function SupportPage() {
                 className={inputClass}
               />
             </div>
-            <div className="flex gap-3">
-              <Button type="submit" disabled={creating}>
+            <div className="flex flex-wrap gap-2.5">
+              <Button type="submit" disabled={creating} className="w-full sm:w-auto">
                 {creating
                   ? "Submitting..."
                   : category === "feedback"
@@ -296,6 +304,7 @@ export default function SupportPage() {
                 type="button"
                 variant="ghost"
                 onClick={() => setShowNew(false)}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -304,8 +313,8 @@ export default function SupportPage() {
         </section>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* ── Ticket list ── */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {/* Ticket list */}
         <section className="lg:col-span-1 space-y-2">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
             Your Tickets &amp; Feedback ({tickets.length})
@@ -319,7 +328,7 @@ export default function SupportPage() {
                   setSelectedTicket(t.id);
                   setShowNew(false);
                 }}
-                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all ${
+                className={`min-h-14 w-full text-left rounded-xl border px-4 py-3 transition-all ${
                   selectedTicket === t.id
                     ? "border-accent bg-accent/10"
                     : "border-white/10 bg-[#0d111c] hover:border-white/20"
@@ -342,7 +351,7 @@ export default function SupportPage() {
               </button>
             ))
           ) : (
-            <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-8 text-center">
+            <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 text-center">
               <p className="text-sm text-slate-400">
                 No tickets or feedback submitted yet.
               </p>
@@ -350,17 +359,17 @@ export default function SupportPage() {
           )}
         </section>
 
-        {/* ── Conversation ── */}
-        <section className="lg:col-span-2 rounded-2xl border border-white/10 bg-[#0d111c] p-6">
+        {/* Conversation */}
+        <section className="lg:col-span-2 rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
           {selectedTicket ? (
             <>
-              <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
-                <div>
-                  <h2 className="font-display text-lg font-bold text-white">
+              <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4 mb-4">
+                <div className="min-w-0">
+                  <h2 className="font-display text-base sm:text-lg font-bold text-white break-words">
                     {activeTicketObj?.subject ?? "Conversation"}
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Replies from Admin Support also trigger an alert in your Player Inbox.
+                    Replies from Support also appear in your Inbox.
                   </p>
                 </div>
                 {activeTicketObj && (
@@ -381,28 +390,28 @@ export default function SupportPage() {
                     return (
                       <div
                         key={msg.id}
-                        className={`rounded-xl px-4 py-3 ${
+                        className={`rounded-xl px-3.5 py-3 ${
                           isMe
-                            ? "bg-accent/15 border border-accent/30 ml-6"
-                            : "bg-white/[0.04] border border-white/10 mr-6"
+                            ? "bg-accent/15 border border-accent/30 ml-4 sm:ml-8"
+                            : "bg-white/[0.04] border border-white/10 mr-4 sm:mr-8"
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between gap-2 mb-1">
                           <p className="text-xs font-semibold text-white">
                             {isAdminReply
-                              ? "Guess What Support Team"
+                              ? "GuessWhat Support"
                               : isMe
                               ? "You"
                               : msg.profiles?.username ?? "Player"}
                           </p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-[11px] tabular-nums text-slate-400">
                             {new Date(msg.created_at).toLocaleString("en-NG", {
                               dateStyle: "short",
                               timeStyle: "short",
                             })}
                           </p>
                         </div>
-                        <p className="text-sm text-slate-200 whitespace-pre-line">
+                        <p className="text-sm text-slate-200 whitespace-pre-line break-words">
                           {msg.body}
                         </p>
                       </div>
@@ -415,24 +424,24 @@ export default function SupportPage() {
                 )}
               </div>
 
-              <form className="mt-4 flex gap-2" onSubmit={handleReply}>
+              <form className="mt-4 flex items-center gap-2" onSubmit={handleReply}>
                 <input
                   type="text"
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
-                  placeholder="Type a follow-up message..."
+                  placeholder="Write a follow-up message..."
                   className={`flex-1 ${inputClass}`}
                 />
-                <Button type="submit" size="sm" disabled={sending}>
+                <Button type="submit" size="md" disabled={sending}>
                   {sending ? "..." : "Send"}
                 </Button>
               </form>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center py-14 text-center">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
               <HelpCircleIcon className="size-10 text-slate-500 mb-3" />
               <p className="text-sm text-slate-400">
-                Select a ticket from the list or create a new support request / feedback above.
+                Select a ticket from the list or open a new support ticket above.
               </p>
             </div>
           )}

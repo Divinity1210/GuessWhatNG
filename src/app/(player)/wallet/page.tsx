@@ -77,7 +77,7 @@ export default function WalletPage() {
         </div>
       </div>
 
-      {/* ── Balance cards ── */}
+      {/* Balance cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
           label="Coin Balance"
@@ -100,23 +100,23 @@ export default function WalletPage() {
         />
       </div>
 
-      {/* ── Quick actions ── */}
-      <div className="flex flex-wrap gap-3">
-        <Button className="inline-flex items-center gap-2" onClick={() => setShowTopup(true)}>
+      {/* Quick actions */}
+      <div className="grid grid-cols-1 gap-2.5 sm:flex sm:flex-wrap sm:gap-3">
+        <Button className="inline-flex w-full sm:w-auto items-center justify-center gap-2 min-h-11" onClick={() => setShowTopup(true)}>
           <CoinsIcon className="size-4" />
           <span>Buy Coins (Airtime VAS)</span>
         </Button>
         <Button
           variant="secondary"
-          className="inline-flex items-center gap-2"
+          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 min-h-11"
           onClick={() => setShowWithdraw(true)}
         >
           <span>Withdraw to Bank / OPay</span>
         </Button>
       </div>
 
-      {/* ── Transaction history ── */}
-      <section className="rounded-card border border-rule bg-paper-2 p-6">
+      {/* Transaction history */}
+      <section className="rounded-card border border-rule bg-paper-2 p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="font-display text-lg font-bold">Transaction History</h2>
           <TabGroup
@@ -137,18 +137,18 @@ export default function WalletPage() {
               return (
                 <div
                   key={txn.id}
-                  className="flex items-center justify-between rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-4 py-3"
+                  className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-rule/50 bg-paper-3 px-3.5 py-3 sm:px-4"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div
-                      className={`grid size-9 place-items-center rounded-full text-xs font-bold ${
+                      className={`grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold ${
                         isCredit ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
                       }`}
                     >
-                      {isCredit ? "+" : "−"}
+                      {isCredit ? "+" : "-"}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-ink">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">
                         {txn.note || TXN_LABELS[txn.type] || txn.type}
                       </p>
                       <p className="text-xs text-ink-muted">
@@ -162,10 +162,10 @@ export default function WalletPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="shrink-0 text-right">
                     {txn.coin_delta !== 0 && (
                       <p
-                        className={`text-sm font-semibold ${
+                        className={`text-sm font-semibold tabular-nums ${
                           isCredit ? "text-green-400" : "text-red-400"
                         }`}
                       >
@@ -174,7 +174,7 @@ export default function WalletPage() {
                       </p>
                     )}
                     {txn.reward_delta !== 0 && (
-                      <p className={`text-xs ${isCredit ? "text-green-400" : "text-red-400"}`}>
+                      <p className={`text-xs tabular-nums ${isCredit ? "text-green-400" : "text-red-400"}`}>
                         {isCredit ? "+" : ""}
                         {formatNaira(txn.reward_delta)}
                       </p>
@@ -186,7 +186,7 @@ export default function WalletPage() {
           </div>
         ) : (
           <p className="mt-8 text-center text-sm text-ink-muted">
-            No transactions yet. Top up coins with airtime or play the Daily Street Heat poll!
+            No transactions yet. Top up coins with airtime or join a live session.
           </p>
         )}
       </section>

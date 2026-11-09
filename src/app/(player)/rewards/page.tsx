@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, StatCard, EmptyState } from "@/components/ui";
-import { GiftIcon, TrophyIcon } from "@/components/ui/Icons";
+import { GiftIcon, TrophyIcon, ExternalLinkIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getUserWallet, getWalletTransactions, type WalletRow, type WalletTxnRow } from "@/lib/supabase/queries";
 import { WithdrawalModal } from "@/components/viral/WalletModals";
@@ -67,7 +67,7 @@ export default function RewardsPage() {
         </p>
       </div>
 
-      {/* ── Summary cards ── */}
+      {/* Summary cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
           label="Total Cash Earned"
@@ -90,20 +90,20 @@ export default function RewardsPage() {
         />
       </div>
 
-      {/* ── Withdrawal action ── */}
-      <div className="flex flex-wrap gap-3">
-        <Button onClick={() => setShowWithdraw(true)}>
+      {/* Withdrawal action */}
+      <div className="grid grid-cols-1 gap-2.5 sm:flex sm:flex-wrap sm:gap-3">
+        <Button className="w-full sm:w-auto min-h-11 justify-center" onClick={() => setShowWithdraw(true)}>
           {(wallet?.withdrawable_balance ?? 0) > 0
             ? `Withdraw ${formatNaira(wallet!.withdrawable_balance)} to Bank / OPay`
             : "Request Bank / OPay Payout"}
         </Button>
-        <Button variant="secondary" href="/play">
+        <Button variant="secondary" className="w-full sm:w-auto min-h-11 justify-center" href="/play">
           Play Session to Win Cash
         </Button>
       </div>
 
-      {/* ── Reward history ── */}
-      <section className="rounded-card border border-rule bg-paper-2 p-6">
+      {/* Reward history */}
+      <section className="rounded-card border border-rule bg-paper-2 p-4 sm:p-6">
         <h2 className="font-display text-lg font-bold">Reward &amp; Bonus History</h2>
         {rewards.length > 0 ? (
           <div className="mt-4 space-y-2">
@@ -120,7 +120,7 @@ export default function RewardsPage() {
                         isCredit ? "bg-green-500/15 text-green-400" : "bg-amber-500/15 text-amber-400"
                       }`}
                     >
-                      {isCredit ? "+" : "↗"}
+                      {isCredit ? "+" : <ExternalLinkIcon className="size-3.5" />}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-ink">

@@ -1,4 +1,4 @@
--- GUESS WHAT — Viral & Go-To-Market Features Migration
+-- GuessWhat: Viral and Go-To-Market Features Migration
 -- Adds:
 --   1. Welcome 100 coins + Referral +50/+50 coins on signup
 --   2. Turf (State/Campus/Country squad) & Daily Streak tracking on profiles

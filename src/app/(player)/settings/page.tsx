@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
+import {
+  VolumeIcon,
+  VolumeMuteIcon,
+  MusicIcon,
+  ChevronRightIcon,
+} from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { updateProfile } from "@/lib/supabase/queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -25,7 +31,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Audio controls (Pages 22, 32, 33)
+  // Audio controls
   const [sfxEnabled, setSfxEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(true);
 
@@ -39,7 +45,6 @@ export default function SettingsPage() {
     return () => window.removeEventListener("gw-audio-change", syncAudio);
   }, []);
 
-  // Sync profile once loaded
   useEffect(() => {
     if (profile) {
       setUsername(profile.username ?? "");
@@ -138,21 +143,21 @@ export default function SettingsPage() {
   };
 
   const inputClass =
-    "w-full rounded-xl border border-white/15 bg-[#07090e] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none";
+    "min-h-11 w-full rounded-xl border border-white/15 bg-[#07090e] px-3.5 py-2.5 text-base sm:text-sm text-white placeholder:text-slate-500 focus:border-accent focus:outline-none";
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-2xl">
+    <div className="space-y-5 animate-fade-in max-w-2xl">
       <div>
-        <h1 className="font-display text-2xl font-bold text-white">Settings</h1>
+        <h1 className="font-display text-xl sm:text-2xl font-bold text-white">Settings</h1>
         <p className="text-xs text-slate-400 mt-0.5">
           Manage your game audio, account profile, security, and legal policies.
         </p>
       </div>
 
-      {/* ── Game Audio & Sound Controls (Pages 22, 32, 33) ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
+      {/* Game Audio & Sound Controls */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
         <div>
-          <h2 className="font-display text-lg font-bold text-white">
+          <h2 className="font-display text-base sm:text-lg font-bold text-white">
             Sound &amp; Music
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -161,8 +166,8 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3.5">
-            <div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3.5">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-white">
                 Sound Effects (SFX)
               </p>
@@ -175,23 +180,33 @@ export default function SettingsPage() {
               role="switch"
               aria-checked={sfxEnabled}
               onClick={handleToggleSfx}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+              className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
                 sfxEnabled
                   ? "bg-emerald-500/20 border border-emerald-400/40 text-emerald-300"
                   : "bg-white/5 border border-white/10 text-slate-400"
               }`}
             >
-              {sfxEnabled ? "🔊 SFX On" : "🔇 SFX Off"}
+              {sfxEnabled ? (
+                <>
+                  <VolumeIcon className="size-4" />
+                  <span>SFX On</span>
+                </>
+              ) : (
+                <>
+                  <VolumeMuteIcon className="size-4" />
+                  <span>SFX Off</span>
+                </>
+              )}
             </button>
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3.5">
-            <div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3.5">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-white">
                 Background Music (BGM)
               </p>
               <p className="text-xs text-slate-400">
-                Signature Guess What Afrobeats/Kalimba groove during gameplay
+                GuessWhat Afrobeats and Kalimba groove during gameplay
               </p>
             </div>
             <button
@@ -199,72 +214,48 @@ export default function SettingsPage() {
               role="switch"
               aria-checked={musicEnabled}
               onClick={handleToggleMusic}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+              className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
                 musicEnabled
                   ? "bg-accent/20 border border-accent/40 text-accent"
                   : "bg-white/5 border border-white/10 text-slate-400"
               }`}
             >
-              {musicEnabled ? "🎵 Music On" : "🎵 Music Off"}
+              <MusicIcon className="size-4" />
+              <span>{musicEnabled ? "Music On" : "Music Off"}</span>
             </button>
           </div>
         </div>
       </section>
 
-      {/* ── Quick Navigation & Legal Links (Pages 22, 32, 33) ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
-        <h2 className="font-display text-lg font-bold text-white">
+      {/* Quick Navigation & Legal Links */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
+        <h2 className="font-display text-base sm:text-lg font-bold text-white">
           Player Options &amp; Legal
         </h2>
         <div className="grid gap-2.5 sm:grid-cols-2">
-          <Link
-            href="/profile"
-            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-200 hover:border-accent/40 hover:text-white transition-colors"
-          >
-            <span>My Profile &amp; Stats</span>
-            <span className="text-accent">→</span>
-          </Link>
-          <Link
-            href="/inbox"
-            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-200 hover:border-accent/40 hover:text-white transition-colors"
-          >
-            <span>Player Inbox</span>
-            <span className="text-accent">→</span>
-          </Link>
-          <Link
-            href="/how-to-play"
-            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-200 hover:border-accent/40 hover:text-white transition-colors"
-          >
-            <span>How to Play</span>
-            <span className="text-accent">→</span>
-          </Link>
-          <Link
-            href="/support"
-            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-200 hover:border-accent/40 hover:text-white transition-colors"
-          >
-            <span>Customer Support &amp; Feedback</span>
-            <span className="text-accent">→</span>
-          </Link>
-          <Link
-            href="/terms"
-            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-200 hover:border-accent/40 hover:text-white transition-colors"
-          >
-            <span>Terms &amp; Conditions</span>
-            <span className="text-accent">→</span>
-          </Link>
-          <Link
-            href="/privacy"
-            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-200 hover:border-accent/40 hover:text-white transition-colors"
-          >
-            <span>Privacy Policy</span>
-            <span className="text-accent">→</span>
-          </Link>
+          {[
+            { href: "/profile", label: "My Profile & Payout Bank" },
+            { href: "/inbox", label: "Player Inbox" },
+            { href: "/how-to-play", label: "How to Play" },
+            { href: "/support", label: "Support & Feedback" },
+            { href: "/terms", label: "Terms & Conditions" },
+            { href: "/privacy", label: "Privacy Policy" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex min-h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-200 hover:border-accent/40 hover:text-white transition-colors"
+            >
+              <span>{item.label}</span>
+              <ChevronRightIcon className="size-4 shrink-0 text-slate-400" />
+            </Link>
+          ))}
         </div>
       </section>
 
-      {/* ── Profile settings ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
-        <h2 className="font-display text-lg font-bold text-white">Profile Details</h2>
+      {/* Profile settings */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
+        <h2 className="font-display text-base sm:text-lg font-bold text-white">Profile Details</h2>
         <p className="mt-1 text-xs text-slate-400">
           Update your display name and username.
         </p>
@@ -283,7 +274,7 @@ export default function SettingsPage() {
             aria-live="polite"
             className="mt-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400"
           >
-            Profile updated successfully!
+            Profile updated.
           </div>
         )}
 
@@ -342,15 +333,15 @@ export default function SettingsPage() {
               className={`${inputClass} opacity-50 cursor-not-allowed`}
             />
           </div>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving} className="w-full sm:w-auto">
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </form>
       </section>
 
-      {/* ── Password change ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
-        <h2 className="font-display text-lg font-bold text-white">Change Password</h2>
+      {/* Password change */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
+        <h2 className="font-display text-base sm:text-lg font-bold text-white">Change Password</h2>
         <p className="mt-1 text-xs text-slate-400">Update your account password.</p>
 
         {pwError && (
@@ -367,7 +358,7 @@ export default function SettingsPage() {
             aria-live="polite"
             className="mt-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400"
           >
-            Password changed successfully!
+            Password changed.
           </div>
         )}
 
@@ -386,7 +377,7 @@ export default function SettingsPage() {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Min 8 characters"
+              placeholder="Minimum 8 characters"
               className={inputClass}
             />
           </div>
@@ -408,20 +399,20 @@ export default function SettingsPage() {
               className={inputClass}
             />
           </div>
-          <Button type="submit" variant="secondary" disabled={pwSaving}>
+          <Button type="submit" variant="secondary" disabled={pwSaving} className="w-full sm:w-auto">
             {pwSaving ? "Changing..." : "Change Password"}
           </Button>
         </form>
       </section>
 
-      {/* ── Danger zone ── */}
-      <section className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
-        <h2 className="font-display text-lg font-bold text-red-400">Account Session</h2>
+      {/* Account Session */}
+      <section className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 sm:p-6">
+        <h2 className="font-display text-base sm:text-lg font-bold text-red-400">Account Session</h2>
         <p className="mt-1 text-xs text-slate-400">
-          Sign out of your active player session.
+          Sign out of your active player session on this device.
         </p>
-        <div className="mt-4 flex gap-3">
-          <Button variant="danger" onClick={handleSignOut}>
+        <div className="mt-4">
+          <Button variant="danger" onClick={handleSignOut} className="w-full sm:w-auto">
             Sign Out
           </Button>
         </div>

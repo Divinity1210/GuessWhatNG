@@ -15,8 +15,8 @@ const sizeMap = {
 
 const colors = [
   "from-accent-3 to-accent",
-  "from-accent-purple to-info",
-  "from-success to-info",
+  "from-slate-600 to-slate-800",
+  "from-emerald-600 to-teal-700",
   "from-warning to-accent",
   "from-danger to-accent-2",
 ];

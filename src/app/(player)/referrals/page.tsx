@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { Button, Badge } from "@/components/ui";
-import { UsersIcon, TrophyIcon, ZapIcon } from "@/components/ui/Icons";
+import {
+  UsersIcon,
+  TrophyIcon,
+  ZapIcon,
+  ShareIcon,
+  ExternalLinkIcon,
+  CopyIcon,
+  CheckIcon,
+} from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getReferredUsers, type ReferralRow } from "@/lib/supabase/queries";
 import {
@@ -68,7 +76,7 @@ export default function ReferralsPage() {
   const inviteLink = `${origin}/sign-up?ref=${encodeURIComponent(refCode)}`;
   const turfInfo =
     TURF_SQUADS.find((t) => t.id === (profile?.turf || "lagos")) ?? TURF_SQUADS[0];
-  const turfLabel = `${turfInfo.emoji} ${turfInfo.name}`;
+  const turfLabel = turfInfo.name;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(refCode);
@@ -86,14 +94,14 @@ export default function ReferralsPage() {
     username: profile?.username || "Player",
     referralCode: refCode,
     turf: turfLabel,
-    challengeQuestion: "Predict what most players will pick across 10 questions & share ₦500,000!",
+    challengeQuestion: "Predict what most players will pick across 10 questions and share ₦500,000!",
     prizePool: 500000,
   });
 
   const twitterUrl = buildTwitterShareUrl({
     referralCode: refCode,
     turf: turfLabel,
-    challengeQuestion: "Predict what most players will pick across 10 questions & share ₦500,000!",
+    challengeQuestion: "Predict what most players will pick across 10 questions and share ₦500,000!",
   });
 
   const handleDownloadInviteCard = () => {
@@ -102,12 +110,12 @@ export default function ReferralsPage() {
       const dataUrl = generateBragCardDataUrl({
         username: profile?.username || "Player",
         turf: turfLabel,
-        sessionName: "Guess What Live Session",
+        sessionName: "GuessWhat Live Session",
         prizePool: "₦500,000",
         timeSeconds: "1.4",
         answeredCount: 10,
         used2xLock: false,
-        challengeQuestion: "Predict what most players will pick & win cash prizes!",
+        challengeQuestion: "Predict what most players will pick and win cash prizes!",
         referralCode: refCode,
       });
       if (dataUrl) {
@@ -130,14 +138,14 @@ export default function ReferralsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-white">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-white">
             Referrals &amp; Monthly Leaderboard
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Invite friends with your unique referral code or signup link. Top monthly referrers win special rewards!
+            Invite friends with your referral code or signup link. Top monthly referrers win rewards.
           </p>
         </div>
         <Badge variant="active">
@@ -145,41 +153,49 @@ export default function ReferralsPage() {
         </Badge>
       </div>
 
-      {/* ── Referral Command Card (Pages 22 & 23) ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
-              <UsersIcon className="size-5" />
-            </div>
-            <div>
-              <h2 className="font-display text-lg font-bold text-white">
-                Share Your Referral Code
-              </h2>
-              <p className="text-xs text-slate-400">
-                When friends sign up using your code or link, they are automatically attributed to you.
-              </p>
-            </div>
+      {/* Referral Command Card */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+            <UsersIcon className="size-5" />
+          </div>
+          <div>
+            <h2 className="font-display text-base sm:text-lg font-bold text-white">
+              Share Your Referral Code
+            </h2>
+            <p className="text-xs text-slate-400">
+              Friends who sign up with your code or link are automatically credited to your rank.
+            </p>
           </div>
         </div>
 
         {/* Code & Auto-Link Boxes */}
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="flex items-center justify-between rounded-xl border border-accent/30 bg-[#07090e] px-4 py-3">
-            <div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-[#07090e] px-4 py-3">
+            <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Your Referral Code
               </p>
-              <p className="font-display text-xl font-bold tracking-[0.18em] text-accent">
+              <p className="font-display text-lg sm:text-xl font-bold tracking-[0.16em] text-accent truncate">
                 {refCode}
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={handleCopyCode}>
-              {copiedCode ? "Copied!" : "Copy Code"}
+              {copiedCode ? (
+                <>
+                  <CheckIcon className="size-3.5 mr-1.5 text-emerald-400" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <CopyIcon className="size-3.5 mr-1.5" />
+                  Copy Code
+                </>
+              )}
             </Button>
           </div>
 
-          <div className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#07090e] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#07090e] px-4 py-3">
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 1-Click Referral Signup Link
@@ -187,64 +203,115 @@ export default function ReferralsPage() {
               <p className="truncate font-mono text-xs text-slate-300">{inviteLink}</p>
             </div>
             <Button variant="secondary" size="sm" onClick={handleCopyLink}>
-              {copiedLink ? "Copied!" : "Copy Link"}
+              {copiedLink ? (
+                <>
+                  <CheckIcon className="size-3.5 mr-1.5 text-emerald-400" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <CopyIcon className="size-3.5 mr-1.5" />
+                  Copy Link
+                </>
+              )}
             </Button>
           </div>
         </div>
 
         {/* 1-Tap Viral Share Buttons */}
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-3">
           <a
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-[#07130a] shadow-sm transition-transform hover:scale-[1.01]"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-[#07130a] shadow-sm transition-transform hover:scale-[1.01]"
           >
-            <span>📲</span> Share to WhatsApp
+            <ShareIcon className="size-4 shrink-0" />
+            <span>Share on WhatsApp</span>
           </a>
 
           <a
             href={twitterUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm font-bold text-white transition-colors hover:border-accent/40"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm font-bold text-white transition-colors hover:border-accent/40"
           >
-            <span>𝕏</span> Post on X
+            <ExternalLinkIcon className="size-4 shrink-0" />
+            <span>Post on X</span>
           </a>
 
           <button
             type="button"
             onClick={handleDownloadInviteCard}
             disabled={downloadingCard}
-            className="flex items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/15 px-4 py-3 text-sm font-bold text-accent transition-colors hover:bg-accent/25 disabled:opacity-50"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/15 px-4 py-3 text-sm font-bold text-accent transition-colors hover:bg-accent/25 disabled:opacity-50"
           >
-            <ZapIcon className="size-4" />
-            {downloadingCard ? "Generating PNG..." : "Download Invite Flyer"}
+            <ZapIcon className="size-4 shrink-0" />
+            <span>{downloadingCard ? "Generating PNG..." : "Download Invite Flyer"}</span>
           </button>
         </div>
       </section>
 
-      {/* ── Monthly Referral Leaderboard (Product Document Pages 22, 23, 42) ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <TrophyIcon className="size-5 text-amber-400" />
-            <div>
-              <h2 className="font-display text-lg font-bold text-white">
-                Monthly Referral Leaderboard
-              </h2>
-              <p className="text-xs text-slate-400">
-                Top players with the highest number of verified referrals this month.
-              </p>
-            </div>
+      {/* Monthly Referral Leaderboard */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
+        <div className="flex items-center gap-2.5">
+          <TrophyIcon className="size-5 shrink-0 text-amber-400" />
+          <div>
+            <h2 className="font-display text-base sm:text-lg font-bold text-white">
+              Monthly Referral Leaderboard
+            </h2>
+            <p className="text-xs text-slate-400">
+              Top players with the highest verified referrals this month.
+            </p>
           </div>
         </div>
 
+        {/* Mobile Card Rows (< sm) */}
+        <div className="space-y-2 sm:hidden">
+          {monthlyLeaderboard.map((row) => {
+            const isMe =
+              row.userId === user?.id ||
+              row.username.toLowerCase() === (profile?.username ?? "").toLowerCase();
+            return (
+              <div
+                key={row.userId}
+                className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${
+                  isMe
+                    ? "border-accent/40 bg-accent/10"
+                    : "border-white/[0.07] bg-[#080b12]"
+                }`}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="font-display text-sm font-bold tabular-nums text-amber-300 w-7 shrink-0">
+                    #{row.rank}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">
+                      {row.username}
+                      {isMe ? " (You)" : ""}
+                    </p>
+                    <p className="font-mono text-[11px] text-slate-400">
+                      Code: {row.referralCode}
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-mono text-sm font-bold tabular-nums text-white">
+                    {row.referralsCount}
+                  </p>
+                  <p className="text-[10px] text-slate-400">referrals</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop Table (>= sm) */}
         <div
           tabIndex={0}
           role="region"
           aria-label="Monthly referral leaderboard"
-          className="overflow-x-auto"
+          className="hidden sm:block overflow-x-auto"
         >
           <table className="w-full text-sm">
             <thead>
@@ -267,7 +334,7 @@ export default function ReferralsPage() {
                       isMe ? "text-accent font-semibold" : "text-slate-200"
                     }`}
                   >
-                    <td className="py-3 pr-4 font-display font-bold">
+                    <td className="py-3 pr-4 font-display font-bold tabular-nums">
                       #{row.rank}
                     </td>
                     <td className="py-3 pr-4">
@@ -288,9 +355,9 @@ export default function ReferralsPage() {
         </div>
       </section>
 
-      {/* ── Your Referred Players List ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
-        <h2 className="font-display text-lg font-bold text-white">
+      {/* Referred Players List */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
+        <h2 className="font-display text-base sm:text-lg font-bold text-white">
           Players You Referred ({referrals.length})
         </h2>
         {referrals.length > 0 ? (
@@ -298,20 +365,20 @@ export default function ReferralsPage() {
             {referrals.map((ref) => (
               <div
                 key={ref.id}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-accent/20 font-display text-xs font-bold text-accent">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent/20 font-display text-xs font-bold text-accent">
                     {ref.username.slice(0, 2).toUpperCase()}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-white">{ref.username}</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white">{ref.username}</p>
                     <p className="text-xs text-slate-400">
                       Joined {new Date(ref.created_at).toLocaleDateString("en-NG")}
                     </p>
                   </div>
                 </div>
-                <Badge variant="active">Verified Signup</Badge>
+                <Badge variant="active">Verified</Badge>
               </div>
             ))}
           </div>

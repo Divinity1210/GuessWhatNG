@@ -51,7 +51,7 @@ const BASS_STEPS: number[] = [
 // Addictive Kalimba / Marimba Pentatonic Hook (64 steps; 0 = rest, >0 = MIDI note)
 // Uses A minor / C major pentatonic (C5=72, D5=74, E5=76, G5=79, A5=81, C6=84)
 const MELODY_STEPS: number[] = [
-  // Bar 1: Call phrase — bright, warm syncopated kalimba motif
+  // Bar 1: Call phrase, bright syncopated kalimba motif
   76, 0, 79, 0, 81, 0, 79, 76, 0, 74, 0, 72, 0, 74, 76, 0,
   // Bar 2: Rising response
   79, 0, 81, 0, 84, 0, 81, 79, 0, 76, 0, 74, 0, 76, 74, 0,

@@ -1,7 +1,7 @@
 import { createSupabaseBrowserClient } from "./client";
 import { VIRAL_DEMO_QUESTIONS } from "@/lib/game/viral-engine";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// Types
 
 export type SessionRow = {
   id: string;
@@ -74,7 +74,7 @@ export type TicketMessageRow = {
   profiles: { username: string; role: string } | null;
 };
 
-// ─── Fallback Data (Used when remote Supabase is paused or empty) ────────────
+// Fallback data when remote Supabase is unavailable
 
 const FALLBACK_ACTIVE_SESSIONS: SessionRow[] = [
   {
@@ -201,7 +201,7 @@ const FALLBACK_LEADERBOARD: LeaderboardRow[] = [
   },
 ];
 
-// ─── Session Queries ─────────────────────────────────────────────────────────
+// Session queries
 
 export async function getActiveSessions() {
   try {
@@ -285,7 +285,7 @@ export async function getSessionById(sessionId: string) {
   return all.find((s) => s.id === sessionId) ?? FALLBACK_ACTIVE_SESSIONS[0];
 }
 
-// ─── Player Session Entries ──────────────────────────────────────────────────
+// Player session entries
 
 export async function getMyEntries(userId: string, limit = 20) {
   try {
@@ -332,7 +332,7 @@ export async function getPlayerCount(sessionId: string) {
   return 1_248;
 }
 
-// ─── Wallet ──────────────────────────────────────────────────────────────────
+// Wallet queries
 
 export async function getUserWallet(userId: string) {
   let baseCoins = 150;
@@ -402,7 +402,7 @@ export async function getWalletTransactions(userId: string, limit = 30) {
             coin_balance_after: 150,
             reward_balance_after: 12500,
             reference: "SESSION-LAGOS-ABUJA",
-            note: "Rank #2 Prize — Lagos vs Abuja Street Derby",
+            note: "Rank #2 Prize: Lagos vs Abuja Street Derby",
             created_at: new Date(Date.now() - 12 * 3600_000).toISOString(),
           },
           {
@@ -431,7 +431,7 @@ export async function getWalletTransactions(userId: string, limit = 30) {
   return defaultDemoTxns;
 }
 
-// ─── Leaderboard ─────────────────────────────────────────────────────────────
+// Leaderboard queries
 
 export async function getSessionLeaderboard(sessionId: string, limit = 20) {
   try {
@@ -470,7 +470,7 @@ export async function getLatestCompletedSessionId() {
   return FALLBACK_COMPLETED_SESSIONS[0].id;
 }
 
-// ─── Player Stats (aggregated from entries) ──────────────────────────────────
+// Aggregated player stats
 
 export async function getPlayerStats(userId: string) {
   try {
@@ -508,7 +508,7 @@ export async function getPlayerStats(userId: string) {
   };
 }
 
-// ─── Referrals ───────────────────────────────────────────────────────────────
+// Referral queries
 
 export async function getReferredUsers(userId: string) {
   try {
@@ -540,7 +540,7 @@ export async function getReferredUsers(userId: string) {
   ];
 }
 
-// ─── Support ─────────────────────────────────────────────────────────────────
+// Support queries
 
 export async function getMyTickets(userId: string) {
   try {
@@ -598,7 +598,7 @@ export async function sendTicketMessage(ticketId: string, senderId: string, body
   if (!res.ok) throw new Error(data.error || "Failed to send message");
 }
 
-// ─── Profile Update ──────────────────────────────────────────────────────────
+// Profile update
 
 export async function updateProfile(
   userId: string,
@@ -619,7 +619,7 @@ export async function updateProfile(
   }
 }
 
-// ─── Notifications ───────────────────────────────────────────────────────────
+// Notification queries
 
 export async function getUnreadNotificationCount(userId: string) {
   try {
@@ -637,7 +637,7 @@ export async function getUnreadNotificationCount(userId: string) {
   return 0;
 }
 
-// ─── Viral & Go-To-Market Helpers ────────────────────────────────────────────
+// Community and payout helpers
 
 export type CrowdBreakdownRow = {
   question_id: string;

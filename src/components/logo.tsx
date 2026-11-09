@@ -7,7 +7,7 @@ export function Logo({ href = "/" }: { href?: string }) {
       <span className="grid size-9 place-items-center rounded-full bg-[var(--color-ink)] shadow-lg shadow-[oklch(77%_0.17_70_/_0.15)] transition-transform duration-200 ease-[var(--ease-out)] group-hover:scale-105">
         <Image
           src="/logo-gw.svg"
-          alt="Guess What logomark"
+          alt="GuessWhat logomark"
           width={26}
           height={23}
           priority

@@ -25,14 +25,14 @@ export function TabGroup({ tabs, value, defaultValue, onChange, className = "" }
   }
 
   return (
-    <div className={`flex gap-2 ${className}`} role="tablist">
+    <div className={`flex gap-2 overflow-x-auto no-scrollbar ${className}`} role="tablist">
       {tabs.map((tab) => (
         <button
           key={tab.value}
           role="tab"
           aria-selected={active === tab.value}
           onClick={() => select(tab.value)}
-          className={`rounded-[var(--radius-pill)] px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
+          className={`min-h-10 shrink-0 rounded-[var(--radius-pill)] px-4 py-2 text-sm font-medium transition-all duration-200 ${
             active === tab.value
               ? "gradient-brand text-white shadow-glow"
               : "border border-rule bg-paper-3 text-ink-muted hover:text-ink hover:border-rule-2"

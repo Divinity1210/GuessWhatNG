@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   } catch {
-    // If Supabase is paused or unreachable, never throw 504 — let the request proceed
+    // If Supabase is paused or unreachable, never throw 504; let the request proceed
     return supabaseResponse;
   }
 

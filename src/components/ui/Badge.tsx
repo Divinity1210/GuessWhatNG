@@ -2,7 +2,7 @@ type BadgeVariant = "active" | "completed" | "upcoming" | "closing" | "info" | "
 
 const variantStyles: Record<BadgeVariant, string> = {
   active: "bg-success/15 text-success border-success/25",
-  completed: "bg-accent-purple-soft text-accent-purple border-accent-purple/25",
+  completed: "bg-white/[0.06] text-slate-300 border-white/15",
   upcoming: "bg-info/15 text-info border-info/25",
   closing: "bg-warning/15 text-warning border-warning/25",
   info: "bg-info/15 text-info border-info/25",

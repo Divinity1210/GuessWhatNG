@@ -34,9 +34,9 @@ const variantStyles: Record<Variant, string> = {
 };
 
 const sizeStyles: Record<Size, string> = {
-  sm: "px-3.5 py-1.5 text-sm rounded-[var(--radius-sm)]",
-  md: "px-5 py-2.5 text-sm rounded-[var(--radius-sm)] font-medium",
-  lg: "px-8 py-3.5 text-base rounded-[var(--radius-md)] font-bold font-display",
+  sm: "min-h-9 px-3.5 py-2 text-sm rounded-[var(--radius-sm)]",
+  md: "min-h-11 px-5 py-2.5 text-sm rounded-[var(--radius-sm)] font-medium",
+  lg: "min-h-12 px-7 py-3.5 text-base rounded-[var(--radius-md)] font-bold font-display",
 };
 
 export function Button({ variant = "primary", size = "md", className = "", children, ...rest }: Props) {

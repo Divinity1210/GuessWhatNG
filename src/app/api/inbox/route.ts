@@ -25,22 +25,22 @@ async function resolveUserId(
 const FALLBACK_NOTIFICATIONS = [
   {
     id: 9001,
-    title: "Guess What Live Session is Open! (₦500,000 Pool)",
-    body: "Predict the option most players will select across 10 questions. Top 36 players share ₦500,000 every 3 days!",
+    title: "GuessWhat Live Session is Open (₦500,000 Pool)",
+    body: "Predict the option most players will select across 10 questions. Top 36 players share ₦500,000 every 3 days.",
     read: false,
     created_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
   },
   {
     id: 9002,
     title: "Session Result: Lagos vs Abuja Street Derby",
-    body: "The previous session has concluded! Check the Winners Board on the Leaderboard page to see the top 36 winners.",
+    body: "The previous session has concluded. Check the Winners Board on the Leaderboard page to see the top 36 winners.",
     read: false,
     created_at: new Date(Date.now() - 14 * 3600_000).toISOString(),
   },
   {
     id: 9003,
-    title: "Welcome to Guess What!",
-    body: "Think like the crowd to climb the live leaderboard. Invite friends with your referral code to climb the Monthly Referral Leaderboard.",
+    title: "Welcome to GuessWhat",
+    body: "Predict what the crowd picks to climb the live leaderboard. Invite friends with your referral code to climb the Monthly Referral Leaderboard.",
     read: true,
     created_at: new Date(Date.now() - 48 * 3600_000).toISOString(),
   },
@@ -86,14 +86,14 @@ export async function GET(req: NextRequest) {
         .insert([
           {
             user_id: resolvedUserId,
-            title: "Guess What Live Session is Open! (₦500,000 Pool)",
-            body: "Predict the option most players will select across 10 questions. Top 36 players share ₦500,000 every 3 days!",
+            title: "GuessWhat Live Session is Open (₦500,000 Pool)",
+            body: "Predict the option most players will select across 10 questions. Top 36 players share ₦500,000 every 3 days.",
             read: false,
           },
           {
             user_id: resolvedUserId,
-            title: "Welcome to Guess What — Think & Win!",
-            body: "Your player inbox receives live session alerts, winner announcements, and support replies from the Guess What team.",
+            title: "Welcome to GuessWhat",
+            body: "Your player inbox receives live session alerts, winner announcements, mentions, and support replies from the GuessWhat team.",
             read: false,
           },
         ])

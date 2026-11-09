@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
           session_id: latestCompleted.id,
           kind: "verdict",
           category: "Session Verdict",
-          title: `${latestCompleted.name} — Official Results & Crowd Verdict`,
+          title: `${latestCompleted.name}: Official Results & Crowd Verdict`,
           body: `The clock is up on ${latestCompleted.name}! Which question surprised you the most, and who called the crowd sharpest?`,
           is_pinned: false,
         });

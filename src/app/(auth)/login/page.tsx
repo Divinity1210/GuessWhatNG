@@ -50,15 +50,15 @@ export default function LoginPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Logo */}
-      <div className="mb-8 flex justify-center">
-        <Logo size="lg" />
+      <div className="mb-6 flex justify-center">
+        <Logo size="md" />
       </div>
 
-      {/* Card */}
-      <div className="rounded-card border border-rule bg-paper-2 p-8">
-        <h1 className="font-display text-2xl font-bold text-center">Welcome Back</h1>
-        <p className="mt-2 text-sm text-ink-muted text-center">Log in to continue playing</p>
+      <div className="rounded-card border border-rule bg-paper-2 p-5 sm:p-8">
+        <h1 className="font-display text-2xl font-bold text-center">Welcome back</h1>
+        <p className="mt-1.5 text-sm text-ink-muted text-center">
+          Sign in to jump into the active session
+        </p>
 
         {error && (
           <div
@@ -69,7 +69,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
             <label
               htmlFor="login-email"
@@ -89,7 +89,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+              className="min-h-11 w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 text-base sm:text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
             />
           </div>
           <div>
@@ -109,7 +109,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 pr-11 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+                className="min-h-11 w-full rounded-[var(--radius-sm)] border border-rule bg-paper-3 px-4 py-2.5 pr-12 text-base sm:text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
               />
               <button
                 type="button"
@@ -117,7 +117,7 @@ export default function LoginPage() {
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 title={showPassword ? "Hide password" : "Show password"}
                 onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-md p-1.5 text-ink-muted transition-colors hover:bg-white/10 hover:text-white"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 grid size-9 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-white/10 hover:text-white"
               >
                 {showPassword ? (
                   <EyeOffIcon className="size-4.5" />
@@ -129,31 +129,29 @@ export default function LoginPage() {
           </div>
 
           <Button className="w-full" size="lg" type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Log In"}
+            {loading ? "Signing in..." : "Log In"}
           </Button>
         </form>
 
-        {/* Divider */}
-        <div className="my-6 flex items-center gap-3">
+        <div className="my-5 flex items-center gap-3">
           <div className="h-px flex-1 bg-rule" />
-          <span className="text-xs text-ink-muted">or jump right in</span>
+          <span className="text-xs text-ink-muted">or try a quick preview</span>
           <div className="h-px flex-1 bg-rule" />
         </div>
 
-        {/* 1-Click Live Demo Player Login */}
         <button
           type="button"
           onClick={handleDemoLogin}
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[#F7911B]/40 bg-[#F7911B]/10 px-4 py-3 text-sm font-bold text-[#F7911B] transition-colors hover:bg-[#F7911B]/20"
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[#F7911B]/35 bg-[#F7911B]/10 px-4 py-2.5 text-sm font-semibold text-[#F7911B] transition-colors hover:bg-[#F7911B]/20"
         >
           <ZapIcon className="size-4" />
-          <span>1-Click Demo Login (@naija_striker · 500 🪙)</span>
+          <span>Try Instant Demo Account</span>
         </button>
 
-        <div className="mt-6 text-center text-sm text-ink-muted">
-          Don&apos;t have an account?{" "}
-          <Link href="/sign-up" className="font-medium text-accent hover:underline">
+        <div className="mt-5 text-center text-sm text-ink-muted">
+          New to GuessWhat?{" "}
+          <Link href="/sign-up" className="font-semibold text-accent hover:underline">
             Sign up free
           </Link>
         </div>

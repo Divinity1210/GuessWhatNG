@@ -24,17 +24,17 @@ const body = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Guess What — Think & Win",
-    template: "%s · Guess What",
+    default: "GuessWhat | Predict the Crowd & Win",
+    template: "%s | GuessWhat",
   },
   description:
-    "The social prediction game. Guess what most players will pick, climb the leaderboard, and win rewards.",
-  applicationName: "Guess What",
+    "Live social prediction rounds across Nigeria. Pick what most players choose, climb the standings, and win cash prizes.",
+  applicationName: "GuessWhat",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Guess What",
+    title: "GuessWhat",
   },
 };
 
@@ -42,6 +42,7 @@ export const viewport: Viewport = {
   themeColor: "#0f1117",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         ? "Gameplay Feedback Received"
         : `Support Ticket Opened: ${rawSubject}`,
       body: isFeedback
-        ? "Thank you for your gameplay feedback! Our team reviews all player feedback to improve Guess What sessions."
+        ? "Thank you for your gameplay feedback. Our team reviews every note to improve GuessWhat sessions."
         : "Your support request has been received. You will be notified here and in Support as soon as an admin replies.",
       read: false,
     });

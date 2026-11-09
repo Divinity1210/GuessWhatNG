@@ -1,7 +1,7 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { VIRAL_DEMO_QUESTIONS } from "@/lib/game/viral-engine";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// Types
 
 export type SessionQuestion = {
   position: number;
@@ -46,7 +46,7 @@ function getFallbackUserId(): string {
   return "demo-naija-player";
 }
 
-// ─── Join Session (Free to Play + Supports Replay) ───────────────────────────
+// Join Session (Free to Play + Supports Replay)
 
 export async function joinSession(
   sessionId: string,
@@ -107,7 +107,7 @@ export async function joinSession(
   return `local-entry-${sessionId}`;
 }
 
-// ─── Fetch Session Questions ─────────────────────────────────────────────────
+// Fetch Session Questions
 
 export async function getSessionQuestions(
   sessionId: string,
@@ -195,7 +195,7 @@ export async function getSessionQuestions(
   }));
 }
 
-// ─── Submit Answer & Recalculate Live Leaderboard ────────────────────────────
+// Submit Answer & Recalculate Live Leaderboard
 
 export async function submitAnswer(
   entryId: string,
@@ -264,7 +264,7 @@ export async function submitAnswer(
   return {};
 }
 
-// ─── Check Existing Entry ────────────────────────────────────────────────────
+// Check Existing Entry
 
 export async function getExistingEntry(sessionId: string) {
   try {
@@ -287,7 +287,7 @@ export async function getExistingEntry(sessionId: string) {
   return null;
 }
 
-// ─── Get My Submitted Answers for an Entry ───────────────────────────────────
+// Get Submitted Answers for an Entry
 
 export async function getMyAnswers(entryId: string) {
   if (!entryId.startsWith("local-entry-")) {

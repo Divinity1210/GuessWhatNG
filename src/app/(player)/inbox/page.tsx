@@ -3,7 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Button, Badge } from "@/components/ui";
-import { CheckIcon, ZapIcon, TrophyIcon, HelpCircleIcon } from "@/components/ui/Icons";
+import {
+  CheckIcon,
+  ZapIcon,
+  TrophyIcon,
+  HelpCircleIcon,
+  ChevronRightIcon,
+} from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 type NotificationItem = {
@@ -104,11 +110,11 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="font-display text-2xl font-bold text-white">
+            <h1 className="font-display text-xl sm:text-2xl font-bold text-white">
               Inbox
             </h1>
             {unreadCount > 0 && (
@@ -116,7 +122,7 @@ export default function InboxPage() {
             )}
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Session announcements, winner alerts, and customer support replies.
+            Session announcements, winner alerts, mentions, and support replies.
           </p>
         </div>
 
@@ -125,7 +131,7 @@ export default function InboxPage() {
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              className={`min-h-9 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                 filter === "all"
                   ? "bg-accent text-white"
                   : "text-slate-400 hover:text-white"
@@ -136,7 +142,7 @@ export default function InboxPage() {
             <button
               type="button"
               onClick={() => setFilter("unread")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              className={`min-h-9 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                 filter === "unread"
                   ? "bg-accent text-white"
                   : "text-slate-400 hover:text-white"
@@ -154,7 +160,7 @@ export default function InboxPage() {
               disabled={markingAll}
             >
               <CheckIcon className="size-3.5 mr-1.5" />
-              {markingAll ? "Marking..." : "Mark all as read"}
+              {markingAll ? "Marking..." : "Mark all read"}
             </Button>
           )}
         </div>
@@ -178,14 +184,14 @@ export default function InboxPage() {
                 onClick={() => {
                   if (!item.read) handleMarkRead(item.id);
                 }}
-                className={`rounded-2xl border p-5 transition-all cursor-pointer ${
+                className={`rounded-2xl border p-4 sm:p-5 transition-all cursor-pointer ${
                   !item.read
                     ? "border-accent/40 bg-[#0d111c] shadow-sm"
-                    : "border-white/10 bg-[#0b0e17]/80 opacity-80 hover:opacity-100"
+                    : "border-white/10 bg-[#0b0e17]/80 opacity-85 hover:opacity-100"
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3.5 min-w-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
                     <div
                       className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${
                         isWinner
@@ -206,7 +212,7 @@ export default function InboxPage() {
 
                     <div className="space-y-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="font-display text-sm sm:text-base font-bold text-white">
+                        <h2 className="font-display text-sm sm:text-base font-bold text-white leading-snug">
                           {item.title}
                         </h2>
                         {!item.read && (
@@ -215,11 +221,11 @@ export default function InboxPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-slate-300 leading-relaxed">
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed break-words">
                         {item.body}
                       </p>
-                      <div className="flex flex-wrap items-center gap-4 pt-1.5 text-xs text-slate-500">
-                        <span>
+                      <div className="flex flex-wrap items-center gap-3 pt-1.5 text-xs text-slate-500">
+                        <span className="tabular-nums">
                           {new Date(item.created_at).toLocaleString("en-NG", {
                             dateStyle: "medium",
                             timeStyle: "short",
@@ -229,27 +235,30 @@ export default function InboxPage() {
                           <Link
                             href="/support"
                             onClick={(e) => e.stopPropagation()}
-                            className="font-semibold text-accent hover:underline"
+                            className="inline-flex items-center gap-0.5 font-semibold text-accent hover:underline"
                           >
-                            View Support Ticket →
+                            <span>View support ticket</span>
+                            <ChevronRightIcon className="size-3.5" />
                           </Link>
                         )}
                         {isWinner && (
                           <Link
                             href="/leaderboard?tab=winners"
                             onClick={(e) => e.stopPropagation()}
-                            className="font-semibold text-accent hover:underline"
+                            className="inline-flex items-center gap-0.5 font-semibold text-accent hover:underline"
                           >
-                            View Winners Board →
+                            <span>View Winners Board</span>
+                            <ChevronRightIcon className="size-3.5" />
                           </Link>
                         )}
-                        {item.title.toLowerCase().includes("tagged you") && (
+                        {lowerTitle.includes("tagged you") && (
                           <Link
                             href="/community"
                             onClick={(e) => e.stopPropagation()}
-                            className="font-semibold text-accent hover:underline"
+                            className="inline-flex items-center gap-0.5 font-semibold text-accent hover:underline"
                           >
-                            Reply in Community Arena →
+                            <span>Reply in Community Arena</span>
+                            <ChevronRightIcon className="size-3.5" />
                           </Link>
                         )}
                       </div>
@@ -263,9 +272,9 @@ export default function InboxPage() {
                         e.stopPropagation();
                         handleMarkRead(item.id);
                       }}
-                      className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white"
+                      className="min-h-8 shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white"
                     >
-                      Mark read
+                      Read
                     </button>
                   )}
                 </div>
@@ -273,12 +282,12 @@ export default function InboxPage() {
             );
           })
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-12 text-center space-y-2">
+          <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-10 text-center space-y-2">
             <p className="font-display text-base font-bold text-white">
-              {filter === "unread" ? "You're all caught up!" : "Your inbox is empty"}
+              {filter === "unread" ? "You're all caught up" : "Your inbox is empty"}
             </p>
             <p className="text-xs text-slate-400">
-              New session alerts, prize notifications, and support updates will appear here.
+              New session alerts, prize notifications, and support updates appear here.
             </p>
           </div>
         )}

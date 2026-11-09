@@ -8,6 +8,11 @@ import {
   TimerIcon,
   PlayIcon,
   ArrowRightIcon,
+  BarChartIcon,
+  LockIcon,
+  VolumeIcon,
+  VolumeMuteIcon,
+  MessageSquareIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
@@ -26,7 +31,7 @@ import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
 
 function formatCountdown(endsAt: string, nowMs: number = Date.now()): string {
   const diff = new Date(endsAt).getTime() - nowMs;
-  if (diff <= 0) return "Session ended";
+  if (diff <= 0) return "Ended";
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   const mins = Math.floor((diff % 3_600_000) / 60_000);
@@ -54,14 +59,6 @@ function formatOrdinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-function prizeForRank(rank: number): number {
-  if (rank === 1) return 100_000;
-  if (rank === 2) return 50_000;
-  if (rank === 3) return 20_000;
-  if (rank >= 4 && rank <= 36) return 10_000;
-  return 0;
-}
-
 export default function DashboardPage() {
   const { user, profile } = useAuth();
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
@@ -69,7 +66,7 @@ export default function DashboardPage() {
   const [totalGuesses, setTotalGuesses] = useState(0);
   const [previousWinners, setPreviousWinners] = useState<LeaderboardRow[]>([]);
   const [previousSessionId, setPreviousSessionId] = useState<string | null>(null);
-  const [previousSessionName, setPreviousSessionName] = useState<string>("Lagos vs Abuja Street Derby");
+  const [previousSessionName, setPreviousSessionName] = useState<string>("Previous Session");
   const [unreadInboxCount, setUnreadInboxCount] = useState(0);
   const [arenaPreview, setArenaPreview] = useState<{
     recentChat: { id: number; username: string; state: string; rank: number | null; body: string }[];
@@ -78,7 +75,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
-  // Live animation & sound states
   const [climbedMap, setClimbedMap] = useState<Record<string, number>>({});
   const [guessPulse, setGuessPulse] = useState(false);
   const [livePaused, setLivePaused] = useState(false);
@@ -220,6 +216,7 @@ export default function DashboardPage() {
             body: string;
             isSystem?: boolean;
           }[])
+            .filter((m) => !m.isSystem)
             .slice(-3)
             .reverse();
           const topPoll =
@@ -242,7 +239,6 @@ export default function DashboardPage() {
     load();
   }, [user]);
 
-  // Live Leaderboard Movement on Dashboard (polls real server data only — no simulated movements)
   useEffect(() => {
     if (!activeSession || livePaused) return;
 
@@ -282,89 +278,79 @@ export default function DashboardPage() {
     new Date(activeSession.ends_at).getTime() <= nowMs;
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* ── Primary Play Card (Product Document Page 32 & 33) ── */}
+    <div className="space-y-5 sm:space-y-7 animate-fade-in">
+      {/* Primary Session Hero Card */}
       <section
-        className={`rounded-2xl border bg-gradient-to-br from-[#0d141c] via-[#0d111c] to-[#111524] p-6 sm:p-10 space-y-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)] ${
+        className={`rounded-2xl border bg-gradient-to-br from-[#0d141c] via-[#0d111c] to-[#111524] p-4 sm:p-7 space-y-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] ${
           isSessionEnded ? "border-amber-500/25" : "border-emerald-500/20"
         }`}
       >
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-3 max-w-xl">
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               {!isSessionEnded ? (
-                <>
-                  <Badge variant="active" dot>
-                    LIVE · ONGOING SESSION
-                  </Badge>
-                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 px-3 py-0.5 text-xs font-semibold text-emerald-400">
-                    Free to Play · Open for Entries
-                  </span>
-                </>
+                <Badge variant="active" dot>
+                  Live Session · Free Entry
+                </Badge>
               ) : (
-                <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-amber-300">
-                    <span className="size-2 rounded-full bg-amber-400" />
-                    <span>🏁 SESSION ENDED · CLOSED FOR PLAY</span>
-                  </span>
-                  <span className="rounded-full bg-white/[0.05] border border-white/15 px-3 py-0.5 text-xs font-semibold text-slate-300">
-                    Official Results &amp; Winners Unlocked
-                  </span>
-                </>
+                <Badge variant="warning" dot>
+                  Session Ended · Results Ready
+                </Badge>
               )}
+
               {unreadInboxCount > 0 && (
                 <Link
                   href="/inbox"
                   className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/35 px-3 py-0.5 text-xs font-semibold text-accent hover:bg-accent/25 transition-colors"
                 >
-                  <span className="size-1.5 rounded-full bg-accent animate-pulse" />
-                  <span>{unreadInboxCount} Unread in Inbox</span>
+                  <span className="size-1.5 rounded-full bg-accent" />
+                  <span>{unreadInboxCount} new in Inbox</span>
                 </Link>
               )}
             </div>
 
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              {activeSession?.name ?? "Guess What Live Session"}
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
+              {activeSession?.name ?? "GuessWhat Live Session"}
             </h1>
 
             <p className="text-sm text-slate-300 leading-relaxed">
               {isSessionEnded ? (
                 <>
-                  This session has officially ended! Top 36 scorers share{" "}
+                  Entries are closed. Top 36 players share{" "}
                   <strong className="text-white">
                     {formatNaira(activeSession?.prize_pool ?? 500_000)}
                   </strong>
-                  . View the full 10–1 crowd vote percentages and official winners.
+                  . Check the crowd vote breakdown and verified winners.
                 </>
               ) : (
                 <>
-                  Predict the option most players will select across 10 quick questions.
-                  Top 36 scorers share{" "}
+                  Pick what most players will choose across 10 fast questions. Top 36 players share{" "}
                   <strong className="text-white">
                     {formatNaira(activeSession?.prize_pool ?? 500_000)}
                   </strong>{" "}
-                  when the countdown timer reaches zero.
+                  when the clock hits zero.
                 </>
               )}
             </p>
 
-            <div className="flex flex-wrap items-center gap-6 pt-2 text-sm">
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-slate-400">
+            {/* Mobile-First 2x2 KPI Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              <div className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   Prize Pool
                 </p>
-                <p className="font-display text-lg font-bold text-accent tabular-nums">
+                <p className="mt-0.5 font-display text-base sm:text-lg font-bold text-accent tabular-nums">
                   {formatNaira(activeSession?.prize_pool ?? 500_000)}
                 </p>
               </div>
 
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-slate-400">
+              <div className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   {isSessionEnded ? "Total Guesses" : "Live Guesses"}
                 </p>
                 <p
-                  className={`font-display text-lg font-bold tabular-nums transition-transform duration-300 ${
-                    guessPulse ? "scale-105 text-emerald-400" : "text-white"
+                  className={`mt-0.5 font-display text-base sm:text-lg font-bold tabular-nums transition-colors duration-300 ${
+                    guessPulse ? "text-emerald-400" : "text-white"
                   }`}
                 >
                   {totalGuesses.toLocaleString()}
@@ -372,65 +358,58 @@ export default function DashboardPage() {
               </div>
 
               {activeSession && (
-                <div>
+                <div className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2.5">
                   <p
-                    className={`text-[11px] uppercase tracking-wider font-semibold ${
-                      isSessionEnded ? "text-amber-400" : "text-emerald-400"
+                    className={`text-[10px] font-semibold uppercase tracking-wider ${
+                      isSessionEnded ? "text-amber-300" : "text-emerald-400"
                     }`}
                   >
-                    {isSessionEnded ? "Session Status" : "Closes In (Live)"}
+                    {isSessionEnded ? "Status" : "Closes In"}
                   </p>
-                  <p className="font-mono text-base sm:text-lg font-bold text-white flex items-center gap-1.5 tabular-nums">
+                  <p className="mt-0.5 font-mono text-sm sm:text-base font-bold text-white flex items-center gap-1.5 tabular-nums">
                     <TimerIcon
-                      className={`size-4 ${
-                        isSessionEnded
-                          ? "text-amber-400"
-                          : "text-emerald-400 animate-pulse"
+                      className={`size-3.5 shrink-0 ${
+                        isSessionEnded ? "text-amber-400" : "text-emerald-400"
                       }`}
                     />
-                    <span>
+                    <span className="truncate">
                       {isSessionEnded
-                        ? "Session Ended"
+                        ? "Closed"
                         : formatCountdown(activeSession.ends_at, nowMs)}
                     </span>
                   </p>
                 </div>
               )}
 
-              {myRow && (
-                <div>
-                  <p className="text-[11px] uppercase tracking-wider text-slate-400">
-                    {isSessionEnded ? "Your Final Rank" : "Your Best Rank"}
-                  </p>
-                  <p className="font-display text-lg font-bold text-emerald-400 tabular-nums">
-                    {formatOrdinal(myRow.rank)} ({myRow.points} pts)
-                  </p>
-                </div>
-              )}
+              <div className="rounded-xl border border-white/[0.07] bg-black/25 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  {isSessionEnded ? "Your Rank" : "Your Best"}
+                </p>
+                <p className="mt-0.5 font-display text-base sm:text-lg font-bold text-emerald-400 tabular-nums truncate">
+                  {myRow ? `${formatOrdinal(myRow.rank)} · ${myRow.points}p` : "Not played"}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="shrink-0 flex flex-col items-stretch sm:items-end gap-2.5">
+          <div className="shrink-0 flex flex-col items-stretch lg:items-end gap-2.5">
             {!isSessionEnded ? (
               <>
                 <Button
                   size="lg"
                   href="/play"
-                  className="w-full sm:w-auto px-10 py-4 text-base font-bold inline-flex items-center justify-center gap-2.5 shadow-[0_0_30px_rgba(255,107,0,0.3)]"
+                  className="w-full lg:w-auto px-9 py-3.5 text-base font-bold inline-flex items-center justify-center gap-2.5 shadow-[0_0_30px_rgba(255,107,0,0.25)]"
                 >
                   <PlayIcon className="size-5 fill-current" />
                   <span>
-                    {myRow ? `PLAY AGAIN (Beat ${myRow.points} pts)` : "PLAY NOW"}
+                    {myRow ? `Play Again (Beat ${myRow.points} pts)` : "Play Free Now"}
                   </span>
                 </Button>
-                <span className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-1.5 text-[11px] font-semibold text-emerald-300">
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>
-                    {myRow
-                      ? `Session Ongoing · Your ${myRow.points} pts Best Score is active`
-                      : "Session Ongoing · Unlimited replays for Best Score"}
-                  </span>
-                </span>
+                <p className="text-center lg:text-right text-xs text-slate-400">
+                  {myRow
+                    ? `Your ${myRow.points} pts best score stays safe unless you beat it`
+                    : "Unlimited free replays while the session is open"}
+                </p>
               </>
             ) : (
               <>
@@ -442,38 +421,33 @@ export default function DashboardPage() {
                       initialTab: "feedback",
                     })
                   }
-                  className="w-full sm:w-auto rounded-2xl border border-amber-400/50 bg-amber-500/20 hover:bg-amber-500/30 px-7 py-4 text-sm sm:text-base font-bold text-amber-200 shadow-lg transition-all inline-flex items-center justify-center gap-2.5"
+                  className="min-h-12 w-full lg:w-auto rounded-2xl border border-amber-400/45 bg-amber-500/15 hover:bg-amber-500/25 px-6 py-3.5 text-sm sm:text-base font-bold text-amber-200 transition-colors inline-flex items-center justify-center gap-2"
                 >
-                  <span>🎉 View Session Feedback &amp; Winners</span>
+                  <BarChartIcon className="size-4.5 text-amber-300" />
+                  <span>View Results &amp; Winners</span>
                 </button>
-                <span className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[11px] font-semibold text-slate-400">
-                  <span>🔒 Session Ended — Closed for New Entries</span>
+                <span className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                  <LockIcon className="size-3.5" />
+                  <span>Closed for new entries</span>
                 </span>
               </>
             )}
           </div>
         </div>
 
-        {/* Session Status & Explanation Strip */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-xs text-slate-300">
-          <div className="flex items-start sm:items-center gap-2.5">
-            <span
-              className={`mt-1 sm:mt-0 size-2 shrink-0 rounded-full ${
-                isSessionEnded ? "bg-amber-400" : "bg-emerald-400 animate-pulse"
-              }`}
-            />
+        {/* Footer Info Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-white/[0.08] bg-black/25 px-3.5 py-2.5 text-xs text-slate-300">
+          <p className="leading-relaxed">
             {isSessionEnded ? (
-              <span>
-                <strong className="text-amber-300">Session has ENDED:</strong>{" "}
-                Gameplay is now locked. All 10 questions&apos; crowd vote percentages (`10–1 pts`) and official winners are now unlocked.
-              </span>
+              <>
+                <strong className="text-amber-300">Session closed:</strong> Crowd vote percentages (10 to 1 pts) and final winners are now available.
+              </>
             ) : (
-              <span>
-                <strong className="text-white">Session is ONGOING:</strong>{" "}
-                Rankings and points shift dynamically as more players submit guesses. Official winners &amp; 10–1 crowd vote percentages unlock automatically when the countdown ends.
-              </span>
+              <>
+                <strong className="text-white">Dynamic scoring:</strong> Option points adjust live as more players play. Crowd vote shares unlock at 00:00.
+              </>
             )}
-          </div>
+          </p>
           {previousWinners.length > 0 && (
             <button
               type="button"
@@ -485,94 +459,152 @@ export default function DashboardPage() {
                   initialTab: "feedback",
                 })
               }
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-amber-400/35 bg-amber-500/15 hover:bg-amber-500/25 px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors"
+              className="min-h-9 self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-accent transition-colors"
             >
+              <BarChartIcon className="size-3.5" />
               <span>
-                {isSessionEnded
-                  ? `🏁 Open ${activeSession?.name ?? "Session"} Results Popup`
-                  : `🏁 View Last Ended Session Results (${previousSessionName})`}
+                {isSessionEnded ? "Full Breakdown" : `Last Results (${previousSessionName})`}
               </span>
             </button>
           )}
         </div>
       </section>
 
-      {/* ── Live / Final Leaderboard (Product Document Page 19 & 27) ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
+      {/* Live / Final Leaderboard */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-display text-lg font-bold text-white">
-              {isSessionEnded ? "Final Session Leaderboard" : "Live Leaderboard"}
+              {isSessionEnded ? "Final Standings" : "Live Standings"}
             </h2>
-            {isSessionEnded ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/35 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
-                <span className="size-1.5 rounded-full bg-amber-400" />
-                <span>🏁 ENDED · Official Final Standings</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>ONGOING · Provisional Standings</span>
-              </span>
-            )}
             <span
-              className={`rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium tabular-nums transition-colors duration-300 ${
-                guessPulse ? "border-emerald-400/50 text-emerald-300" : "text-slate-300"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                isSessionEnded
+                  ? "border-amber-500/30 bg-amber-500/12 text-amber-300"
+                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
               }`}
             >
-              {totalGuesses.toLocaleString()} Guesses
+              <span
+                className={`size-1.5 rounded-full ${
+                  isSessionEnded ? "bg-amber-400" : "bg-emerald-400"
+                }`}
+              />
+              <span>{isSessionEnded ? "Final" : "Provisional"}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={toggleSound}
               aria-pressed={!soundMuted}
               aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
-              className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs font-medium text-slate-300 hover:text-white transition-colors"
             >
-              {soundMuted ? "🔇 Muted" : "🔊 Sound"}
+              {soundMuted ? (
+                <VolumeMuteIcon className="size-3.5 text-slate-400" />
+              ) : (
+                <VolumeIcon className="size-3.5 text-accent" />
+              )}
+              <span className="hidden sm:inline">{soundMuted ? "Muted" : "Sound"}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setLivePaused(!livePaused)}
-              aria-pressed={!livePaused}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white transition-colors"
-            >
-              <span
-                className={`size-1.5 rounded-full ${
-                  livePaused ? "bg-slate-500" : "bg-emerald-400 animate-pulse"
-                }`}
-              />
-              <span>{livePaused ? "Paused" : "Live"}</span>
-            </button>
+            {!isSessionEnded && (
+              <button
+                type="button"
+                onClick={() => setLivePaused(!livePaused)}
+                aria-pressed={!livePaused}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+              >
+                <span
+                  className={`size-1.5 rounded-full ${
+                    livePaused ? "bg-slate-500" : "bg-emerald-400"
+                  }`}
+                />
+                <span>{livePaused ? "Paused" : "Live"}</span>
+              </button>
+            )}
 
             <Link
               href="/leaderboard"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline pl-1"
+              className="inline-flex h-9 items-center gap-1 px-1.5 text-xs font-semibold text-accent hover:underline"
             >
-              <span>Full Leaderboard</span>
+              <span>See all</span>
               <ArrowRightIcon className="size-3.5" />
             </Link>
           </div>
         </div>
 
+        {/* Mobile Compact Rows (<640px) */}
+        <div className="space-y-2 sm:hidden">
+          {liveLeaderboard.length > 0 ? (
+            liveLeaderboard.map((row) => {
+              const isMe = row.user_id === user?.id;
+              const climbDelta = climbedMap[row.user_id] ?? 0;
+              return (
+                <div
+                  key={row.user_id}
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 transition-colors ${
+                    climbDelta > 0
+                      ? "border-emerald-500/35 bg-emerald-500/12"
+                      : isMe
+                      ? "border-accent/35 bg-accent/10"
+                      : "border-white/[0.06] bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className={`grid size-8 shrink-0 place-items-center rounded-lg font-display text-xs font-bold ${
+                        row.rank === 1
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/35"
+                          : row.rank <= 3
+                          ? "bg-white/[0.08] text-white"
+                          : "bg-white/[0.04] text-slate-300"
+                      }`}
+                    >
+                      {formatOrdinal(row.rank)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">
+                        {row.profiles?.username ?? profile?.username ?? "Player"}
+                        {isMe ? " (You)" : ""}
+                      </p>
+                      <p className="font-mono text-xs text-slate-400 tabular-nums">
+                        {row.points} pts · {formatDuration(row.response_ms)}
+                        {climbDelta > 0 ? ` · +${climbDelta}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-mono text-xs font-bold text-emerald-400 tabular-nums">
+                      {row.prize > 0 ? formatNaira(row.prize) : "-"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="py-6 text-center text-sm text-slate-500">
+              No rounds recorded yet. Tap Play to claim 1st place.
+            </p>
+          )}
+        </div>
+
+        {/* Tablet/Desktop Table (>=640px) */}
         <div
           tabIndex={0}
           role="region"
-          aria-label="Live session leaderboard"
-          className="overflow-x-auto"
+          aria-label="Session leaderboard"
+          className="hidden sm:block overflow-x-auto"
         >
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs font-medium text-slate-400">
-                <th className="py-3 pr-4">Position</th>
+                <th className="py-3 pr-4">Rank</th>
                 <th className="py-3 pr-4">
-                  {isSessionEnded ? "Official Prize" : "Projected Prize"}
+                  {isSessionEnded ? "Prize" : "Projected Prize"}
                 </th>
-                <th className="py-3 pr-4">Name</th>
+                <th className="py-3 pr-4">Player</th>
                 <th className="py-3 pr-4">Points</th>
                 <th className="py-3 text-right">Time</th>
               </tr>
@@ -600,13 +632,13 @@ export default function DashboardPage() {
                           <span>{formatOrdinal(row.rank)}</span>
                           {climbDelta > 0 && (
                             <span className="inline-flex items-center rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-black text-emerald-300">
-                              ▲ +{climbDelta}
+                              +{climbDelta}
                             </span>
                           )}
                         </span>
                       </td>
-                      <td className="py-3.5 pr-4 font-medium text-slate-300 tabular-nums">
-                        {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "—"}
+                      <td className="py-3.5 pr-4 font-medium text-emerald-400 tabular-nums">
+                        {row.prize > 0 ? formatNaira(row.prize) : "-"}
                       </td>
                       <td className="py-3.5 pr-4">
                         {row.profiles?.username ?? profile?.username ?? "Player"}
@@ -624,7 +656,7 @@ export default function DashboardPage() {
               ) : (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-sm text-slate-500">
-                    No guesses recorded yet. Click PLAY to take 1st place!
+                    No rounds recorded yet. Tap Play to claim 1st place.
                   </td>
                 </tr>
               )}
@@ -633,37 +665,38 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ── Live Community Arena & Daily Pulse Preview ── */}
-      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2.5">
-            <span className="size-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <div>
-              <h2 className="font-display text-lg font-bold text-white">
-                Community Arena &amp; Daily Pulse
+      {/* Community Arena Preview */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent">
+              <MessageSquareIcon className="size-4.5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="font-display text-base sm:text-lg font-bold text-white truncate">
+                Community Arena
               </h2>
-              <p className="text-xs text-slate-400">
-                Rep your state in live banter and vote on today&apos;s pulse polls
+              <p className="text-xs text-slate-400 truncate">
+                Live banter and Nigerian polls
               </p>
             </div>
           </div>
 
           <Link
             href="/community"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-accent/15 border border-accent/30 px-3.5 py-2 text-xs font-bold text-accent hover:bg-accent/25 transition-colors"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-accent/15 border border-accent/30 px-3.5 py-2 text-xs font-bold text-accent hover:bg-accent/25 transition-colors"
           >
-            <span>Enter Arena</span>
+            <span>Open Arena</span>
             <ArrowRightIcon className="size-3.5" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* Recent Live Banter */}
+        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
           <div className="rounded-xl border border-white/[0.06] bg-[#07090e] p-3.5 space-y-2.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-300">Live Banter Room</span>
+              <span className="font-semibold text-slate-300">Live Chat</span>
               <Link href="/community" className="text-accent hover:underline font-semibold">
-                Reply live
+                Join chat
               </Link>
             </div>
             {arenaPreview.recentChat.length > 0 ? (
@@ -688,23 +721,22 @@ export default function DashboardPage() {
               ))
             ) : (
               <p className="text-xs text-slate-500 py-2">
-                Jump into the Live Banter Room and represent your state.
+                Say hello in the Live Chat room and rep your state.
               </p>
             )}
           </div>
 
-          {/* Featured Pulse Poll */}
           <Link
             href="/community"
             className="flex flex-col justify-between rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.08] to-[#07090e] p-4 hover:border-amber-500/40 transition-colors"
           >
             <div>
               <span className="inline-block rounded-md bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                {arenaPreview.topPoll?.category || "Daily Pulse Poll"}
+                {arenaPreview.topPoll?.category || "Featured Poll"}
               </span>
               <h3 className="mt-2 text-sm font-bold leading-snug text-white">
                 {arenaPreview.topPoll?.title ||
-                  "Vote on today's Nigerian consumer & city rivalry polls"}
+                  "Vote on today's consumer & city rivalry polls"}
               </h3>
             </div>
             <div className="mt-3 flex items-center justify-between text-xs">
@@ -713,33 +745,33 @@ export default function DashboardPage() {
                   ? `${arenaPreview.topPoll.totalVotes.toLocaleString()} votes cast`
                   : "Live state breakdown"}
               </span>
-              <span className="font-bold text-amber-300">Cast your vote →</span>
+              <span className="inline-flex items-center gap-1 font-bold text-amber-300">
+                <span>Vote now</span>
+                <ArrowRightIcon className="size-3.5" />
+              </span>
             </div>
           </Link>
         </div>
       </section>
 
-      {/* ── Previous Session Winners (Product Document Page 20, 32 & 33) ── */}
+      {/* Previous Session Winners */}
       {previousWinners.length > 0 && (
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5">
-              <TrophyIcon className="size-4 text-amber-400" />
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-400">
+                <TrophyIcon className="size-4.5" />
+              </span>
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-display text-lg font-bold text-white">
-                    Previous Session Winners
-                  </h2>
-                  <span className="rounded-full border border-amber-400/35 bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                    🏁 ENDED SESSION · Official Final Results
-                  </span>
-                </div>
+                <h2 className="font-display text-base sm:text-lg font-bold text-white">
+                  Last Session Winners
+                </h2>
                 <p className="text-xs text-slate-400">
-                  Top 3 Official Winners · {previousSessionName}
+                  Top 3 · {previousSessionName}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() =>
@@ -748,57 +780,43 @@ export default function DashboardPage() {
                     initialTab: "feedback",
                   })
                 }
-                className="rounded-xl border border-amber-400/40 bg-amber-500/15 hover:bg-amber-500/25 px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors"
               >
-                🎉 View Ended Session Feedback &amp; Winners
+                <BarChartIcon className="size-3.5 text-accent" />
+                <span>Breakdown</span>
               </button>
               <Link
                 href="/leaderboard?tab=winners"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
               >
-                <span>Winners Board</span>
+                <span>All Winners</span>
                 <ArrowRightIcon className="size-3.5" />
               </Link>
             </div>
           </div>
 
-          <div
-            tabIndex={0}
-            role="region"
-            aria-label="Previous session top 3 winners"
-            className="overflow-x-auto"
-          >
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10 text-left text-xs font-medium text-slate-400">
-                  <th className="py-2.5 pr-4">Position</th>
-                  <th className="py-2.5 pr-4">Name</th>
-                  <th className="py-2.5 pr-4">Points</th>
-                  <th className="py-2.5 pr-4">Time</th>
-                  <th className="py-2.5 text-right">Prize Won</th>
-                </tr>
-              </thead>
-              <tbody>
-                {previousWinners.slice(0, 3).map((w) => (
-                  <tr
-                    key={w.user_id}
-                    className="border-b border-white/5 last:border-0 text-slate-200"
-                  >
-                    <td className="py-3 pr-4 font-display font-bold">
-                      {formatOrdinal(w.rank)}
-                    </td>
-                    <td className="py-3 pr-4">{w.profiles?.username ?? "Player"}</td>
-                    <td className="py-3 pr-4 font-mono font-bold tabular-nums">{w.points}</td>
-                    <td className="py-3 pr-4 font-mono text-slate-400 tabular-nums">
-                      {formatDuration(w.response_ms)}
-                    </td>
-                    <td className="py-3 text-right font-semibold text-accent tabular-nums">
-                      {formatNaira(w.prize)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {previousWinners.slice(0, 3).map((w) => (
+              <div
+                key={w.user_id}
+                className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
+              >
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                    {formatOrdinal(w.rank)} Place
+                  </span>
+                  <p className="truncate text-sm font-semibold text-white mt-0.5">
+                    {w.profiles?.username ?? "Player"}
+                  </p>
+                  <p className="font-mono text-xs text-slate-400 tabular-nums">
+                    {w.points} pts · {formatDuration(w.response_ms)}
+                  </p>
+                </div>
+                <span className="font-display text-sm font-bold text-emerald-400 tabular-nums shrink-0 pl-2">
+                  {formatNaira(w.prize)}
+                </span>
+              </div>
+            ))}
           </div>
         </section>
       )}

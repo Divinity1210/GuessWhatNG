@@ -2,7 +2,16 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui";
-import { CheckIcon, PlayIcon, TrophyIcon } from "@/components/ui/Icons";
+import {
+  BarChartIcon,
+  CheckIcon,
+  LockIcon,
+  MusicIcon,
+  PlayIcon,
+  TrophyIcon,
+  VolumeIcon,
+  VolumeMuteIcon,
+} from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getActiveSessions, type SessionRow } from "@/lib/supabase/queries";
 import {
@@ -43,7 +52,7 @@ function formatOrdinal(n: number): string {
 
 function formatLiveCountdown(endsAt: string, nowMs: number = Date.now()): string {
   const diff = new Date(endsAt).getTime() - nowMs;
-  if (diff <= 0) return "Session ended";
+  if (diff <= 0) return "Ended";
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   const mins = Math.floor((diff % 3_600_000) / 60_000);
@@ -82,7 +91,6 @@ export default function PlayPage() {
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
-  // Gameplay state
   const [phase, setPhase] = useState<Phase>("lobby");
   const [entryId, setEntryId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<SessionQuestion[]>([]);
@@ -106,7 +114,6 @@ export default function PlayPage() {
     };
   }, []);
 
-  // Ensure background music stops whenever phase is not active question play
   useEffect(() => {
     if (phase === "lobby" || phase === "completed") {
       stopBackgroundMusic();
@@ -124,18 +131,15 @@ export default function PlayPage() {
     setMusicPlaying(active);
   };
 
-  // Unlimited count-up timer from 0 (Product Document Page 27)
   const [questionStartTime, setQuestionStartTime] = useState(0);
   const [liveQuestionMs, setLiveQuestionMs] = useState(0);
 
-  // Result Sample state after each pick (Product Document Page 8)
   const [lastPick, setLastPick] = useState<{
     option: SessionQuestion["questions"]["question_options"][0];
     questionType: string;
     tookMs: number;
   } | null>(null);
 
-  // Cumulative stats at completion
   const [totalTimeMs, setTotalTimeMs] = useState(0);
   const [finalStats, setFinalStats] = useState<{
     rank: number;
@@ -152,7 +156,6 @@ export default function PlayPage() {
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
-  // Stopwatch counting up from 0 during active question (Page 27)
   useEffect(() => {
     if (phase !== "playing") return;
     const start = questionStartTime || Date.now();
@@ -162,7 +165,6 @@ export default function PlayPage() {
     return () => clearInterval(interval);
   }, [phase, questionStartTime]);
 
-  // Load active session & poll every 4s so if session ends mid-game, gameplay stops immediately
   useEffect(() => {
     let mounted = true;
     async function load() {
@@ -220,7 +222,6 @@ export default function PlayPage() {
     }
   };
 
-  // Immediately stop active gameplay if the session countdown expires or Admin ends the session
   useEffect(() => {
     if (
       isSessionEnded &&
@@ -230,7 +231,7 @@ export default function PlayPage() {
       void exitBrowserFullscreen();
       setPhase("lobby");
       setJoinError(
-        "This session has just ended! Gameplay is now closed — view the official crowd feedback & winners.",
+        "This session just ended. Entries are closed and official results are now ready.",
       );
       if (activeSession?.id) {
         openSessionResultsPopup({
@@ -242,7 +243,6 @@ export default function PlayPage() {
     }
   }, [isSessionEnded, phase, activeSession?.id, entryId]);
 
-  // Start / Replay session (Page 31: projects fullscreen when PLAY is clicked)
   const handleStartPlay = async () => {
     if (!activeSession || joining || isSessionEnded) {
       if (isSessionEnded && activeSession?.id) {
@@ -363,7 +363,7 @@ export default function PlayPage() {
 
       setTimeout(() => {
         advanceToNextQuestion(currentIndex + 1, isLast, result.myStats ?? null);
-      }, 950);
+      }, 900);
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "message" in err
@@ -384,49 +384,45 @@ export default function PlayPage() {
     );
   }
 
-  // ── 1. Clean Lobby Screen (Product Document Page 31) ──
+  // 1. Lobby Screen
   if (phase === "lobby" || !activeSession) {
     return (
       <div
         ref={containerRef}
-        className="mx-auto max-w-xl py-12 animate-fade-in"
+        className="mx-auto max-w-xl py-4 sm:py-10 animate-fade-in"
       >
         <section
-          className={`rounded-2xl border bg-[#0d111c] px-6 py-12 sm:px-12 sm:py-14 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.4)] ${
-            isSessionEnded
-              ? "border-amber-500/30"
-              : "border-emerald-500/20"
+          className={`rounded-2xl border bg-[#0d111c] px-5 py-8 sm:px-10 sm:py-12 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.4)] ${
+            isSessionEnded ? "border-amber-500/30" : "border-emerald-500/20"
           }`}
         >
           {activeSession && !isSessionEnded ? (
-            <div className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-3.5 py-1 text-xs font-bold text-emerald-300">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>LIVE · ONGOING SESSION</span>
-              <span className="text-emerald-200/70">·</span>
+            <div className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/12 px-3.5 py-1 text-xs font-semibold text-emerald-300">
+              <span className="size-2 rounded-full bg-emerald-400" />
+              <span>Live Session</span>
+              <span className="text-emerald-200/60">·</span>
               <span className="font-mono text-white tabular-nums">
-                Closes in {formatLiveCountdown(activeSession.ends_at, nowMs)}
+                {formatLiveCountdown(activeSession.ends_at, nowMs)} left
               </span>
             </div>
           ) : (
-            <div className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-4 py-1 text-xs font-bold text-amber-300">
-              <span className="size-2 rounded-full bg-amber-400" />
-              <span>🏁 SESSION ENDED · CLOSED FOR PLAY</span>
+            <div className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-400/35 bg-amber-500/15 px-3.5 py-1 text-xs font-semibold text-amber-300">
+              <LockIcon className="size-3.5" />
+              <span>Session Ended · Closed for Play</span>
             </div>
           )}
 
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-accent">
-              {isSessionEnded
-                ? "Official Session Results Ready"
-                : "Think & Win · Free to Play"}
+              {isSessionEnded ? "Official Results Ready" : "Free Entry · 10 Questions"}
             </p>
-            <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
-              {activeSession?.name ?? "GUESS WHAT"}
+            <h1 className="font-display text-2xl sm:text-4xl font-bold text-white tracking-tight">
+              {activeSession?.name ?? "GuessWhat"}
             </h1>
             <p className="text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
               {isSessionEnded
-                ? "This session has officially ended and is closed for new entries. Inspect the 10–1 crowd consensus breakdown and official session winners below."
-                : "10 questions · 10 options each. Predict the option that will receive the highest number of selections from other players in the shortest time."}
+                ? "This session is closed for new rounds. View the 10 to 1 crowd vote breakdown and verified winners below."
+                : "10 questions with 10 options each. Pick what you think most players will choose in the shortest total time."}
             </p>
           </div>
 
@@ -437,25 +433,21 @@ export default function PlayPage() {
           )}
 
           {!isSessionEnded ? (
-            <div className="pt-2">
+            <div className="pt-1">
               <Button
                 size="lg"
                 onClick={handleStartPlay}
                 disabled={joining || !activeSession || isSessionEnded}
-                className="px-14 py-4 text-base font-bold inline-flex items-center gap-2.5 shadow-lg"
+                className="w-full sm:w-auto px-14 py-4 text-base font-bold inline-flex items-center justify-center gap-2.5 shadow-lg"
               >
                 <PlayIcon className="size-5 fill-current" />
-                <span>{joining ? "LOADING..." : "PLAY"}</span>
+                <span>{joining ? "Starting..." : "Start Round"}</span>
               </Button>
             </div>
           ) : (
-            <div className="pt-2 flex flex-col items-center gap-3">
-              <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-                <span>🔒 Session Ended — Gameplay Closed</span>
-              </div>
-
+            <div className="pt-1 flex flex-col items-stretch sm:items-center gap-3">
               {activeSession && (
-                <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 pt-1">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full">
                   <button
                     type="button"
                     onClick={() =>
@@ -464,9 +456,10 @@ export default function PlayPage() {
                         initialTab: "feedback",
                       })
                     }
-                    className="rounded-xl border border-amber-400/50 bg-amber-500/20 hover:bg-amber-500/30 px-6 py-3.5 text-sm font-bold text-amber-200 shadow-lg transition-all inline-flex items-center justify-center gap-2"
+                    className="min-h-12 rounded-xl border border-amber-400/45 bg-amber-500/15 hover:bg-amber-500/25 px-6 py-3 text-sm font-bold text-amber-200 transition-colors inline-flex items-center justify-center gap-2"
                   >
-                    <span>🎉 View Session Feedback &amp; Winners</span>
+                    <BarChartIcon className="size-4 text-amber-300" />
+                    <span>View Results &amp; Winners</span>
                   </button>
 
                   <Button
@@ -476,7 +469,7 @@ export default function PlayPage() {
                     className="inline-flex items-center justify-center gap-2"
                   >
                     <TrophyIcon className="size-4" />
-                    <span>Winners Leaderboard</span>
+                    <span>Winners Board</span>
                   </Button>
                 </div>
               )}
@@ -484,7 +477,7 @@ export default function PlayPage() {
           )}
 
           {activeSession && (
-            <div className="space-y-1 text-xs text-slate-400">
+            <div className="space-y-1 text-xs text-slate-400 pt-1">
               <p>
                 Prize Pool:{" "}
                 <strong className="text-amber-300">
@@ -492,13 +485,13 @@ export default function PlayPage() {
                 </strong>{" "}
                 ·{" "}
                 {isSessionEnded
-                  ? "Final Standings & Crowd Feedback Unlocked"
-                  : "Free Entry · Unlimited Replays for Best Score"}
+                  ? "Final Standings Unlocked"
+                  : "Unlimited Replays for Best Score"}
               </p>
               <p className="text-[11px] text-slate-500">
                 {isSessionEnded
-                  ? "Click 'View Session Feedback & Winners' above to inspect all 10 questions and official winners."
-                  : "Session is currently ongoing. Official winners & crowd feedback unlock when the countdown reaches 00:00:00."}
+                  ? "Inspect every question's vote share and top 36 winners."
+                  : "Crowd vote shares stay sealed until the session countdown hits 00:00."}
               </p>
             </div>
           )}
@@ -507,15 +500,15 @@ export default function PlayPage() {
     );
   }
 
-  // ── 2. Result Sample Interstitial (Product Document Page 8) ──
+  // 2. Result Sample Interstitial
   if (phase === "result_sample" && lastPick) {
     return (
-      <div className="mx-auto max-w-3xl py-8 animate-fade-in">
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] px-6 py-16 sm:px-12 sm:py-24">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-12 items-center text-center">
-            <div className="space-y-5">
-              <p className="font-display text-xl sm:text-2xl font-semibold text-white">
-                Your Selection
+      <div className="mx-auto max-w-2xl py-6 sm:py-10 animate-fade-in">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] px-5 py-12 sm:px-12 sm:py-20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 sm:gap-12 items-center text-center">
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                Locked In
               </p>
               <div className="flex justify-center">
                 {lastPick.questionType === "color" ? (
@@ -526,7 +519,7 @@ export default function PlayPage() {
                         backgroundColor: lastPick.option.media_url || "#F7911B",
                       }}
                     />
-                    <span className="text-xs font-medium text-slate-300">
+                    <span className="text-sm font-semibold text-white">
                       {lastPick.option.label}
                     </span>
                   </div>
@@ -536,12 +529,12 @@ export default function PlayPage() {
                         lastPick.option.media_url.startsWith("data:image/")))) &&
                   lastPick.option.media_url ? (
                   <div className="flex flex-col items-center gap-2.5">
-                    <div className="w-44 aspect-[4/3] overflow-hidden rounded-xl border-2 border-accent shadow-lg bg-slate-900">
+                    <div className="w-40 aspect-[4/3] overflow-hidden rounded-xl border-2 border-accent shadow-lg bg-slate-900">
                       <img
                         src={lastPick.option.media_url}
                         alt={lastPick.option.label}
-                        width={352}
-                        height={264}
+                        width={320}
+                        height={240}
                         className="h-full w-full object-cover"
                       />
                     </div>
@@ -550,18 +543,18 @@ export default function PlayPage() {
                     </span>
                   </div>
                 ) : (
-                  <div className="min-w-40 rounded-xl border border-white/20 bg-white/[0.04] px-6 py-3.5 text-base font-semibold text-white">
+                  <div className="min-w-36 rounded-xl border border-accent/35 bg-accent/10 px-6 py-3.5 text-base font-bold text-white">
                     {lastPick.option.label}
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="space-y-5">
-              <p className="font-display text-xl sm:text-2xl font-semibold text-white">
-                Your Time
+            <div className="space-y-2 sm:space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                Response Time
               </p>
-              <p className="font-mono text-2xl sm:text-3xl font-bold text-accent">
+              <p className="font-mono text-2xl sm:text-3xl font-bold text-accent tabular-nums">
                 {formatStopwatch(lastPick.tookMs)}
               </p>
             </div>
@@ -571,63 +564,77 @@ export default function PlayPage() {
     );
   }
 
-  // ── 3. Active Question Display (Product Document Pages 7, 9, 10, 12, 13, 27, 28) ──
+  // 3. Active Question Display (Mobile-First Ergonomics)
   if (phase === "playing" && questions.length > 0) {
     const currentQ = questions[currentIndex];
     const q = currentQ.questions;
     const qType = q.type || "text";
+    const progressPct = Math.round(((currentIndex + 1) / questions.length) * 100);
 
     return (
-      <div className="mx-auto max-w-4xl py-2 sm:py-4 animate-fade-in">
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-6 sm:p-10 space-y-10">
-          {/* Top Bar: Question Number (Left) & Unlimited Count-Up Time from 0 (Right) — Page 27 */}
-          <div className="flex items-center justify-between border-b border-white/5 pb-4">
-            <span className="font-display text-base sm:text-lg font-semibold text-slate-200">
-              Question {currentIndex + 1}
-            </span>
-
-            <div className="flex items-center gap-2.5">
-              <span className="font-mono text-base sm:text-lg font-semibold text-slate-200 tabular-nums">
-                Time {formatStopwatch(liveQuestionMs)}
+      <div className="mx-auto max-w-4xl py-1 sm:py-3 animate-fade-in">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-8 space-y-5 sm:space-y-8">
+          {/* Compact Mobile-Safe Top Bar */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-display text-sm sm:text-base font-bold text-slate-200">
+                Question {currentIndex + 1} <span className="text-slate-500 font-normal">/ {questions.length}</span>
               </span>
 
-              <button
-                type="button"
-                onClick={handleToggleMusic}
-                aria-pressed={musicPlaying}
-                aria-label={musicPlaying ? "Pause background music" : "Play background music"}
-                className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  musicPlaying
-                    ? "border-accent/40 bg-accent/15 text-accent"
-                    : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
-                }`}
-              >
-                {musicPlaying ? "🎵 Music On" : "🎵 Music Off"}
-              </button>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-1.5 font-mono text-sm sm:text-base font-bold text-accent tabular-nums">
+                  {formatStopwatch(liveQuestionMs)}
+                </span>
 
-              <button
-                type="button"
-                onClick={toggleSound}
-                aria-pressed={!soundMuted}
-                aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
-                className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-white"
-              >
-                {soundMuted ? "🔇 SFX Off" : "🔊 SFX"}
-              </button>
+                <button
+                  type="button"
+                  onClick={handleToggleMusic}
+                  aria-pressed={musicPlaying}
+                  aria-label={musicPlaying ? "Pause background music" : "Play background music"}
+                  className={`grid size-9 place-items-center rounded-lg border transition-colors ${
+                    musicPlaying
+                      ? "border-accent/40 bg-accent/15 text-accent"
+                      : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <MusicIcon className="size-4" />
+                </button>
 
-              <button
-                type="button"
-                onClick={isFullscreen ? exitBrowserFullscreen : requestBrowserFullscreen}
-                className="hidden sm:inline-flex rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-white"
-              >
-                {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-              </button>
+                <button
+                  type="button"
+                  onClick={toggleSound}
+                  aria-pressed={!soundMuted}
+                  aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
+                  className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-300 hover:text-white transition-colors"
+                >
+                  {soundMuted ? (
+                    <VolumeMuteIcon className="size-4 text-slate-500" />
+                  ) : (
+                    <VolumeIcon className="size-4 text-accent" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={isFullscreen ? exitBrowserFullscreen : requestBrowserFullscreen}
+                  className="hidden sm:inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-slate-400 hover:text-white"
+                >
+                  {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                </button>
+              </div>
+            </div>
+
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className="h-full gradient-brand transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
           </div>
 
           {/* Question Title */}
-          <div className="text-center py-2 space-y-4">
-            <h2 className="font-display text-xl sm:text-2xl md:text-3xl font-semibold text-white">
+          <div className="text-center space-y-3">
+            <h2 className="font-display text-lg sm:text-2xl md:text-3xl font-bold text-white leading-snug">
               {q.title}
             </h2>
             {q.notes &&
@@ -638,16 +645,15 @@ export default function PlayPage() {
                     alt={q.title}
                     width={480}
                     height={300}
-                    className="max-h-56 rounded-2xl object-cover border border-white/15 shadow-lg"
+                    className="max-h-44 sm:max-h-56 rounded-xl object-cover border border-white/15 shadow-lg"
                   />
                 </div>
               )}
           </div>
 
-          {/* 10 Options in a 5x2 Grid (2 columns on mobile, 5 columns on desktop) */}
+          {/* 10 Options Optimized for Zero-Scroll Mobile Tapping */}
           {qType === "color" ? (
-            /* Colour Question Format (Page 9) */
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-8 justify-items-center py-4">
+            <div className="grid grid-cols-5 gap-2.5 sm:gap-6 justify-items-center py-2">
               {q.question_options.map((opt, idx) => {
                 const hex =
                   opt.media_url && opt.media_url.startsWith("#")
@@ -660,13 +666,13 @@ export default function PlayPage() {
                     disabled={submitting}
                     onClick={() => handleSelectOption(opt)}
                     aria-label={opt.label}
-                    className="group flex flex-col items-center gap-2 focus:outline-none"
+                    className="group flex flex-col items-center gap-1.5 py-1 focus:outline-none active:scale-95 transition-transform"
                   >
                     <span
-                      className="size-16 sm:size-20 rounded-full border-2 border-white/80 shadow-md transition-transform duration-150 group-hover:scale-110 group-focus-visible:ring-2 group-focus-visible:ring-accent"
+                      className="size-12 sm:size-18 rounded-full border-2 border-white/80 shadow-md transition-transform duration-150 sm:group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-accent"
                       style={{ backgroundColor: hex }}
                     />
-                    <span className="text-xs font-medium text-slate-400 group-hover:text-white">
+                    <span className="text-[11px] sm:text-xs font-medium text-slate-300 text-center leading-tight line-clamp-1 max-w-16 sm:max-w-24">
                       {opt.label}
                     </span>
                   </button>
@@ -674,32 +680,30 @@ export default function PlayPage() {
               })}
             </div>
           ) : qType === "number" ? (
-            /* Number Question Format (Page 10) */
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-6 max-w-2xl mx-auto py-4">
+            <div className="grid grid-cols-5 gap-2.5 sm:gap-4 max-w-2xl mx-auto py-2">
               {q.question_options.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   disabled={submitting}
                   onClick={() => handleSelectOption(opt)}
-                  className="h-16 sm:h-20 rounded-xl border border-white/20 bg-white/[0.03] hover:border-accent hover:bg-accent/10 font-display text-xl sm:text-2xl font-bold text-white transition-all duration-150"
+                  className="h-14 sm:h-20 rounded-xl border border-white/20 bg-white/[0.04] hover:border-accent hover:bg-accent/10 active:scale-95 font-display text-xl sm:text-2xl font-bold text-white transition-all duration-150"
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
           ) : qType === "image" ? (
-            /* Picture Question Format — Medium size for mobile & desktop (Pages 12, 13, 28) */
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
               {q.question_options.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   disabled={submitting}
                   onClick={() => handleSelectOption(opt)}
-                  className="group overflow-hidden rounded-xl border border-white/15 bg-white/[0.03] hover:border-accent transition-all duration-150 text-left flex flex-col"
+                  className="group overflow-hidden rounded-xl border border-white/15 bg-white/[0.03] hover:border-accent active:scale-[0.98] transition-all duration-150 text-left flex flex-col"
                 >
-                  <div className="aspect-[4/3] w-full overflow-hidden bg-slate-900">
+                  <div className="aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden bg-slate-900">
                     {opt.media_url ? (
                       <img
                         src={opt.media_url}
@@ -707,7 +711,7 @@ export default function PlayPage() {
                         width={400}
                         height={300}
                         loading="eager"
-                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-200 sm:group-hover:scale-105"
                       />
                     ) : (
                       <div className="h-full w-full grid place-items-center text-xs text-slate-500">
@@ -715,7 +719,7 @@ export default function PlayPage() {
                       </div>
                     )}
                   </div>
-                  <div className="px-3 py-2 text-center">
+                  <div className="px-2.5 py-2 text-center">
                     <span className="text-xs font-semibold text-slate-200 group-hover:text-accent line-clamp-1">
                       {opt.label}
                     </span>
@@ -724,15 +728,14 @@ export default function PlayPage() {
               ))}
             </div>
           ) : (
-            /* Text Question Format (Page 7 & 15–16) */
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 sm:gap-4 py-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3.5 py-1">
               {q.question_options.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   disabled={submitting}
                   onClick={() => handleSelectOption(opt)}
-                  className="min-h-14 rounded-xl border border-white/20 bg-white/[0.03] hover:border-accent hover:bg-accent/10 px-4 py-3.5 text-center text-sm font-medium text-white transition-all duration-150"
+                  className="min-h-13 rounded-xl border border-white/18 bg-white/[0.03] hover:border-accent hover:bg-accent/10 active:scale-[0.98] px-3 py-2.5 text-center text-xs sm:text-sm font-semibold text-white transition-all duration-150"
                 >
                   {opt.label}
                 </button>
@@ -744,94 +747,94 @@ export default function PlayPage() {
     );
   }
 
-  // ── 4. 10/10 Entry Locked In Screen (Product Document Pages 6, 18, 19) ──
+  // 4. 10/10 Entry Completed Screen
   if (phase === "completed") {
     const isEnded = isSessionEnded;
     return (
-      <div className="mx-auto max-w-xl py-10 animate-fade-in">
-        <section className="rounded-2xl border border-emerald-500/20 bg-[#0d111c] p-8 sm:p-10 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.45)]">
+      <div className="mx-auto max-w-xl py-4 sm:py-10 animate-fade-in">
+        <section className="rounded-2xl border border-emerald-500/20 bg-[#0d111c] p-5 sm:p-9 text-center space-y-5 shadow-[0_16px_50px_rgba(0,0,0,0.45)]">
           <div
-            className={`inline-flex flex-wrap items-center justify-center gap-2 rounded-full border px-3.5 py-1 text-xs font-bold ${
+            className={`inline-flex flex-wrap items-center justify-center gap-2 rounded-full border px-3.5 py-1 text-xs font-semibold ${
               isEnded
-                ? "border-amber-400/40 bg-amber-500/15 text-amber-300"
-                : "border-emerald-400/35 bg-emerald-500/15 text-emerald-300"
+                ? "border-amber-400/35 bg-amber-500/15 text-amber-300"
+                : "border-emerald-400/30 bg-emerald-500/12 text-emerald-300"
             }`}
           >
             <span
               className={`size-2 rounded-full ${
-                isEnded ? "bg-amber-400" : "bg-emerald-400 animate-pulse"
+                isEnded ? "bg-amber-400" : "bg-emerald-400"
               }`}
             />
             <span>
               {isEnded
-                ? "🏁 SESSION ENDED · OFFICIAL RESULTS"
-                : `🟢 LIVE SESSION ONGOING · Closes in ${formatLiveCountdown(
-                    activeSession.ends_at,
-                    nowMs,
-                  )}`}
+                ? "Session Ended · Official Results"
+                : `Live Session · ${formatLiveCountdown(activeSession.ends_at, nowMs)} left`}
             </span>
           </div>
 
-          <div className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-500/15 border border-emerald-500/30">
-            <CheckIcon className="size-7 text-emerald-400" />
+          <div className="mx-auto grid size-13 place-items-center rounded-full bg-emerald-500/15 border border-emerald-500/30">
+            <CheckIcon className="size-6 text-emerald-400" />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
-              {isEnded ? "Session Ended — Official Results" : "10/10 Predictions Locked In!"}
+              {isEnded ? "Session Closed" : "All 10 Picks Locked In"}
             </h1>
             <p className="text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
               {isEnded
-                ? "This session has ended! View the official winners and 10–1 crowd consensus breakdown."
-                : `${activeSession.name} is still ONGOING! Your Best Score is active on the Live Leaderboard and updates dynamically as more players guess.`}
+                ? "Check the official winners and the 10 to 1 crowd vote breakdown."
+                : `Your best score is active on the ${activeSession.name} leaderboard and adjusts live as more players finish.`}
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-400">
-                {isEnded ? "Final Rank" : "Provisional Rank"}
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                {isEnded ? "Final Rank" : "Current Rank"}
               </p>
-              <p className="font-display text-xl font-bold text-accent mt-0.5 tabular-nums">
+              <p className="font-display text-lg sm:text-xl font-bold text-accent mt-0.5 tabular-nums">
                 {finalStats ? formatOrdinal(finalStats.rank) : "Live"}
               </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-400">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Best Score
               </p>
-              <p className="font-display text-xl font-bold text-white mt-0.5 tabular-nums">
-                {finalStats ? `${finalStats.points} pts` : "—"}
+              <p className="font-display text-lg sm:text-xl font-bold text-white mt-0.5 tabular-nums">
+                {finalStats ? `${finalStats.points} pts` : "-"}
               </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-400">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Total Time
               </p>
-              <p className="font-mono text-xl font-bold text-white mt-0.5 tabular-nums">
+              <p className="font-mono text-lg sm:text-xl font-bold text-white mt-0.5 tabular-nums">
                 {formatStopwatch(finalStats?.responseMs || totalTimeMs)}
               </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-400">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 {isEnded ? "Prize Won" : "Projected Prize"}
               </p>
-              <p className="font-display text-xl font-bold text-emerald-400 mt-0.5 tabular-nums">
+              <p className="font-display text-lg sm:text-xl font-bold text-emerald-400 mt-0.5 tabular-nums">
                 {finalStats && finalStats.prize > 0
                   ? formatNaira(finalStats.prize)
-                  : "—"}
+                  : "-"}
               </p>
             </div>
           </div>
 
           {!isEnded && (
-            <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 leading-relaxed">
-              🔒 <strong>Fair-Play Notice:</strong> Official winners &amp; 10–1 crowd vote percentages pop up automatically when the session countdown reaches{" "}
-              <span className="font-mono font-bold">00:00:00</span>. Want a higher rank or faster time? Play again now to beat your Best Score!
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3.5 py-3 text-left text-xs text-amber-200 leading-relaxed">
+              <LockIcon className="size-4 shrink-0 text-amber-300 mt-0.5" />
+              <span>
+                Crowd vote shares stay sealed until the countdown hits{" "}
+                <strong className="font-mono">00:00:00</strong>. Replay anytime to push for a higher score or faster tiebreak time.
+              </span>
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 pt-1">
             {isEnded && (
               <button
                 type="button"
@@ -842,9 +845,10 @@ export default function PlayPage() {
                     initialTab: "feedback",
                   })
                 }
-                className="rounded-xl border border-amber-400/50 bg-amber-500/20 hover:bg-amber-500/30 px-6 py-3.5 text-sm font-bold text-amber-200 shadow-lg transition-all inline-flex items-center justify-center gap-2"
+                className="min-h-12 rounded-xl border border-amber-400/45 bg-amber-500/15 hover:bg-amber-500/25 px-6 py-3 text-sm font-bold text-amber-200 transition-colors inline-flex items-center justify-center gap-2"
               >
-                <span>🎉 Crowd Feedback &amp; Winners Popup</span>
+                <BarChartIcon className="size-4 text-amber-300" />
+                <span>Results &amp; Crowd Votes</span>
               </button>
             )}
             <span onClick={() => void exitBrowserFullscreen()} className="inline-flex">
@@ -854,7 +858,7 @@ export default function PlayPage() {
                 className="inline-flex items-center justify-center gap-2 w-full"
               >
                 <TrophyIcon className="size-4" />
-                <span>{isEnded ? "View Final Winners" : "View Live Leaderboard"}</span>
+                <span>{isEnded ? "Final Winners" : "Live Standings"}</span>
               </Button>
             </span>
             {!isEnded && (
@@ -863,7 +867,7 @@ export default function PlayPage() {
                 size="lg"
                 onClick={handleStartPlay}
               >
-                Play Again (Beat Best Score)
+                Play Again
               </Button>
             )}
           </div>

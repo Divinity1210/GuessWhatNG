@@ -69,8 +69,8 @@ export function LiveFomoTicker({ compact = false }: { compact?: boolean }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] text-ink-muted hidden sm:inline">{current.timeAgo}</span>
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <span className="text-[11px] text-ink-muted">{current.timeAgo}</span>
           <div className="flex items-center gap-1">
             {LIVE_FOMO_EVENTS.map((item, idx) => (
               <button

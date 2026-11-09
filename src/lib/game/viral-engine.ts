@@ -1,11 +1,10 @@
 /**
- * GUESS WHAT — Viral & Cultural Engine (Nigeria & Africa Go-To-Market)
+ * GuessWhat Viral & Share Engine
  * Powers:
- *  - "Rep Your Turf" (States, Campuses, Pan-African Squad Wars)
- *  - "Daily Street Heat" Free Poll + Flame Streak (+25 Free Coins)
- *  - Live FOMO Social Proof Ticker
- *  - WhatsApp & X (Twitter) Viral Deep-Links + Canvas Brag Card Generator
- *  - Instant Playable Demo & Practice Arena Questions
+ *  - State, Campus, and Pan-African Squad profiles
+ *  - Daily Street Heat Poll + Streak helpers
+ *  - Live activity feed items
+ *  - WhatsApp & X share deep-links + Canvas Invite/Score Card generator
  */
 
 export type TurfCategory = "city" | "campus" | "africa";
@@ -31,7 +30,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "Lagos",
     category: "city",
     slogan: "Eko Oni Baje · No Sleep",
-    emoji: "⚡",
+    emoji: "LOS",
     basePoints: 184_920,
     basePlayers: 4_812,
     topPlayer: "ada_thinks",
@@ -43,7 +42,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "Abuja",
     category: "city",
     slogan: "Center of Unity · Soft Life",
-    emoji: "🏛️",
+    emoji: "ABJ",
     basePoints: 162_450,
     basePlayers: 3_490,
     topPlayer: "kelvin_o",
@@ -54,8 +53,8 @@ export const TURF_SQUADS: TurfSquad[] = [
     name: "Port Harcourt (PH City)",
     shortName: "PH City",
     category: "city",
-    slogan: "Pitakwa · Garden City Heat",
-    emoji: "🔥",
+    slogan: "Pitakwa · Garden City",
+    emoji: "PHC",
     basePoints: 139_800,
     basePlayers: 2_740,
     topPlayer: "tamuno_ph",
@@ -67,7 +66,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "Ibadan",
     category: "city",
     slogan: "Ancient Brown Roofs · Sharp Minds",
-    emoji: "👑",
+    emoji: "IBD",
     basePoints: 118_310,
     basePlayers: 2_190,
     topPlayer: "wale_ib",
@@ -79,7 +78,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "042 Enugu",
     category: "city",
     slogan: "042 To The World",
-    emoji: "💎",
+    emoji: "ENU",
     basePoints: 112_640,
     basePlayers: 1_980,
     topPlayer: "chidi_042",
@@ -91,7 +90,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "Kano",
     category: "city",
     slogan: "Arewa Giants",
-    emoji: "🦅",
+    emoji: "KAN",
     basePoints: 94_200,
     basePlayers: 1_640,
     topPlayer: "sadiq_kn",
@@ -104,7 +103,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "UNILAG",
     category: "campus",
     slogan: "First Choice · Nation's Pride",
-    emoji: "🎓",
+    emoji: "ULG",
     basePoints: 146_800,
     basePlayers: 3_120,
     topPlayer: "tobi_akoka",
@@ -116,7 +115,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "OAU Ife",
     category: "campus",
     slogan: "Oba Awon University",
-    emoji: "🦁",
+    emoji: "OAU",
     basePoints: 138_420,
     basePlayers: 2_890,
     topPlayer: "ife_scholar",
@@ -128,7 +127,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "UI Ibadan",
     category: "campus",
     slogan: "Recte Sapere Fons",
-    emoji: "📚",
+    emoji: "UI",
     basePoints: 129_150,
     basePlayers: 2_540,
     topPlayer: "zainab_ui",
@@ -140,7 +139,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "Covenant",
     category: "campus",
     slogan: "Eagles Taking Flight",
-    emoji: "🦅",
+    emoji: "CU",
     basePoints: 121_900,
     basePlayers: 2_110,
     topPlayer: "david_cu",
@@ -152,7 +151,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "UNIBEN",
     category: "campus",
     slogan: "Knowledge for Service",
-    emoji: "⚡",
+    emoji: "UBN",
     basePoints: 109_400,
     basePlayers: 1_870,
     topPlayer: "osa_benin",
@@ -164,7 +163,7 @@ export const TURF_SQUADS: TurfSquad[] = [
     shortName: "LASU",
     category: "campus",
     slogan: "We Are LASU, We Are Great",
-    emoji: "🔥",
+    emoji: "LSU",
     basePoints: 104_750,
     basePlayers: 1_790,
     topPlayer: "bami_ojo",
@@ -174,10 +173,10 @@ export const TURF_SQUADS: TurfSquad[] = [
   {
     id: "naija",
     name: "Nigeria (Naija)",
-    shortName: "Naija 🇳🇬",
+    shortName: "Nigeria",
     category: "africa",
     slogan: "Giant of Africa · No Dey Carry Last",
-    emoji: "🇳🇬",
+    emoji: "NG",
     basePoints: 492_300,
     basePlayers: 12_480,
     topPlayer: "ada_thinks",
@@ -186,10 +185,10 @@ export const TURF_SQUADS: TurfSquad[] = [
   {
     id: "ghana",
     name: "Ghana (Accra)",
-    shortName: "Ghana 🇬🇭",
+    shortName: "Ghana",
     category: "africa",
     slogan: "Chale · Black Stars Energy",
-    emoji: "🇬🇭",
+    emoji: "GH",
     basePoints: 218_600,
     basePlayers: 4_320,
     topPlayer: "kwame_accra",
@@ -198,10 +197,10 @@ export const TURF_SQUADS: TurfSquad[] = [
   {
     id: "sa",
     name: "South Africa (Mzansi)",
-    shortName: "Mzansi 🇿🇦",
+    shortName: "Mzansi",
     category: "africa",
     slogan: "Amapiano & Sharp Predictions",
-    emoji: "🇿🇦",
+    emoji: "ZA",
     basePoints: 194_100,
     basePlayers: 3_810,
     topPlayer: "thabo_jhb",
@@ -210,10 +209,10 @@ export const TURF_SQUADS: TurfSquad[] = [
   {
     id: "kenya",
     name: "Kenya (254 Nairobi)",
-    shortName: "Kenya 🇰🇪",
+    shortName: "Kenya",
     category: "africa",
     slogan: "Silicon Savannah Speed",
-    emoji: "🇰🇪",
+    emoji: "KE",
     basePoints: 167_900,
     basePlayers: 3_150,
     topPlayer: "wanjiku_254",
@@ -237,7 +236,7 @@ export interface DailyStreetPoll {
 export const DAILY_STREET_POLLS: DailyStreetPoll[] = [
   {
     id: "street-poll-afrobeats",
-    tag: "AFROBEATS GOAT PULSE",
+    tag: "AFROBEATS VOTE",
     question: "If a surprise stadium concert drops in Lagos tonight, who will most Nigerians buy tickets for first?",
     totalVotes: 6_842,
     options: [
@@ -261,11 +260,11 @@ export const DAILY_STREET_POLLS: DailyStreetPoll[] = [
   },
   {
     id: "street-poll-fintech",
-    tag: "NAIJA ALERT WARS",
+    tag: "TRANSFER SPEED",
     question: "When sending urgent ₦5,000 for cab or shawarma, which app will most players open first?",
     totalVotes: 7_315,
     options: [
-      { id: "opay", label: "OPay (Instant Zero-Downtime)", pct: 52, pts: 10 },
+      { id: "opay", label: "OPay", pct: 52, pts: 10 },
       { id: "moniepoint", label: "Moniepoint", pct: 24, pts: 9 },
       { id: "palmpay", label: "PalmPay", pct: 15, pts: 8 },
       { id: "kuda", label: "Kuda / Traditional Bank App", pct: 9, pts: 7 },
@@ -320,10 +319,10 @@ export const VIRAL_DEMO_QUESTIONS: DemoQuestion[] = [
     category: "Afrobeats & Vibes",
     title: "If a DJ wants everyone on the dancefloor at a Nigerian wedding in 5 seconds, what drops?",
     options: [
-      { id: "opt-burna", label: "Burna Boy — City Boys / Last Last", crowdPct: 39, rank: 1, points: 10 },
-      { id: "opt-asake", label: "Asake — Lonely At The Top / Amapiano", crowdPct: 33, rank: 2, points: 9 },
-      { id: "opt-davido", label: "Davido — Unavailable / Kante", crowdPct: 20, rank: 3, points: 8 },
-      { id: "opt-olamide", label: "Olamide / Rema — Calm Down", crowdPct: 8, rank: 4, points: 7 },
+      { id: "opt-burna", label: "Burna Boy: City Boys / Last Last", crowdPct: 39, rank: 1, points: 10 },
+      { id: "opt-asake", label: "Asake: Lonely At The Top / Amapiano", crowdPct: 33, rank: 2, points: 9 },
+      { id: "opt-davido", label: "Davido: Unavailable / Kante", crowdPct: 20, rank: 3, points: 8 },
+      { id: "opt-olamide", label: "Olamide / Rema: Calm Down", crowdPct: 8, rank: 4, points: 7 },
     ],
   },
   {
@@ -381,21 +380,21 @@ export const LIVE_FOMO_EVENTS: LiveFomoItem[] = [
     id: "f2",
     tag: "SPEED",
     text: "tobi_akoka (UNILAG) locked 10/10 answers in 18.4s",
-    subtext: "Used 2x Confidence Lock on Q4",
+    subtext: "Fastest run this hour",
     timeAgo: "Just now",
   },
   {
     id: "f3",
     tag: "TURF",
-    text: "Lagos (Eko) leads Abuja by 22,470 pts in Turf Wars",
+    text: "Lagos (Eko) leads Abuja by 22,470 pts in State Rivalry",
     subtext: "4,812 Lagos players active",
     timeAgo: "1m ago",
   },
   {
     id: "f4",
     tag: "STREAK",
-    text: "ada_thinks hit a 7-Day Flame Streak (+100 Free Coins)",
-    subtext: "Voted on Today's Afrobeats Pulse",
+    text: "ada_thinks hit a 7-Day Streak",
+    subtext: "Voted on Today's Afrobeats Poll",
     timeAgo: "3m ago",
   },
   {
@@ -408,8 +407,8 @@ export const LIVE_FOMO_EVENTS: LiveFomoItem[] = [
   {
     id: "f6",
     tag: "SPEED",
-    text: "kwame_accra (Ghana 🇬🇭) joined Weekend Showdown",
-    subtext: "Pan-African Clash heating up",
+    text: "kwame_accra (Ghana) joined Weekend Showdown",
+    subtext: "Pan-African Clash active",
     timeAgo: "4m ago",
   },
 ];
@@ -430,7 +429,7 @@ export const NIGERIAN_BANKS = [
 ];
 
 /**
- * Build WhatsApp share URL with pre-formatted viral challenge message
+ * Build WhatsApp share URL with pre-formatted challenge message
  */
 export function buildWhatsAppShareUrl(params: {
   username?: string;
@@ -449,35 +448,35 @@ export function buildWhatsAppShareUrl(params: {
   const url = `${origin}/sign-up${ref}`;
 
   const lines: string[] = [
-    `🔥 *GUESS WHAT — Think Like The Crowd & Win Cash!*`,
+    `*GuessWhat | Predict the Crowd & Win Cash*`,
     ``,
   ];
 
   if (params.timeSeconds && params.sessionName) {
     lines.push(
-      `⚡ I just locked in my predictions on *${params.sessionName}* in *${params.timeSeconds}s* repping *${params.turf ?? "Lagos (Eko)"}*!`,
+      `I just locked in my predictions on *${params.sessionName}* in *${params.timeSeconds}s* (${params.turf ?? "Lagos"}).`,
     );
   } else if (params.username) {
     lines.push(
-      `👑 *${params.username}* is challenging you on *GuessWhat* (repping *${params.turf ?? "Lagos (Eko)"}*)!`,
+      `*${params.username}* (${params.turf ?? "Lagos"}) is challenging you on *GuessWhat*!`,
     );
   }
 
   if (params.challengeQuestion) {
     lines.push(
       ``,
-      `🤔 *Debate Question:* "${params.challengeQuestion}"`,
-      `What do you think MOST Nigerians will pick?`,
+      `*Question:* "${params.challengeQuestion}"`,
+      `What do you think most Nigerians will pick?`,
     );
   }
 
   if (params.prizePool) {
-    lines.push(``, `💰 *Live Prize Pool:* ₦${params.prizePool.toLocaleString()}`);
+    lines.push(``, `*Session Prize Pool:* ₦${params.prizePool.toLocaleString()}`);
   }
 
   lines.push(
     ``,
-    `🎁 Join with my link for *150 FREE COINS* (100 Welcome + 50 Squad Bonus)${params.referralCode ? ` · Code: *${params.referralCode}*` : ""}:`,
+    `Join free with my link${params.referralCode ? ` (Code: *${params.referralCode}*)` : ""}:`,
     url,
   );
 
@@ -502,14 +501,14 @@ export function buildTwitterShareUrl(params: {
   const url = `${origin}/sign-up${ref}`;
 
   const text = params.challengeQuestion
-    ? `🔥 "${params.challengeQuestion}" — What will the crowd pick?\n\nI just locked in my predictions on @GuessWhatNG${params.timeSeconds ? ` in ${params.timeSeconds}s` : ""} repping ${params.turf ?? "Lagos"}! Think like the crowd & win cash 💰👇`
-    : `🔥 I just locked in my crowd predictions on GuessWhat${params.timeSeconds ? ` in ${params.timeSeconds}s` : ""} repping ${params.turf ?? "Lagos"}! No trivia needed — just predict what most players pick & win real cash 💰👇`;
+    ? `"${params.challengeQuestion}" What will the crowd pick?\n\nI just locked in my predictions on @GuessWhatNG${params.timeSeconds ? ` in ${params.timeSeconds}s` : ""} (${params.turf ?? "Lagos"}). Predict what most players pick and win cash:`
+    : `I just locked in my crowd predictions on GuessWhat${params.timeSeconds ? ` in ${params.timeSeconds}s` : ""} (${params.turf ?? "Lagos"}). Predict what most players pick across 10 questions and win real cash:`;
 
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
 }
 
 /**
- * Generate a 1080x1350 viral PNG Brag / Debate Card for WhatsApp Status & Instagram Stories
+ * Generate a 1080x1350 PNG Invite / Score Card for WhatsApp Status & Instagram Stories
  */
 export function generateBragCardDataUrl(opts: {
   username: string;
@@ -528,7 +527,6 @@ export function generateBragCardDataUrl(opts: {
   const ctx = canvas.getContext("2d");
   if (!ctx) return "";
 
-  // Background gradient
   const bg = ctx.createLinearGradient(0, 0, 1080, 1350);
   bg.addColorStop(0, "#0b0d14");
   bg.addColorStop(0.5, "#171219");
@@ -536,7 +534,6 @@ export function generateBragCardDataUrl(opts: {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, 1080, 1350);
 
-  // Orange/Red ambient glow
   const glow = ctx.createRadialGradient(540, 260, 40, 540, 260, 520);
   glow.addColorStop(0, "rgba(247, 145, 27, 0.32)");
   glow.addColorStop(0.5, "rgba(255, 4, 0, 0.14)");
@@ -544,12 +541,10 @@ export function generateBragCardDataUrl(opts: {
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, 1080, 1350);
 
-  // Outer frame border
   ctx.strokeStyle = "rgba(247, 145, 27, 0.45)";
   ctx.lineWidth = 4;
   ctx.strokeRect(48, 48, 984, 1254);
 
-  // Top Pill Badge
   ctx.fillStyle = "rgba(247, 145, 27, 0.18)";
   ctx.fillRect(310, 100, 460, 54);
   ctx.strokeStyle = "#F7911B";
@@ -559,31 +554,27 @@ export function generateBragCardDataUrl(opts: {
   ctx.fillStyle = "#F7911B";
   ctx.font = "bold 24px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("🔥 GUESS WHAT · THINK & WIN", 540, 136);
+  ctx.fillText("GUESSWHAT · PREDICT & WIN", 540, 136);
 
-  // Main Headline
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "900 62px system-ui, -apple-system, sans-serif";
-  ctx.fillText("PREDICTIONS LOCKED!", 540, 245);
+  ctx.fillText("PREDICTIONS LOCKED", 540, 245);
 
-  // Player & Turf subhead
   ctx.fillStyle = "#F7911B";
   ctx.font = "bold 34px system-ui, -apple-system, sans-serif";
-  ctx.fillText(`@${opts.username} · Repping ${opts.turf}`, 540, 305);
+  ctx.fillText(`@${opts.username} · ${opts.turf}`, 540, 305);
 
-  // Stats Box
   ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
   ctx.fillRect(96, 360, 888, 250);
   ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
   ctx.lineWidth = 2;
   ctx.strokeRect(96, 360, 888, 250);
 
-  // 3 Stat Columns
   ctx.fillStyle = "#9EA6BA";
   ctx.font = "600 24px system-ui, sans-serif";
   ctx.fillText("SPEED TIEBREAKER", 260, 430);
   ctx.fillText("PRIZE POOL", 540, 430);
-  ctx.fillText("2X SURE LOCK", 820, 430);
+  ctx.fillText("QUESTIONS", 820, 430);
 
   ctx.fillStyle = "#22C55E";
   ctx.font = "900 54px system-ui, sans-serif";
@@ -593,13 +584,12 @@ export function generateBragCardDataUrl(opts: {
   ctx.fillText(opts.prizePool, 540, 510);
 
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText(opts.used2xLock ? "ACTIVE 🔥" : `${opts.answeredCount}/10`, 820, 510);
+  ctx.fillText(opts.used2xLock ? "2X ACTIVE" : `${opts.answeredCount}/10`, 820, 510);
 
   ctx.fillStyle = "#D5D9E6";
   ctx.font = "500 22px system-ui, sans-serif";
   ctx.fillText(`Session: ${opts.sessionName}`, 540, 575);
 
-  // Debate Question Card
   ctx.fillStyle = "rgba(247, 145, 27, 0.10)";
   ctx.fillRect(96, 660, 888, 340);
   ctx.strokeStyle = "#F7911B";
@@ -608,9 +598,8 @@ export function generateBragCardDataUrl(opts: {
 
   ctx.fillStyle = "#F7911B";
   ctx.font = "bold 25px system-ui, sans-serif";
-  ctx.fillText("🤔 CAN YOU GUESS WHAT THE CROWD PICKED?", 540, 725);
+  ctx.fillText("CAN YOU GUESS WHAT THE CROWD PICKED?", 540, 725);
 
-  // Wrap question text
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 38px system-ui, sans-serif";
   const words = opts.challengeQuestion.split(" ");
@@ -633,9 +622,8 @@ export function generateBragCardDataUrl(opts: {
 
   ctx.fillStyle = "#9EA6BA";
   ctx.font = "600 24px system-ui, sans-serif";
-  ctx.fillText("No right or wrong answer — majority rules!", 540, 965);
+  ctx.fillText("No trivia required. Majority consensus wins.", 540, 965);
 
-  // Referral CTA Footer
   const ctaGrad = ctx.createLinearGradient(96, 1060, 984, 1210);
   ctaGrad.addColorStop(0, "#FF0400");
   ctaGrad.addColorStop(1, "#F7911B");
@@ -645,12 +633,12 @@ export function generateBragCardDataUrl(opts: {
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "900 36px system-ui, sans-serif";
   ctx.fillText(
-    `USE CODE: ${opts.referralCode || "GUESSWHAT"} FOR 150 FREE COINS`,
+    `INVITE CODE: ${opts.referralCode || "GUESSWHAT"}`,
     540,
     1128,
   );
   ctx.font = "bold 26px system-ui, sans-serif";
-  ctx.fillText("Play at guesswhat-tan.vercel.app · Beat my speed!", 540, 1180);
+  ctx.fillText("Play free at guesswhat-tan.vercel.app", 540, 1180);
 
   return canvas.toDataURL("image/png");
 }

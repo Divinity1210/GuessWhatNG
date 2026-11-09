@@ -307,7 +307,7 @@ create policy "staff session questions" on session_questions for all using (is_s
 -- entries: own only (prevents scanning who answered what)
 create policy "own entries" on session_entries for select using (user_id = auth.uid() or is_staff());
 
--- answers: INVARIANT — a player may read only their own answers; aggregate
+-- answers: INVARIANT - a player may read only their own answers; aggregate
 -- visibility before close is impossible because no select policy grants it.
 create policy "own answers read" on answers for select
   using (exists (select 1 from session_entries e where e.id = entry_id and e.user_id = auth.uid()) or is_staff());

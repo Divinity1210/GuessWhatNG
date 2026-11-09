@@ -1,4 +1,4 @@
--- GUESS WHAT — Community Arena, Pulse Polls (B2B/Gov Data), & Native Ad Engine
+-- GuessWhat: Community Arena, Pulse Polls, and Native Ad Engine
 
 -- 1. Community Posts (Pulse Polls, Debate Topics, Session Verdicts, Sponsored Polls)
 create table if not exists community_posts (
@@ -155,7 +155,7 @@ select
   'poll',
   'Banking & Fintech',
   'Which bank or fintech app has the fastest transfer speed for you right now?',
-  'Forget hype — when you are standing at a POS or paying a vendor in traffic, which app delivers the alert fastest?',
+  'Forget hype. When you are standing at a POS or paying a vendor in traffic, which app delivers the alert fastest?',
   '[
     {"id":"opay","label":"OPay"},
     {"id":"moniepoint","label":"Moniepoint"},
@@ -188,7 +188,7 @@ select
   'poll',
   'Economy & Policy',
   'Where do you feel rising monthly costs the hardest right now?',
-  'Public pulse check across states — pick the single biggest pressure on your weekly budget and share why below.',
+  'Public pulse check across states. Pick the single biggest pressure on your weekly budget and share why below.',
   '[
     {"id":"food","label":"Food & groceries"},
     {"id":"transport","label":"Transport & fuel"},
@@ -203,8 +203,8 @@ insert into community_posts (kind, category, title, body, is_pinned)
 select
   'topic',
   'Game Banter',
-  'Lagos vs Abuja vs Port Harcourt — which state is taking 1st place in this live session?',
-  'Check the rank badge next to your name when you reply. Fastest minds win ties — talk your talk!',
+  'Lagos vs Abuja vs Port Harcourt: which state is taking 1st place in this live session?',
+  'Check the rank badge next to your name when you reply. Fastest minds win ties, so talk your talk.',
   false
 where (select count(*) from community_posts) < 4;
 
@@ -234,7 +234,7 @@ insert into community_messages (room, is_system, body, author_username, author_s
 select
   'live_arena',
   true,
-  'Welcome to the GuessWhat Live Arena! Represent your state, debate the sharpest picks, and keep it clean — external links and phone numbers are blocked.',
+  'Welcome to the GuessWhat Live Banter Room. Represent your state, debate picks, and keep chat clean. External links and phone numbers are blocked.',
   'GuessWhat Arena',
   'Nigeria'
 where not exists (select 1 from community_messages where room = 'live_arena');

@@ -3,13 +3,19 @@
 import { useState } from "react";
 import { topupCoinsVas, requestRewardWithdrawal } from "@/lib/supabase/queries";
 import { NIGERIAN_BANKS } from "@/lib/game/viral-engine";
-import { CoinsIcon, CheckIcon, ZapIcon } from "@/components/ui/Icons";
+import {
+  CoinsIcon,
+  CheckIcon,
+  ZapIcon,
+  CloseIcon,
+  SmartphoneIcon,
+} from "@/components/ui/Icons";
 import { Button } from "@/components/ui";
 
 const PLANS = [
   {
     id: "daily",
-    name: "Daily Street Pass",
+    name: "Daily Pass",
     coins: 100,
     priceNgn: 50,
     tag: "1 Session Entry",
@@ -17,7 +23,7 @@ const PLANS = [
   },
   {
     id: "weekly",
-    name: "Weekly Baller Pack",
+    name: "Weekly Pack",
     coins: 800,
     priceNgn: 300,
     tag: "Most Popular · +60% Bonus",
@@ -26,7 +32,7 @@ const PLANS = [
   },
   {
     id: "monthly",
-    name: "Monthly Odogwu VIP",
+    name: "Monthly Pass",
     coins: 4000,
     priceNgn: 1000,
     tag: "Best Value · 40 Sessions",
@@ -124,7 +130,6 @@ export function VasTopupModal({
           return;
         }
 
-        // Instant sandbox mode: sync client ledger only if DB was not already updated server-side
         if (!data.dbSynced) {
           await topupCoinsVas({
             userId,
@@ -146,9 +151,8 @@ export function VasTopupModal({
       return;
     }
 
-    // Telco VAS Airtime flow -> call POST /api/vas/initiate
     if (phone.replace(/\D/g, "").length < 10) {
-      setError("Please enter a valid Nigerian phone number (e.g. 08031234567)");
+      setError("Enter a valid Nigerian phone number (e.g. 08031234567)");
       return;
     }
 
@@ -220,60 +224,62 @@ export function VasTopupModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="vas-topup-title"
     >
-      <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-[#121622] p-6 md:p-8 shadow-2xl space-y-5">
+      <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl sm:rounded-3xl border-t sm:border border-white/15 bg-[#121622] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-7 shadow-2xl space-y-5">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="grid size-10 place-items-center rounded-xl bg-[#F7911B]/15 text-[#F7911B] border border-[#F7911B]/30">
+            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#F7911B]/15 text-[#F7911B] border border-[#F7911B]/30">
               <CoinsIcon className="size-5" />
             </div>
             <div>
-              <h2 id="vas-topup-title" className="font-display text-xl font-bold text-white">
+              <h2 id="vas-topup-title" className="font-display text-lg sm:text-xl font-bold text-white">
                 Instant Coin Top-Up
               </h2>
               <p className="text-xs text-ink-muted">
-                Telco Airtime VAS (MTN/Airtel/Glo/9mobile) or Paystack & Flutterwave
+                Telco Airtime (MTN, Airtel, Glo, 9mobile) or Bank / Card
               </p>
             </div>
           </div>
           <button
             type="button"
+            aria-label="Close modal"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-ink-muted hover:bg-white/10 hover:text-white"
+            className="grid size-9 shrink-0 place-items-center rounded-xl text-ink-muted hover:bg-white/10 hover:text-white"
           >
-            ✕
+            <CloseIcon className="size-4" />
           </button>
         </div>
 
         {step === "select" && (
           <form onSubmit={handleInitiate} className="space-y-4">
-            {/* Payment Rail Selector */}
             <div className="grid grid-cols-2 gap-2 rounded-2xl bg-black/40 p-1.5 border border-white/10">
               <button
                 type="button"
                 onClick={() => setRail("vas")}
-                className={`rounded-xl py-2.5 px-3 text-xs font-bold transition-all ${
+                className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
                   rail === "vas"
                     ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-md"
                     : "text-ink-muted hover:text-white"
                 }`}
               >
-                📲 Telco Airtime (VAS)
+                <SmartphoneIcon className="size-3.5 shrink-0" />
+                <span>Airtime (VAS)</span>
               </button>
               <button
                 type="button"
                 onClick={() => setRail("paystack")}
-                className={`rounded-xl py-2.5 px-3 text-xs font-bold transition-all ${
+                className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
                   rail === "paystack"
                     ? "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-md"
                     : "text-ink-muted hover:text-white"
                 }`}
               >
-                💳 Paystack / OPay / Transfer
+                <CoinsIcon className="size-3.5 shrink-0" />
+                <span>Paystack / OPay</span>
               </button>
             </div>
 
@@ -289,7 +295,7 @@ export function VasTopupModal({
                       key={plan.id}
                       type="button"
                       onClick={() => setSelectedPlan(plan)}
-                      className={`flex items-center justify-between rounded-2xl border p-4 text-left transition-all ${
+                      className={`flex items-center justify-between rounded-2xl border p-3.5 sm:p-4 text-left transition-all ${
                         active
                           ? "border-[#F7911B] bg-[#F7911B]/15 shadow-md"
                           : "border-white/10 bg-white/5 hover:border-white/25"
@@ -297,7 +303,7 @@ export function VasTopupModal({
                     >
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-display font-bold text-white text-base">
+                          <span className="font-display font-bold text-white text-sm sm:text-base">
                             {plan.name}
                           </span>
                           {plan.popular && (
@@ -310,11 +316,11 @@ export function VasTopupModal({
                           {plan.tag} {rail === "vas" ? `· USSD ${plan.ussd}` : "· Instant Settlement"}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-display text-lg font-black text-white">
+                      <div className="text-right shrink-0">
+                        <p className="font-display text-base sm:text-lg font-black tabular-nums text-white">
                           +{plan.coins.toLocaleString()} Coins
                         </p>
-                        <p className="text-xs text-emerald-400 font-bold">
+                        <p className="text-xs text-emerald-400 font-bold tabular-nums">
                           ₦{plan.priceNgn.toLocaleString()} {rail === "vas" ? "Airtime" : "NGN"}
                         </p>
                       </div>
@@ -328,7 +334,7 @@ export function VasTopupModal({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                    2. Nigerian Mobile Number (MSISDN)
+                    2. Nigerian Mobile Number
                   </label>
                   <span
                     className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${carrier.color}`}
@@ -342,7 +348,7 @@ export function VasTopupModal({
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="0803 123 4567"
                   required
-                  className="w-full rounded-xl border border-rule bg-paper-3 px-4 py-3 text-sm text-white focus:border-[#F7911B] focus:outline-none"
+                  className="min-h-11 w-full rounded-xl border border-rule bg-paper-3 px-4 py-2.5 text-base sm:text-sm text-white focus:border-[#F7911B] focus:outline-none"
                 />
               </div>
             ) : (
@@ -362,7 +368,7 @@ export function VasTopupModal({
                   >
                     <p className="text-xs font-bold">Paystack</p>
                     <p className="text-[10px] text-ink-muted mt-0.5">
-                      Card · Bank Transfer · OPay · USSD
+                      Card · Transfer · OPay · USSD
                     </p>
                   </button>
                   <button
@@ -376,7 +382,7 @@ export function VasTopupModal({
                   >
                     <p className="text-xs font-bold">Flutterwave</p>
                     <p className="text-[10px] text-ink-muted mt-0.5">
-                      Naira Card · Barter · Mobile Money
+                      Naira Card · Transfer · Mobile Money
                     </p>
                   </button>
                 </div>
@@ -389,12 +395,12 @@ export function VasTopupModal({
               </p>
             )}
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3 pt-1">
               <Button type="submit" className="flex-1" size="lg" disabled={loading}>
                 {loading
-                  ? "Connecting Gateway..."
+                  ? "Connecting..."
                   : rail === "vas"
-                    ? `Send OTP — ₦${selectedPlan.priceNgn} for ${selectedPlan.coins} Coins`
+                    ? `Send OTP (₦${selectedPlan.priceNgn} for ${selectedPlan.coins} Coins)`
                     : `Pay ₦${selectedPlan.priceNgn} via ${gateway === "paystack" ? "Paystack" : "Flutterwave"}`}
               </Button>
             </div>
@@ -416,7 +422,7 @@ export function VasTopupModal({
                 .
               </p>
               <p className="text-[11px] text-emerald-300 font-semibold pt-1">
-                💡 {consentHint || "Enter OTP 0000 below to confirm"}
+                {consentHint || "Enter OTP 0000 below to confirm"}
               </p>
             </div>
 
@@ -433,7 +439,7 @@ export function VasTopupModal({
                 maxLength={4}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full rounded-xl border border-rule bg-paper-3 px-4 py-3 text-center font-display text-2xl font-black tracking-[0.5em] text-white focus:border-[#F7911B] focus:outline-none"
+                className="min-h-12 w-full rounded-xl border border-rule bg-paper-3 px-4 py-3 text-center font-display text-2xl font-black tracking-[0.5em] text-white focus:border-[#F7911B] focus:outline-none"
               />
             </div>
 
@@ -448,7 +454,7 @@ export function VasTopupModal({
                 Back
               </Button>
               <Button type="submit" className="flex-1" disabled={loading}>
-                {loading ? "Crediting Coins..." : `Confirm & Credit +${selectedPlan.coins} Coins`}
+                {loading ? "Crediting Coins..." : `Confirm +${selectedPlan.coins} Coins`}
               </Button>
             </div>
           </form>
@@ -460,7 +466,7 @@ export function VasTopupModal({
               <CheckIcon className="size-8" />
             </div>
             <h3 className="font-display text-2xl font-black text-white">
-              +{selectedPlan.coins.toLocaleString()} Coins Credited!
+              +{selectedPlan.coins.toLocaleString()} Coins Credited
             </h3>
             <p className="text-sm text-ink-2">
               Your wallet has been topped up via{" "}
@@ -475,7 +481,7 @@ export function VasTopupModal({
               <p className="font-mono text-[11px] text-ink-muted">Ref: {receiptRef}</p>
             )}
             <Button onClick={onClose} className="w-full" size="lg">
-              Awesome, Let&apos;s Play!
+              Continue
             </Button>
           </div>
         )}
@@ -593,27 +599,28 @@ export function WithdrawalModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="withdraw-modal-title"
     >
-      <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-[#121622] p-6 md:p-8 shadow-2xl space-y-5">
+      <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl sm:rounded-3xl border-t sm:border border-white/15 bg-[#121622] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-7 shadow-2xl space-y-5">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div>
-            <h2 id="withdraw-modal-title" className="font-display text-xl font-bold text-white">
+            <h2 id="withdraw-modal-title" className="font-display text-lg sm:text-xl font-bold text-white">
               Withdraw Cash Winnings
             </h2>
             <p className="text-xs text-ink-muted">
-              Instant NUBAN payout to Nigerian Banks, OPay, PalmPay & Moniepoint
+              Direct NUBAN payout to Nigerian Banks, OPay, PalmPay &amp; Moniepoint
             </p>
           </div>
           <button
             type="button"
+            aria-label="Close modal"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-ink-muted hover:bg-white/10 hover:text-white"
+            className="grid size-9 shrink-0 place-items-center rounded-xl text-ink-muted hover:bg-white/10 hover:text-white"
           >
-            ✕
+            <CloseIcon className="size-4" />
           </button>
         </div>
 
@@ -623,7 +630,7 @@ export function WithdrawalModal({
               <CheckIcon className="size-8" />
             </div>
             <h3 className="font-display text-2xl font-black text-white">
-              ₦{Number(amount).toLocaleString()} Payout Sent!
+              ₦{Number(amount).toLocaleString()} Payout Sent
             </h3>
             <p className="text-sm text-ink-2">
               Your transfer to <strong className="text-white">{bankName}</strong> ({accountNumber} ·{" "}
@@ -647,7 +654,7 @@ export function WithdrawalModal({
                 name="bankName"
                 value={bankName}
                 onChange={(e) => handleBankChange(e.target.value)}
-                className="w-full rounded-xl border border-rule bg-paper-3 px-4 py-3 text-sm text-white focus:border-[#F7911B] focus:outline-none"
+                className="min-h-11 w-full rounded-xl border border-rule bg-paper-3 px-4 py-2.5 text-base sm:text-sm text-white focus:border-[#F7911B] focus:outline-none"
               >
                 {NIGERIAN_BANKS.map((b) => (
                   <option key={b} value={b}>
@@ -670,7 +677,7 @@ export function WithdrawalModal({
                 onChange={(e) => handleAccountChange(e.target.value)}
                 placeholder="0123456789"
                 required
-                className="w-full rounded-xl border border-rule bg-paper-3 px-4 py-3 text-sm text-white focus:border-[#F7911B] focus:outline-none"
+                className="min-h-11 w-full rounded-xl border border-rule bg-paper-3 px-4 py-2.5 text-base sm:text-sm text-white focus:border-[#F7911B] focus:outline-none"
               />
               {resolvingAccount && (
                 <p className="mt-1.5 text-xs text-amber-400 flex items-center gap-1.5">
@@ -697,7 +704,7 @@ export function WithdrawalModal({
                 min={500}
                 max={Math.max(maxAmount, 1000000)}
                 required
-                className="w-full rounded-xl border border-rule bg-paper-3 px-4 py-3 text-sm font-bold text-white focus:border-[#F7911B] focus:outline-none"
+                className="min-h-11 w-full rounded-xl border border-rule bg-paper-3 px-4 py-2.5 text-base sm:text-sm font-bold text-white focus:border-[#F7911B] focus:outline-none"
               />
             </div>
 
