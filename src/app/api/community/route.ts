@@ -94,8 +94,8 @@ export async function GET(req: NextRequest) {
 
     const [
       { data: lbRows },
-      { data: liveMessages },
-      { data: posts },
+      { data: liveMessages, error: liveMsgErr },
+      { data: posts, error: postsErr },
       { data: pollVotes },
       { data: threadMessages },
       { data: ads },
@@ -158,6 +158,16 @@ export async function GET(req: NextRequest) {
             .maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
+
+    if (postsErr || liveMsgErr) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: postsErr?.message || liveMsgErr?.message || "Temporary database error",
+        },
+        { status: 503 },
+      );
+    }
 
     const rankByUser = new Map<string, { rank: number; points: number }>();
     for (const r of lbRows ?? []) {

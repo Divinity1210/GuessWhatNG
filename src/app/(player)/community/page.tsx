@@ -227,12 +227,47 @@ export default function CommunityPage() {
         });
         if (!res.ok) return;
         const data = await res.json();
-        setActiveSession(data.activeSession ?? null);
-        setMyIdentity(data.myIdentity ?? null);
-        setTopStates(data.topStates ?? []);
-        setLiveChat(data.liveChat ?? []);
-        setPosts(data.posts ?? []);
-        setAds(data.ads ?? []);
+        if (!data?.ok) return;
+
+        if (data.activeSession) {
+          setActiveSession(data.activeSession);
+        } else if (!silent) {
+          setActiveSession(null);
+        }
+
+        if (data.myIdentity) {
+          setMyIdentity(data.myIdentity);
+        } else if (!user?.id) {
+          setMyIdentity(null);
+        }
+
+        if (Array.isArray(data.topStates) && (data.topStates.length > 0 || !silent)) {
+          setTopStates(data.topStates);
+        }
+
+        if (Array.isArray(data.liveChat)) {
+          setLiveChat((prev) =>
+            silent && data.liveChat.length === 0 && prev.length > 0
+              ? prev
+              : data.liveChat,
+          );
+        }
+
+        if (Array.isArray(data.posts)) {
+          setPosts((prev) =>
+            silent && data.posts.length === 0 && prev.length > 0
+              ? prev
+              : data.posts,
+          );
+        }
+
+        if (Array.isArray(data.ads)) {
+          setAds((prev) =>
+            silent && data.ads.length === 0 && prev.length > 0
+              ? prev
+              : data.ads,
+          );
+        }
       } catch {
         // Keep current UI state on transient offline glitch
       } finally {

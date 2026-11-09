@@ -2,36 +2,31 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-let serverOfflineUntil = 0;
-
-async function fastServerSupabaseFetch(
+async function resilientServerSupabaseFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
-  if (Date.now() < serverOfflineUntil) {
-    return new Response(
-      JSON.stringify({ message: "Supabase server offline circuit breaker active" }),
-      { status: 503, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 2200);
+  const attemptFetch = async (timeoutMs: number): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(input, {
+        ...init,
+        signal: init?.signal ?? controller.signal,
+      });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      throw err;
+    }
+  };
 
   try {
-    const res = await fetch(input, {
-      ...init,
-      signal: init?.signal ?? controller.signal,
-    });
-    clearTimeout(timer);
-    return res;
+    return await attemptFetch(12000);
   } catch {
-    clearTimeout(timer);
-    serverOfflineUntil = Date.now() + 60_000;
-    return new Response(
-      JSON.stringify({ message: "Supabase server connection timed out" }),
-      { status: 503, headers: { "Content-Type": "application/json" } },
-    );
+    // Retry once on transient serverless socket reset / TLS cold start
+    return await attemptFetch(12000);
   }
 }
 
@@ -41,7 +36,7 @@ export async function createSupabaseServerClient() {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
 
   return createServerClient(url, key, {
-    global: { fetch: fastServerSupabaseFetch },
+    global: { fetch: resilientServerSupabaseFetch },
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll: (all) => {
@@ -67,6 +62,6 @@ export function createSupabaseServiceClient() {
 
   return createClient(url, key, {
     auth: { persistSession: false },
-    global: { fetch: fastServerSupabaseFetch },
+    global: { fetch: resilientServerSupabaseFetch },
   });
 }
