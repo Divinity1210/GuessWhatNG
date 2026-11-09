@@ -67,6 +67,7 @@ async function recalculateLiveLeaderboard(
 
   // Build option pick counts per question (active answers + archived replay answers)
   const countsByQuestion: Record<string, Record<string, number>> = {};
+  const timeByOption: Record<string, number> = {};
   const positionByOption: Record<string, number> = {};
 
   if (sqs) {
@@ -79,6 +80,7 @@ async function recalculateLiveLeaderboard(
         (qObj as { question_options?: { id: string; position: number }[] })?.question_options ?? [];
       for (const o of opts) {
         countsByQuestion[sq.question_id][o.id] = 0;
+        timeByOption[o.id] = 0;
         positionByOption[o.id] = o.position ?? 0;
       }
     }
@@ -90,6 +92,8 @@ async function recalculateLiveLeaderboard(
     }
     countsByQuestion[ans.question_id][ans.option_id] =
       (countsByQuestion[ans.question_id][ans.option_id] ?? 0) + 1;
+    timeByOption[ans.option_id] =
+      (timeByOption[ans.option_id] ?? 0) + Number(ans.response_ms ?? 0);
   }
 
   for (const log of archivedLogs ?? []) {
@@ -102,25 +106,27 @@ async function recalculateLiveLeaderboard(
         }
         countsByQuestion[ans.question_id][ans.option_id] =
           (countsByQuestion[ans.question_id][ans.option_id] ?? 0) + 1;
+        timeByOption[ans.option_id] =
+          (timeByOption[ans.option_id] ?? 0) + Number(ans.response_ms ?? 0);
       }
     }
   }
 
   // Assign points per option: Most selected = 10 pts, 2nd = 9 pts ... Least selected = 1 pt (Page 18)
-  // Options with the exact same vote count (selectionCount) share the same competition rank & points
+  // If there is a draw in vote count, fastest response time gets more points
   const pointsByOption: Record<string, number> = {};
   for (const qId of Object.keys(countsByQuestion)) {
     const optMap = countsByQuestion[qId];
     const sorted = Object.entries(optMap).sort((a, b) => {
       if (b[1] !== a[1]) return b[1] - a[1];
+      if (a[1] > 0) {
+        const timeDiff = (timeByOption[a[0]] ?? 0) - (timeByOption[b[0]] ?? 0);
+        if (timeDiff !== 0) return timeDiff;
+      }
       return (positionByOption[a[0]] ?? 0) - (positionByOption[b[0]] ?? 0);
     });
-    let currentRankIdx = 0;
-    sorted.forEach(([optId, count], idx) => {
-      if (idx > 0 && count < sorted[idx - 1][1]) {
-        currentRankIdx = idx;
-      }
-      pointsByOption[optId] = count > 0 ? Math.max(10 - currentRankIdx, 1) : 1;
+    sorted.forEach(([optId], idx) => {
+      pointsByOption[optId] = Math.max(10 - idx, 1);
     });
   }
 
@@ -615,27 +621,25 @@ export async function GET(req: NextRequest) {
         0,
       );
 
-      // Sort by selection count descending, tie-break by original option position
+      // Sort by selection count descending; if there is a draw, fastest time gets more points
       const rankedOptions = [...rawOptions].sort((a, b) => {
-        const countDiff = (optCountMap.get(b.id) ?? 0) - (optCountMap.get(a.id) ?? 0);
-        if (countDiff !== 0) return countDiff;
+        const aCount = optCountMap.get(a.id) ?? 0;
+        const bCount = optCountMap.get(b.id) ?? 0;
+        if (bCount !== aCount) return bCount - aCount;
+        if (aCount > 0) {
+          const timeDiff = (optTimeMap.get(a.id) ?? 0) - (optTimeMap.get(b.id) ?? 0);
+          if (timeDiff !== 0) return timeDiff;
+        }
         return (a.position ?? 0) - (b.position ?? 0);
       });
 
       const myPick = q ? myPickByQuestion.get(q.id) : undefined;
       let myPointsEarned: number | null = null;
-      let currentRankIdx = 0;
 
       const options = rankedOptions.map((opt, idx) => {
+        const rank = idx + 1;
+        const points = Math.max(10 - idx, 1);
         const selectionCount = optCountMap.get(opt.id) ?? 0;
-        const prevSelectionCount =
-          idx > 0 ? (optCountMap.get(rankedOptions[idx - 1].id) ?? 0) : selectionCount;
-        if (idx > 0 && selectionCount < prevSelectionCount) {
-          currentRankIdx = idx;
-        }
-        const rank = currentRankIdx + 1;
-        const points =
-          selectionCount > 0 ? Math.max(10 - currentRankIdx, 1) : 1;
         const totalOptMs = optTimeMap.get(opt.id) ?? 0;
         const percentage =
           questionTotalSelections > 0
@@ -650,11 +654,6 @@ export async function GET(req: NextRequest) {
           if (rank <= 3) top3Hits += 1;
         }
 
-        const minSelectionCount =
-          rankedOptions.length > 0
-            ? (optCountMap.get(rankedOptions[rankedOptions.length - 1].id) ?? 0)
-            : 0;
-
         return {
           rank,
           optionId: opt.id,
@@ -666,8 +665,7 @@ export async function GET(req: NextRequest) {
           points,
           avgResponseMs,
           isMostSelected: rank === 1 && selectionCount > 0,
-          isLeastSelected:
-            questionTotalSelections > 0 && selectionCount === minSelectionCount && rank > 1,
+          isLeastSelected: rank === rankedOptions.length,
           isMyPick,
         };
       });
