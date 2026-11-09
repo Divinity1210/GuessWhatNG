@@ -111,7 +111,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   return (
     <div
       onClick={handleDelegatedClick}
-      className="flex min-h-dvh bg-[#07090e] text-slate-100"
+      className="flex min-h-dvh w-full max-w-full overflow-x-clip bg-[#07090e] text-slate-100"
     >
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:w-60 flex-col border-r border-white/[0.06] bg-[#0b0e17] fixed inset-y-0 left-0 z-40">
@@ -223,9 +223,9 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 md:ml-60 min-w-0 flex flex-col">
+      <main className="flex-1 md:ml-60 min-w-0 w-full max-w-full flex flex-col">
         {/* Compact Mobile Top Bar (fits cleanly on 360px+ screens) */}
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-white/[0.06] bg-[#0b0e17]/95 px-3 backdrop-blur-xl md:hidden">
+        <header className="sticky top-0 z-40 flex h-14 w-full max-w-full items-center justify-between border-b border-white/[0.06] bg-[#0b0e17]/95 px-3 sm:px-4 backdrop-blur-xl md:hidden">
           <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
@@ -386,11 +386,11 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         )}
 
         <div
-          className={`mx-auto ${
+          className={`mx-auto min-w-0 w-full max-w-full ${
             pathname.startsWith("/community")
-              ? "max-w-7xl"
-              : "max-w-5xl px-3.5 py-4 sm:px-5 sm:py-6 md:px-8 md:py-8"
-          } pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-10 flex-1 w-full`}
+              ? "md:max-w-7xl"
+              : "md:max-w-5xl px-3.5 py-4 sm:px-5 sm:py-6 md:px-8 md:py-8"
+          } pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-10 flex-1`}
         >
           {children}
         </div>

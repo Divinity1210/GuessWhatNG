@@ -114,7 +114,7 @@ export default function SessionsPage() {
           <EmptyState title="No games yet" description="Join a session to start playing!" />
         )
       ) : sessions.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sessions.map((s) => (
             <div key={s.id} className="rounded-card border border-rule bg-paper-2 p-5 transition-all duration-200 hover:border-rule-2 hover:shadow-soft">
               <div className="flex items-start justify-between">

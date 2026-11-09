@@ -232,7 +232,7 @@ export default function SettingsPage() {
         <h2 className="font-display text-base sm:text-lg font-bold text-white">
           Player Options &amp; Legal
         </h2>
-        <div className="grid gap-2.5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {[
             { href: "/profile", label: "My Profile & Payout Bank" },
             { href: "/inbox", label: "Player Inbox" },

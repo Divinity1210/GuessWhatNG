@@ -170,9 +170,9 @@ export default function ReferralsPage() {
         </div>
 
         {/* Code & Auto-Link Boxes */}
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-[#07090e] px-4 py-3">
-            <div className="min-w-0">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 min-w-0">
+          <div className="flex min-w-0 overflow-hidden items-center justify-between gap-3 rounded-xl border border-accent/30 bg-[#07090e] px-3.5 py-3 sm:px-4">
+            <div className="min-w-0 flex-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Your Referral Code
               </p>
@@ -180,7 +180,7 @@ export default function ReferralsPage() {
                 {refCode}
               </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={handleCopyCode}>
+            <Button variant="secondary" size="sm" onClick={handleCopyCode} className="shrink-0">
               {copiedCode ? (
                 <>
                   <CheckIcon className="size-3.5 mr-1.5 text-emerald-400" />
@@ -195,14 +195,14 @@ export default function ReferralsPage() {
             </Button>
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#07090e] px-4 py-3">
+          <div className="flex min-w-0 overflow-hidden items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-3 sm:px-4">
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 1-Click Referral Signup Link
               </p>
               <p className="truncate font-mono text-xs text-slate-300">{inviteLink}</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={handleCopyLink}>
+            <Button variant="secondary" size="sm" onClick={handleCopyLink} className="shrink-0">
               {copiedLink ? (
                 <>
                   <CheckIcon className="size-3.5 mr-1.5 text-emerald-400" />
@@ -219,7 +219,7 @@ export default function ReferralsPage() {
         </div>
 
         {/* 1-Tap Viral Share Buttons */}
-        <div className="grid gap-2.5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
           <a
             href={whatsappUrl}
             target="_blank"

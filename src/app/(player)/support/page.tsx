@@ -144,9 +144,9 @@ export default function SupportPage() {
   const activeTicketObj = tickets.find((t) => t.id === selectedTicket);
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
+    <div className="space-y-5 animate-fade-in min-w-0 w-full max-w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
           <h1 className="font-display text-xl sm:text-2xl font-bold text-white">
             Support &amp; Gameplay Feedback
           </h1>
@@ -155,7 +155,7 @@ export default function SupportPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex items-center gap-2 min-w-0">
           <Button
             size="sm"
             onClick={() => {
@@ -199,14 +199,14 @@ export default function SupportPage() {
 
       {/* New ticket / feedback form */}
       {showNew && (
-        <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="font-display text-base sm:text-lg font-bold text-white">
               {category === "feedback"
                 ? "Submit Gameplay Feedback"
                 : "Create Support Ticket"}
             </h2>
-            <div className="inline-flex rounded-xl border border-white/10 bg-[#07090e] p-1">
+            <div className="grid w-full grid-cols-2 sm:w-auto sm:inline-flex rounded-xl border border-white/10 bg-[#07090e] p-1">
               <button
                 type="button"
                 onClick={() => setCategory("support")}
@@ -232,13 +232,13 @@ export default function SupportPage() {
             </div>
           </div>
 
-          <form className="space-y-4" onSubmit={handleCreateTicket}>
+          <form className="space-y-4 min-w-0" onSubmit={handleCreateTicket}>
             {category === "feedback" && (
               <div>
                 <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400">
                   Gameplay Experience Rating
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
@@ -313,9 +313,9 @@ export default function SupportPage() {
         </section>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 min-w-0">
         {/* Ticket list */}
-        <section className="lg:col-span-1 space-y-2">
+        <section className="lg:col-span-1 space-y-2 min-w-0">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
             Your Tickets &amp; Feedback ({tickets.length})
           </h2>
@@ -328,19 +328,19 @@ export default function SupportPage() {
                   setSelectedTicket(t.id);
                   setShowNew(false);
                 }}
-                className={`min-h-14 w-full text-left rounded-xl border px-4 py-3 transition-all ${
+                className={`min-h-14 w-full max-w-full overflow-hidden text-left rounded-xl border px-3.5 py-3 transition-all ${
                   selectedTicket === t.id
                     ? "border-accent bg-accent/10"
                     : "border-white/10 bg-[#0d111c] hover:border-white/20"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-white truncate">
+                <div className="flex items-start justify-between gap-2.5 min-w-0">
+                  <p className="min-w-0 flex-1 text-sm font-semibold text-white line-clamp-2 break-words">
                     {t.subject}
                   </p>
                   <Badge
                     variant={statusColors[t.status] ?? "default"}
-                    className="text-[0.65rem] shrink-0"
+                    className="text-[0.65rem] shrink-0 mt-0.5"
                   >
                     {t.status}
                   </Badge>
@@ -360,11 +360,11 @@ export default function SupportPage() {
         </section>
 
         {/* Conversation */}
-        <section className="lg:col-span-2 rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
+        <section className="lg:col-span-2 min-w-0 max-w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6">
           {selectedTicket ? (
             <>
-              <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4 mb-4">
-                <div className="min-w-0">
+              <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4 mb-4 min-w-0">
+                <div className="min-w-0 flex-1">
                   <h2 className="font-display text-base sm:text-lg font-bold text-white break-words">
                     {activeTicketObj?.subject ?? "Conversation"}
                   </h2>
@@ -373,7 +373,10 @@ export default function SupportPage() {
                   </p>
                 </div>
                 {activeTicketObj && (
-                  <Badge variant={statusColors[activeTicketObj.status] ?? "default"}>
+                  <Badge
+                    variant={statusColors[activeTicketObj.status] ?? "default"}
+                    className="shrink-0"
+                  >
                     {activeTicketObj.status}
                   </Badge>
                 )}
@@ -424,15 +427,15 @@ export default function SupportPage() {
                 )}
               </div>
 
-              <form className="mt-4 flex items-center gap-2" onSubmit={handleReply}>
+              <form className="mt-4 flex items-center gap-2 min-w-0" onSubmit={handleReply}>
                 <input
                   type="text"
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
-                  placeholder="Write a follow-up message..."
-                  className={`flex-1 ${inputClass}`}
+                  placeholder="Write a follow-up..."
+                  className={`min-w-0 flex-1 ${inputClass}`}
                 />
-                <Button type="submit" size="md" disabled={sending}>
+                <Button type="submit" size="md" disabled={sending} className="shrink-0">
                   {sending ? "..." : "Send"}
                 </Button>
               </form>

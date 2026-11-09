@@ -139,7 +139,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="mt-9 sm:mt-12 grid gap-5 md:grid-cols-3">
+          <div className="mt-9 sm:mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
             {steps.map((step) => (
               <div
                 key={step.num}
@@ -178,7 +178,7 @@ export default function LandingPage() {
       {/* Scoring & Prize Pool Overview */}
       <section id="prizes" className="py-14 md:py-22 border-t border-white/[0.08]">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <div className="grid gap-8 lg:grid-cols-2 items-center">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 items-center">
             <div className="space-y-5">
               <span className="text-xs font-bold uppercase tracking-widest text-[#F7911B]">
                 Live Crowd Scoring
@@ -193,7 +193,7 @@ export default function LandingPage() {
                 <strong className="text-white">1 point</strong> for the least chosen option.
               </p>
 
-              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-1">
                 <div className="rounded-2xl border border-white/10 bg-[#141720] p-4 flex items-start gap-3">
                   <TargetIcon className="size-5 text-[#F7911B] shrink-0 mt-0.5" />
                   <div>

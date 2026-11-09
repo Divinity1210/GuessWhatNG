@@ -105,7 +105,7 @@ export function DailyStreetHeatCard({
           Predict what the majority of Nigerians are picking today to keep your daily streak active.
         </p>
 
-        <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {poll.options.map((opt, idx) => {
             const isChosen = selectedOptionId === opt.id;
             const isWinner = idx === 0;

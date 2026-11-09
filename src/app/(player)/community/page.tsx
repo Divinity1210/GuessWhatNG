@@ -1769,7 +1769,7 @@ export default function CommunityPage() {
                                 onHover={setMentionHighlightIdx}
                               />
                             )}
-                            <div className="relative flex-1">
+                            <div className="relative min-w-0 flex-1">
                               <input
                                 ref={(el) => {
                                   replyInputRefs.current[post.id] = el;
@@ -2116,7 +2116,7 @@ export default function CommunityPage() {
                     onHover={setMentionHighlightIdx}
                   />
                 )}
-                <div className="relative flex-1">
+                <div className="relative min-w-0 flex-1">
                   <input
                     ref={chatInputRef}
                     type="text"
@@ -2345,7 +2345,7 @@ export default function CommunityPage() {
                             setPollOpts(next);
                           }}
                           placeholder={`Option ${idx + 1}`}
-                          className="min-h-11 flex-1 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-accent focus:outline-none"
+                          className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-accent focus:outline-none"
                         />
                         {pollOpts.length > 2 && (
                           <button

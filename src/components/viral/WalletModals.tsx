@@ -287,7 +287,7 @@ export function VasTopupModal({
               <label className="block text-xs font-bold uppercase tracking-wider text-ink-muted">
                 1. Choose Coin Bundle
               </label>
-              <div className="grid gap-2.5">
+              <div className="grid grid-cols-1 gap-2.5">
                 {PLANS.map((plan) => {
                   const active = selectedPlan.id === plan.id;
                   return (
