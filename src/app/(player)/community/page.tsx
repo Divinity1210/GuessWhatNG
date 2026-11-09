@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -69,6 +69,19 @@ type MyIdentity = {
   hasDob: boolean;
   rank: number | null;
   points: number | null;
+};
+
+type MentionCandidate = {
+  username: string;
+  state: string;
+  rank: number | null;
+};
+
+type ActiveMentionContext = {
+  target: "chat" | string;
+  query: string;
+  atIndex: number;
+  caretIndex: number;
 };
 
 const CATEGORIES = [
@@ -169,6 +182,145 @@ function RankBadge({ rank }: { rank: number | null | undefined }) {
   );
 }
 
+function detectActiveMention(
+  text: string,
+  caret: number,
+): { query: string; atIndex: number; caretIndex: number } | null {
+  const safeCaret = Math.max(0, Math.min(caret, text.length));
+  const beforeCaret = text.slice(0, safeCaret);
+  const match = /(?:^|\s)@([a-zA-Z0-9_]{0,20})$/.exec(beforeCaret);
+  if (!match) return null;
+  const query = match[1];
+  const atIndex = safeCaret - query.length - 1;
+  return { query, atIndex, caretIndex: safeCaret };
+}
+
+function hasSelfMention(body: string, myUsername?: string | null): boolean {
+  if (!myUsername || !body.includes("@")) return false;
+  const target = myUsername.toLowerCase();
+  const matches = body.matchAll(/(?:^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{2,24})\b/g);
+  for (const m of matches) {
+    if (m[1].toLowerCase() === target) return true;
+  }
+  return false;
+}
+
+function renderBodyWithMentions(
+  body: string,
+  myUsername: string | null | undefined,
+  onMentionClick?: (username: string) => void,
+) {
+  if (!body.includes("@")) return body;
+  const parts = body.split(/((?:^|[^a-zA-Z0-9_])@[a-zA-Z0-9_]{2,24}\b)/g);
+  const lowerMe = myUsername ? myUsername.toLowerCase() : "";
+
+  return parts.map((seg, idx) => {
+    if (idx % 2 === 0 || !seg) return seg;
+    const startsWithAt = seg.startsWith("@");
+    const leading = startsWithAt ? "" : seg[0];
+    const tag = startsWithAt ? seg : seg.slice(1);
+    const rawUsername = tag.slice(1);
+    const isSelf = Boolean(lowerMe && rawUsername.toLowerCase() === lowerMe);
+
+    return (
+      <span key={idx}>
+        {leading}
+        <button
+          type="button"
+          onClick={() => onMentionClick?.(rawUsername)}
+          title={`Tag @${rawUsername}`}
+          className={`inline-flex items-center rounded-md px-1 py-0.5 text-[11px] leading-tight transition-colors ${
+            isSelf
+              ? "bg-amber-400/20 border border-amber-400/45 font-bold text-amber-200 hover:bg-amber-400/30"
+              : "bg-accent/15 border border-accent/30 font-semibold text-accent hover:bg-accent/25"
+          }`}
+        >
+          {tag}
+        </button>
+      </span>
+    );
+  });
+}
+
+function MentionPopover({
+  candidates,
+  highlightIdx,
+  query,
+  onSelect,
+  onHover,
+}: {
+  candidates: MentionCandidate[];
+  highlightIdx: number;
+  query: string;
+  onSelect: (candidate: MentionCandidate) => void;
+  onHover: (idx: number) => void;
+}) {
+  if (candidates.length === 0) return null;
+  const safeIdx = Math.min(highlightIdx, candidates.length - 1);
+
+  return (
+    <div
+      role="listbox"
+      aria-label="Tag player suggestions"
+      className="absolute bottom-full left-0 right-0 z-30 mb-2 overflow-hidden rounded-xl border border-white/15 bg-[#0d111c] shadow-2xl shadow-black/80"
+    >
+      <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#080b12] px-3 py-1.5 text-[10px] text-slate-400">
+        <span>
+          {query ? `Matching "@${query}"` : "Tag a player in this arena"}
+        </span>
+        <span className="hidden sm:inline text-slate-500">↑↓ · Enter to tag</span>
+      </div>
+      <div className="max-h-52 overflow-y-auto py-1">
+        {candidates.map((cand, idx) => {
+          const active = idx === safeIdx;
+          const initials = (cand.username || "PL").slice(0, 2).toUpperCase();
+          return (
+            <button
+              key={cand.username}
+              type="button"
+              role="option"
+              aria-selected={active}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(cand);
+              }}
+              onMouseEnter={() => onHover(idx)}
+              className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors ${
+                active
+                  ? "bg-accent/20 text-white"
+                  : "text-slate-200 hover:bg-white/[0.05]"
+              }`}
+            >
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className={`grid size-6 shrink-0 place-items-center rounded-md text-[10px] font-bold ${
+                    cand.rank === 1
+                      ? "bg-amber-400 text-slate-950"
+                      : active
+                      ? "bg-accent text-white"
+                      : "bg-white/10 text-slate-200"
+                  }`}
+                >
+                  {initials}
+                </span>
+                <span className="truncate font-bold text-white">
+                  @{cand.username}
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">
+                  {cand.state}
+                </span>
+                <RankBadge rank={cand.rank} />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CommunityPage() {
   const { user, refreshProfile } = useAuth();
   const [mobileTab, setMobileTab] = useState<"chat" | "feed">("chat");
@@ -176,11 +328,19 @@ export default function CommunityPage() {
 
   const [activeSession, setActiveSession] = useState<{ id: string; name: string } | null>(null);
   const [myIdentity, setMyIdentity] = useState<MyIdentity | null>(null);
+  const [mentionDirectory, setMentionDirectory] = useState<MentionCandidate[]>([]);
+  const [remoteMentionUsers, setRemoteMentionUsers] = useState<MentionCandidate[]>([]);
   const [topStates, setTopStates] = useState<{ state: string; count: number }[]>([]);
   const [liveChat, setLiveChat] = useState<ChatMessage[]>([]);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [ads, setAds] = useState<CommunityAd[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // @Mention autocomplete state & input refs
+  const [activeMention, setActiveMention] = useState<ActiveMentionContext | null>(null);
+  const [mentionHighlightIdx, setMentionHighlightIdx] = useState(0);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
+  const replyInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Live Chat composer
   const [chatInput, setChatInput] = useState("");
@@ -239,6 +399,13 @@ export default function CommunityPage() {
           setMyIdentity(data.myIdentity);
         } else if (!user?.id) {
           setMyIdentity(null);
+        }
+
+        if (
+          Array.isArray(data.mentionDirectory) &&
+          (data.mentionDirectory.length > 0 || !silent)
+        ) {
+          setMentionDirectory(data.mentionDirectory);
         }
 
         if (Array.isArray(data.topStates) && (data.topStates.length > 0 || !silent)) {
@@ -601,6 +768,286 @@ export default function CommunityPage() {
     }).catch(() => null);
   };
 
+  // Remote lookup for @username queries (2+ chars) so any player in the database can be tagged
+  useEffect(() => {
+    const q = activeMention?.query?.trim() || "";
+    if (q.length < 2) {
+      setRemoteMentionUsers([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/community?searchUsers=${encodeURIComponent(q)}`,
+          { cache: "no-store" },
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data.users)) {
+          setRemoteMentionUsers(data.users);
+        }
+      } catch {
+        // Ignore transient lookup glitches
+      }
+    }, 160);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeMention?.query]);
+
+  const filteredMentionCandidates = useMemo(() => {
+    if (!activeMention) return [];
+    const meLower = myIdentity?.username ? myIdentity.username.toLowerCase() : "";
+    const pool = new Map<string, MentionCandidate>();
+
+    const pushCandidate = (
+      username: string | null | undefined,
+      state: string | null | undefined,
+      rank: number | null | undefined,
+    ) => {
+      const clean = (username || "").trim();
+      if (!clean) return;
+      const key = clean.toLowerCase();
+      if (key === "guesswhat" || key === "player" || key === meLower) return;
+      const existing = pool.get(key);
+      if (!existing) {
+        pool.set(key, {
+          username: clean,
+          state: state || "Nigeria",
+          rank: rank ?? null,
+        });
+      } else if (existing.rank === null && rank !== null && rank !== undefined) {
+        pool.set(key, { ...existing, rank });
+      }
+    };
+
+    // 1. If replying inside a specific post thread, prioritize speakers in that thread first
+    if (activeMention.target !== "chat") {
+      const targetPost = posts.find((p) => p.id === activeMention.target);
+      if (targetPost) {
+        for (let i = targetPost.replies.length - 1; i >= 0; i--) {
+          const r = targetPost.replies[i];
+          if (!r.isSystem) pushCandidate(r.username, r.state, r.rank);
+        }
+        if (!targetPost.isOfficial) {
+          pushCandidate(
+            targetPost.authorUsername,
+            targetPost.authorState,
+            targetPost.authorRank,
+          );
+        }
+      }
+    }
+
+    // 2. Recent speakers in Live Banter Room
+    for (let i = liveChat.length - 1; i >= 0; i--) {
+      const m = liveChat[i];
+      if (!m.isSystem) pushCandidate(m.username, m.state, m.rank);
+    }
+
+    // 3. Thread speakers across all visible posts
+    for (const p of posts) {
+      for (let i = p.replies.length - 1; i >= 0; i--) {
+        const r = p.replies[i];
+        if (!r.isSystem) pushCandidate(r.username, r.state, r.rank);
+      }
+    }
+
+    // 4. Server mention directory (Leaderboard rivals + recent active players)
+    for (const d of mentionDirectory) {
+      pushCandidate(d.username, d.state, d.rank);
+    }
+
+    // 5. Server prefix/substring search matches
+    for (const u of remoteMentionUsers) {
+      pushCandidate(u.username, u.state, u.rank);
+    }
+
+    const all = Array.from(pool.values());
+    const q = activeMention.query.toLowerCase();
+    if (!q) return all.slice(0, 6);
+
+    return all
+      .filter((c) => c.username.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aStarts = a.username.toLowerCase().startsWith(q) ? 0 : 1;
+        const bStarts = b.username.toLowerCase().startsWith(q) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return 0;
+      })
+      .slice(0, 6);
+  }, [
+    activeMention,
+    myIdentity?.username,
+    posts,
+    liveChat,
+    mentionDirectory,
+    remoteMentionUsers,
+  ]);
+
+  const handleInputMentionScan = (
+    target: "chat" | string,
+    value: string,
+    selectionStart: number | null,
+  ) => {
+    const detected = detectActiveMention(value, selectionStart ?? value.length);
+    if (detected) {
+      setActiveMention({ target, ...detected });
+      setMentionHighlightIdx(0);
+    } else {
+      setActiveMention((prev) => (prev?.target === target ? null : prev));
+    }
+  };
+
+  const applyMentionSelection = (cand: MentionCandidate) => {
+    if (!activeMention) return;
+    const { target, atIndex, caretIndex } = activeMention;
+    const currentText =
+      target === "chat" ? chatInput : replyDrafts[target] || "";
+    const before = currentText.slice(0, atIndex);
+    const after = currentText.slice(caretIndex);
+    const insertion = `@${cand.username}${after.startsWith(" ") ? "" : " "}`;
+    const nextText = before + insertion + after;
+    const nextCaret = before.length + insertion.length;
+
+    if (target === "chat") {
+      setChatInput(nextText);
+    } else {
+      setReplyDrafts((prev) => ({ ...prev, [target]: nextText }));
+    }
+    setActiveMention(null);
+
+    requestAnimationFrame(() => {
+      const el =
+        target === "chat" ? chatInputRef.current : replyInputRefs.current[target];
+      if (el) {
+        el.focus();
+        el.setSelectionRange(nextCaret, nextCaret);
+      }
+    });
+  };
+
+  const handleMentionKeyDown = (
+    target: "chat" | string,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ): boolean => {
+    if (
+      activeMention?.target !== target ||
+      filteredMentionCandidates.length === 0
+    ) {
+      return false;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setMentionHighlightIdx(
+        (prev) => (prev + 1) % filteredMentionCandidates.length,
+      );
+      return true;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setMentionHighlightIdx(
+        (prev) =>
+          (prev - 1 + filteredMentionCandidates.length) %
+          filteredMentionCandidates.length,
+      );
+      return true;
+    }
+    if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      const safeIdx = Math.min(
+        mentionHighlightIdx,
+        filteredMentionCandidates.length - 1,
+      );
+      applyMentionSelection(filteredMentionCandidates[safeIdx]);
+      return true;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setActiveMention(null);
+      return true;
+    }
+    return false;
+  };
+
+  const quickTagUser = (target: "chat" | string, username: string) => {
+    if (!user) {
+      setChatError("Sign in to @tag players in the Arena.");
+      return;
+    }
+    const uname = username.replace(/^@/, "").trim();
+    if (!uname || uname.toLowerCase() === "guesswhat") return;
+
+    const current = target === "chat" ? chatInput : replyDrafts[target] || "";
+    const existingMentions = Array.from(
+      current.matchAll(/(?:^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{2,24})\b/g),
+    ).map((m) => m[1].toLowerCase());
+    const alreadyTagged = existingMentions.includes(uname.toLowerCase());
+
+    const nextText = alreadyTagged
+      ? current.endsWith(" ")
+        ? current
+        : `${current} `
+      : current.length === 0
+      ? `@${uname} `
+      : current.endsWith(" ")
+      ? `${current}@${uname} `
+      : `${current} @${uname} `;
+
+    if (target === "chat") {
+      setChatInput(nextText);
+    } else {
+      setReplyDrafts((prev) => ({ ...prev, [target]: nextText }));
+    }
+    setActiveMention(null);
+
+    requestAnimationFrame(() => {
+      const el =
+        target === "chat" ? chatInputRef.current : replyInputRefs.current[target];
+      if (el) {
+        el.focus();
+        el.setSelectionRange(nextText.length, nextText.length);
+      }
+    });
+  };
+
+  const triggerAtPicker = (target: "chat" | string) => {
+    if (!user) {
+      setChatError("Sign in to @tag players in the Arena.");
+      return;
+    }
+    const current = target === "chat" ? chatInput : replyDrafts[target] || "";
+    const nextText = current.endsWith("@")
+      ? current
+      : current.length === 0 || current.endsWith(" ")
+      ? `${current}@`
+      : `${current} @`;
+
+    if (target === "chat") {
+      setChatInput(nextText);
+    } else {
+      setReplyDrafts((prev) => ({ ...prev, [target]: nextText }));
+    }
+
+    const detected = detectActiveMention(nextText, nextText.length);
+    if (detected) {
+      setActiveMention({ target, ...detected });
+      setMentionHighlightIdx(0);
+    }
+
+    requestAnimationFrame(() => {
+      const el =
+        target === "chat" ? chatInputRef.current : replyInputRefs.current[target];
+      if (el) {
+        el.focus();
+        el.setSelectionRange(nextText.length, nextText.length);
+      }
+    });
+  };
+
   const chatBannerAd = ads.find((a) => a.placement === "chat_banner") ?? null;
   const feedAds = ads.filter((a) => a.placement === "feed");
 
@@ -890,7 +1337,16 @@ export default function CommunityPage() {
                       {post.title}
                     </h2>
                     {post.body && (
-                      <p className="mt-1.5 text-sm leading-relaxed text-slate-300">{post.body}</p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-slate-300">
+                        {renderBodyWithMentions(
+                          post.body,
+                          myIdentity?.username,
+                          (uname) => {
+                            setExpandedPostId(post.id);
+                            quickTagUser(post.id, uname);
+                          },
+                        )}
+                      </p>
                     )}
 
                     {/* Interactive 1-Tap Pulse Poll */}
@@ -1007,75 +1463,159 @@ export default function CommunityPage() {
                     {/* Compact Reply Preview OR Full Expanded Thread */}
                     {(isExpanded || post.replies.length > 0) && (
                       <div className="mt-3 space-y-2.5 rounded-xl bg-[#07090e]/80 p-3 border border-white/[0.05]">
-                        {(isExpanded ? post.replies : post.replies.slice(-2)).map((rep) => (
-                          <div
-                            key={rep.id}
-                            className="border-b border-white/[0.04] pb-2 last:border-b-0 last:pb-0"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                                <span className="font-bold text-white">{rep.username}</span>
-                                <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">
-                                  {rep.state}
-                                </span>
-                                <RankBadge rank={rep.rank} />
-                                <span className="text-[10px] text-slate-500">
-                                  {timeAgo(rep.createdAt)}
-                                </span>
-                              </div>
+                        {(isExpanded ? post.replies : post.replies.slice(-2)).map((rep) => {
+                          const isMyReply = Boolean(user?.id && rep.userId === user.id);
+                          const taggedMe =
+                            !isMyReply && hasSelfMention(rep.body, myIdentity?.username);
 
-                              <div className="flex items-center gap-1">
-                                {REACTION_MAP.map((rx) => {
-                                  const count = rep.reactions?.[rx.key] ?? 0;
-                                  return (
+                          return (
+                            <div
+                              key={rep.id}
+                              className={`border-b border-white/[0.04] pb-2 last:border-b-0 last:pb-0 ${
+                                taggedMe
+                                  ? "rounded-lg bg-amber-500/[0.08] px-2 py-1.5 border border-amber-400/30"
+                                  : ""
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => quickTagUser(post.id, rep.username)}
+                                    title={`Tag @${rep.username}`}
+                                    className="font-bold text-white hover:text-accent transition-colors"
+                                  >
+                                    {rep.username}
+                                  </button>
+                                  <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">
+                                    {rep.state}
+                                  </span>
+                                  <RankBadge rank={rep.rank} />
+                                  {taggedMe && (
+                                    <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+                                      Tagged you
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] text-slate-500">
+                                    {timeAgo(rep.createdAt)}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  {!isMyReply && !post.isLocked && (
                                     <button
-                                      key={rx.key}
                                       type="button"
-                                      onClick={() => handleReactMessage(rep.id, rx.key)}
-                                      aria-label={rx.label}
-                                      className="inline-flex items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-white/10"
+                                      onClick={() => quickTagUser(post.id, rep.username)}
+                                      className="inline-flex items-center rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
                                     >
-                                      <span>{rx.symbol}</span>
-                                      {count > 0 && <span>{count}</span>}
+                                      @ Reply
                                     </button>
-                                  );
-                                })}
+                                  )}
+                                  {REACTION_MAP.map((rx) => {
+                                    const count = rep.reactions?.[rx.key] ?? 0;
+                                    return (
+                                      <button
+                                        key={rx.key}
+                                        type="button"
+                                        onClick={() => handleReactMessage(rep.id, rx.key)}
+                                        aria-label={rx.label}
+                                        className="inline-flex items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-white/10"
+                                      >
+                                        <span>{rx.symbol}</span>
+                                        {count > 0 && <span>{count}</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
+                              <p className="mt-1 break-words text-xs leading-relaxed text-slate-200">
+                                {renderBodyWithMentions(
+                                  rep.body,
+                                  myIdentity?.username,
+                                  (uname) => quickTagUser(post.id, uname),
+                                )}
+                              </p>
                             </div>
-                            <p className="mt-1 text-xs leading-relaxed text-slate-200">
-                              {rep.body}
-                            </p>
-                          </div>
-                        ))}
+                          );
+                        })}
 
                         {!post.isLocked && (
-                          <div className="flex items-center gap-2 pt-1">
-                            <input
-                              type="text"
-                              value={replyDrafts[post.id] || ""}
-                              onChange={(e) =>
-                                setReplyDrafts((prev) => ({
-                                  ...prev,
-                                  [post.id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleSendReply(post.id);
+                          <div className="relative flex items-center gap-2 pt-1">
+                            {activeMention?.target === post.id && (
+                              <MentionPopover
+                                candidates={filteredMentionCandidates}
+                                highlightIdx={mentionHighlightIdx}
+                                query={activeMention.query}
+                                onSelect={applyMentionSelection}
+                                onHover={setMentionHighlightIdx}
+                              />
+                            )}
+                            <div className="relative flex-1">
+                              <input
+                                ref={(el) => {
+                                  replyInputRefs.current[post.id] = el;
+                                }}
+                                type="text"
+                                value={replyDrafts[post.id] || ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setReplyDrafts((prev) => ({
+                                    ...prev,
+                                    [post.id]: val,
+                                  }));
+                                  handleInputMentionScan(
+                                    post.id,
+                                    val,
+                                    e.target.selectionStart,
+                                  );
+                                }}
+                                onClick={(e) =>
+                                  handleInputMentionScan(
+                                    post.id,
+                                    e.currentTarget.value,
+                                    e.currentTarget.selectionStart,
+                                  )
                                 }
-                              }}
-                              placeholder={
-                                user
-                                  ? `Reply as ${myIdentity?.username || "player"} (${
-                                      myIdentity?.state || "Nigeria"
-                                    })...`
-                                  : "Sign in to reply..."
-                              }
-                              disabled={!user}
-                              maxLength={400}
-                              className="flex-1 rounded-xl border border-white/10 bg-[#0b0e17] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
-                            />
+                                onKeyDown={(e) => {
+                                  if (handleMentionKeyDown(post.id, e)) return;
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    setActiveMention(null);
+                                    handleSendReply(post.id);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setTimeout(() => {
+                                    setActiveMention((prev) =>
+                                      prev?.target === post.id ? null : prev,
+                                    );
+                                  }, 150);
+                                }}
+                                placeholder={
+                                  user
+                                    ? `Reply or @tag someone as ${
+                                        myIdentity?.username || "player"
+                                      }...`
+                                    : "Sign in to reply..."
+                                }
+                                disabled={!user}
+                                maxLength={400}
+                                className="w-full rounded-xl border border-white/10 bg-[#0b0e17] pl-3 pr-9 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                              />
+                              {user && (
+                                <button
+                                  type="button"
+                                  title="Tag a player with @"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    triggerAtPicker(post.id);
+                                  }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-bold text-slate-300 hover:bg-accent/25 hover:text-accent transition-colors"
+                                >
+                                  @
+                                </button>
+                              )}
+                            </div>
                             <button
                               type="button"
                               disabled={
@@ -1083,7 +1623,10 @@ export default function CommunityPage() {
                                 sendingReplyId === post.id ||
                                 !(replyDrafts[post.id] || "").trim()
                               }
-                              onClick={() => handleSendReply(post.id)}
+                              onClick={() => {
+                                setActiveMention(null);
+                                handleSendReply(post.id);
+                              }}
                               className="rounded-xl bg-accent px-3.5 py-2 text-xs font-bold text-white disabled:opacity-40"
                             >
                               {sendingReplyId === post.id ? "..." : "Reply"}
@@ -1218,13 +1761,17 @@ export default function CommunityPage() {
                 }
 
                 const isMe = Boolean(user?.id && msg.userId === user.id);
+                const taggedMe =
+                  !isMe && hasSelfMention(msg.body, myIdentity?.username);
                 const initials = (msg.username || "PL").slice(0, 2).toUpperCase();
 
                 return (
                   <div
                     key={msg.id}
                     className={`group rounded-xl border px-3 py-2.5 transition-colors ${
-                      isMe
+                      taggedMe
+                        ? "border-amber-400/45 bg-amber-500/[0.09]"
+                        : isMe
                         ? "border-accent/30 bg-accent/[0.07]"
                         : "border-white/[0.05] bg-[#07090e]/90"
                     }`}
@@ -1244,23 +1791,46 @@ export default function CommunityPage() {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-xs font-bold text-white">
+                          <button
+                            type="button"
+                            onClick={() => quickTagUser("chat", msg.username)}
+                            title={`Tag @${msg.username}`}
+                            className="text-xs font-bold text-white hover:text-accent transition-colors"
+                          >
                             {msg.username}
-                          </span>
+                          </button>
                           <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
                             {msg.state}
                           </span>
                           <RankBadge rank={msg.rank} />
+                          {taggedMe && (
+                            <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+                              Tagged you
+                            </span>
+                          )}
                           <span className="ml-auto text-[10px] text-slate-500">
                             {timeAgo(msg.createdAt)}
                           </span>
                         </div>
 
                         <p className="mt-1 break-words text-xs leading-relaxed text-slate-200">
-                          {msg.body}
+                          {renderBodyWithMentions(
+                            msg.body,
+                            myIdentity?.username,
+                            (uname) => quickTagUser("chat", uname),
+                          )}
                         </p>
 
                         <div className="mt-1.5 flex items-center gap-1.5">
+                          {!isMe && (
+                            <button
+                              type="button"
+                              onClick={() => quickTagUser("chat", msg.username)}
+                              className="inline-flex items-center rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
+                            >
+                              @ Reply
+                            </button>
+                          )}
                           {REACTION_MAP.map((rx) => {
                             const count = msg.reactions?.[rx.key] ?? 0;
                             return (
@@ -1307,9 +1877,24 @@ export default function CommunityPage() {
 
             {/* Chat Composer */}
             <form
-              onSubmit={handleSendChat}
-              className="border-t border-white/[0.08] bg-[#07090e] p-3"
+              onSubmit={(e) => {
+                setActiveMention(null);
+                handleSendChat(e);
+              }}
+              className="relative border-t border-white/[0.08] bg-[#07090e] p-3"
             >
+              {activeMention?.target === "chat" && (
+                <div className="absolute bottom-full left-3 right-3 z-30 mb-1">
+                  <MentionPopover
+                    candidates={filteredMentionCandidates}
+                    highlightIdx={mentionHighlightIdx}
+                    query={activeMention.query}
+                    onSelect={applyMentionSelection}
+                    onHover={setMentionHighlightIdx}
+                  />
+                </div>
+              )}
+
               {chatError && (
                 <p className="mb-2 rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1.5 text-[11px] text-rose-300">
                   {chatError}
@@ -1317,19 +1902,62 @@ export default function CommunityPage() {
               )}
 
               <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder={
-                    user
-                      ? `Drop banter as ${myIdentity?.username || "player"}...`
-                      : "Sign in to chat live..."
-                  }
-                  disabled={!user}
-                  maxLength={360}
-                  className="flex-1 rounded-xl border border-white/10 bg-[#0b0e17] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
-                />
+                <div className="relative flex-1">
+                  <input
+                    ref={chatInputRef}
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setChatInput(val);
+                      handleInputMentionScan(
+                        "chat",
+                        val,
+                        e.target.selectionStart,
+                      );
+                    }}
+                    onClick={(e) =>
+                      handleInputMentionScan(
+                        "chat",
+                        e.currentTarget.value,
+                        e.currentTarget.selectionStart,
+                      )
+                    }
+                    onKeyDown={(e) => {
+                      handleMentionKeyDown("chat", e);
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        setActiveMention((prev) =>
+                          prev?.target === "chat" ? null : prev,
+                        );
+                      }, 150);
+                    }}
+                    placeholder={
+                      user
+                        ? `Drop banter or @tag a rival as ${
+                            myIdentity?.username || "player"
+                          }...`
+                        : "Sign in to chat live..."
+                    }
+                    disabled={!user}
+                    maxLength={360}
+                    className="w-full rounded-xl border border-white/10 bg-[#0b0e17] pl-3.5 pr-9 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                  />
+                  {user && (
+                    <button
+                      type="button"
+                      title="Tag a player with @"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        triggerAtPicker("chat");
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-bold text-slate-300 hover:bg-accent/25 hover:text-accent transition-colors"
+                    >
+                      @
+                    </button>
+                  )}
+                </div>
                 <button
                   type="submit"
                   disabled={!user || sendingChat || !chatInput.trim()}

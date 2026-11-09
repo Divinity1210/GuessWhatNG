@@ -243,6 +243,15 @@ export default function InboxPage() {
                             View Winners Board →
                           </Link>
                         )}
+                        {item.title.toLowerCase().includes("tagged you") && (
+                          <Link
+                            href="/community"
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-semibold text-accent hover:underline"
+                          >
+                            Reply in Community Arena →
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -50,6 +50,38 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get("userId") || "";
     const postId = searchParams.get("postId") || "";
     const category = searchParams.get("category") || "all";
+    const searchUsers = (searchParams.get("searchUsers") || "").trim();
+
+    if (searchUsers) {
+      const safeQuery = searchUsers.replace(/[^a-zA-Z0-9_]/g, "");
+      if (!safeQuery) {
+        return NextResponse.json({ ok: true, users: [] });
+      }
+      const { data: matched } = await supabase
+        .from("profiles")
+        .select("id, username, state, turf")
+        .ilike("username", `%${safeQuery}%`)
+        .order("username", { ascending: true })
+        .limit(12);
+
+      const lowerQ = safeQuery.toLowerCase();
+      const sorted = [...(matched ?? [])].sort((a, b) => {
+        const aStarts = (a.username || "").toLowerCase().startsWith(lowerQ) ? 0 : 1;
+        const bStarts = (b.username || "").toLowerCase().startsWith(lowerQ) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return (a.username || "").localeCompare(b.username || "");
+      });
+
+      return NextResponse.json({
+        ok: true,
+        users: sorted.slice(0, 8).map((u) => ({
+          id: u.id,
+          username: u.username,
+          state: cleanStateName(u.state, u.turf),
+          rank: null,
+        })),
+      });
+    }
 
     // 1. Find current active session & latest completed session
     const { data: sessions } = await supabase
@@ -174,11 +206,12 @@ export async function GET(req: NextRequest) {
       rankByUser.set(r.user_id, { rank: r.rank, points: r.points });
     }
 
-    // Fetch live state/username for message & post authors so badges stay current
+    // Fetch live state/username for message & post authors + top leaderboard players so badges & @mentions stay current
     const authorIds = new Set<string>();
     for (const m of liveMessages ?? []) if (m.user_id) authorIds.add(m.user_id);
     for (const m of threadMessages ?? []) if (m.user_id) authorIds.add(m.user_id);
     for (const p of posts ?? []) if (p.author_id) authorIds.add(p.author_id);
+    for (const lb of (lbRows ?? []).slice(0, 40)) if (lb.user_id) authorIds.add(lb.user_id);
 
     const profileLookup = new Map<
       string,
@@ -351,6 +384,47 @@ export async function GET(req: NextRequest) {
       .slice(0, 5)
       .map(([state, count]) => ({ state, count }));
 
+    // Build mentionDirectory (leaderboard + recent chat/thread participants + recent profiles)
+    const { data: recentProfiles } = await supabase
+      .from("profiles")
+      .select("id, username, state, turf")
+      .order("updated_at", { ascending: false })
+      .limit(50);
+
+    const mentionMap = new Map<
+      string,
+      { username: string; state: string; rank: number | null }
+    >();
+
+    for (const [uid, pInfo] of profileLookup.entries()) {
+      if (!pInfo.username) continue;
+      mentionMap.set(pInfo.username.toLowerCase(), {
+        username: pInfo.username,
+        state: pInfo.state,
+        rank: rankByUser.get(uid)?.rank ?? null,
+      });
+    }
+    for (const rp of recentProfiles ?? []) {
+      if (!rp.username) continue;
+      const key = rp.username.toLowerCase();
+      if (!mentionMap.has(key)) {
+        mentionMap.set(key, {
+          username: rp.username,
+          state: cleanStateName(rp.state, rp.turf),
+          rank: rankByUser.get(rp.id)?.rank ?? null,
+        });
+      }
+    }
+
+    const mentionDirectory = Array.from(mentionMap.values())
+      .sort((a, b) => {
+        if (a.rank !== null && b.rank !== null) return a.rank - b.rank;
+        if (a.rank !== null) return -1;
+        if (b.rank !== null) return 1;
+        return a.username.localeCompare(b.username);
+      })
+      .slice(0, 60);
+
     const myRankInfo = userId ? rankByUser.get(userId) ?? null : null;
 
     return NextResponse.json({
@@ -371,6 +445,7 @@ export async function GET(req: NextRequest) {
             points: myRankInfo?.points ?? null,
           }
         : null,
+      mentionDirectory,
       topStates,
       liveChat: enrichedLiveChat,
       posts: filteredPosts,
@@ -616,6 +691,7 @@ export async function POST(req: NextRequest) {
 
       const isReply = action === "reply_post";
       const postId = isReply ? String(body.postId || "") : null;
+      let replyPostTitle = "";
 
       if (isReply) {
         if (!postId) {
@@ -623,7 +699,7 @@ export async function POST(req: NextRequest) {
         }
         const { data: targetPost } = await supabase
           .from("community_posts")
-          .select("id, is_locked")
+          .select("id, title, is_locked")
           .eq("id", postId)
           .maybeSingle();
         if (!targetPost || targetPost.is_locked) {
@@ -632,6 +708,7 @@ export async function POST(req: NextRequest) {
             { status: 403 },
           );
         }
+        replyPostTitle = targetPost.title || "a topic";
       }
 
       const { data: inserted, error: insertErr } = await supabase
@@ -657,6 +734,39 @@ export async function POST(req: NextRequest) {
           { error: insertErr?.message || "Could not send message" },
           { status: 500 },
         );
+      }
+
+      // Notify @mentioned players in their Inbox (up to 5 unique mentions, excluding self)
+      const mentionMatches = Array.from(
+        check.cleaned.matchAll(/(?:^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{2,24})\b/g),
+      ).map((m) => m[1].toLowerCase());
+      const uniqueMentions = Array.from(new Set(mentionMatches))
+        .filter((u) => u !== profile.username.toLowerCase())
+        .slice(0, 5);
+
+      if (uniqueMentions.length > 0) {
+        try {
+          await Promise.all(
+            uniqueMentions.map(async (uname) => {
+              const { data: taggedUser } = await supabase
+                .from("profiles")
+                .select("id, username")
+                .ilike("username", uname)
+                .maybeSingle();
+              if (taggedUser && taggedUser.id !== userId) {
+                await supabase.from("notifications").insert({
+                  user_id: taggedUser.id,
+                  title: isReply
+                    ? `@${profile.username} tagged you on "${replyPostTitle.slice(0, 48)}"`
+                    : `@${profile.username} tagged you in the Live Banter Room`,
+                  body: `"${check.cleaned}"`,
+                });
+              }
+            }),
+          );
+        } catch {
+          // Non-fatal if notification insert fails
+        }
       }
 
       return NextResponse.json({
@@ -745,6 +855,37 @@ export async function POST(req: NextRequest) {
           { error: createErr?.message || "Could not create topic" },
           { status: 500 },
         );
+      }
+
+      const topicCombined = `${titleCheck.cleaned} ${cleanBody || ""}`;
+      const topicMentions = Array.from(
+        topicCombined.matchAll(/(?:^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{2,24})\b/g),
+      ).map((m) => m[1].toLowerCase());
+      const uniqueTopicMentions = Array.from(new Set(topicMentions))
+        .filter((u) => u !== profile.username.toLowerCase())
+        .slice(0, 5);
+
+      if (uniqueTopicMentions.length > 0) {
+        try {
+          await Promise.all(
+            uniqueTopicMentions.map(async (uname) => {
+              const { data: taggedUser } = await supabase
+                .from("profiles")
+                .select("id")
+                .ilike("username", uname)
+                .maybeSingle();
+              if (taggedUser && taggedUser.id !== userId) {
+                await supabase.from("notifications").insert({
+                  user_id: taggedUser.id,
+                  title: `@${profile.username} tagged you in a new topic`,
+                  body: `"${titleCheck.cleaned}"`,
+                });
+              }
+            }),
+          );
+        } catch {
+          // Non-fatal
+        }
       }
 
       return NextResponse.json({ ok: true, postId: created.id });
