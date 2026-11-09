@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Logo } from "@/components/ui";
-import { ArrowRightIcon, EyeIcon, EyeOffIcon } from "@/components/ui/Icons";
+import {
+  ArrowRightIcon,
+  EyeIcon,
+  EyeOffIcon,
+  GoogleIcon,
+} from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -18,6 +23,7 @@ export default function SignUpPage() {
   const [referralCode, setReferralCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
@@ -28,6 +34,24 @@ export default function SignUpPage() {
       setReferralCode(refParam.trim().toUpperCase());
     }
   }, []);
+
+  const handleGoogleSignUp = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle({
+        referralCode: referralCode.trim() || undefined,
+        next: "/dashboard",
+      });
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "message" in err) {
+        setError((err as { message: string }).message);
+      } else {
+        setError("Could not start Google sign-in. Please try again.");
+      }
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +91,8 @@ export default function SignUpPage() {
     }
   };
 
+  const isBusy = loading || googleLoading;
+
   return (
     <div className="animate-fade-in">
       <div className="mb-5 flex justify-center">
@@ -98,12 +124,35 @@ export default function SignUpPage() {
             </p>
 
             {error && (
-              <div className="mt-4 rounded-[var(--radius-sm)] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div
+                role="alert"
+                className="mt-4 rounded-[var(--radius-sm)] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+              >
                 {error}
               </div>
             )}
 
-            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={handleGoogleSignUp}
+                disabled={isBusy}
+                className="flex min-h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-sm)] border border-white/15 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-100 active:bg-slate-200 disabled:opacity-60"
+              >
+                <GoogleIcon className="size-4.5 shrink-0" />
+                <span>
+                  {googleLoading ? "Connecting to Google..." : "Continue with Google"}
+                </span>
+              </button>
+            </div>
+
+            <div className="my-5 flex items-center gap-3">
+              <div className="h-px flex-1 bg-rule" />
+              <span className="text-xs text-ink-muted">or sign up with email</span>
+              <div className="h-px flex-1 bg-rule" />
+            </div>
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
                 <label
                   htmlFor="signup-username"
@@ -206,7 +255,7 @@ export default function SignUpPage() {
                 />
               </div>
 
-              <Button className="w-full" size="lg" type="submit" disabled={loading}>
+              <Button className="w-full" size="lg" type="submit" disabled={isBusy}>
                 {loading ? "Creating Account..." : "Sign Up Free"}
               </Button>
             </form>

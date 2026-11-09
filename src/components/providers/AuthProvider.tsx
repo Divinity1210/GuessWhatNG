@@ -13,6 +13,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   signUp as authSignUp,
   signIn as authSignIn,
+  signInWithGoogle as authSignInWithGoogle,
   signOut as authSignOut,
   type SignUpPayload,
   type SignInPayload,
@@ -39,6 +40,7 @@ type AuthState = {
 type AuthActions = {
   signUp: (payload: SignUpPayload) => Promise<{ user: User | null; session: Session | null }>;
   signIn: (payload: SignInPayload) => Promise<void>;
+  signInWithGoogle: (options?: { referralCode?: string; next?: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -240,6 +242,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await authSignIn(payload);
   }, []);
 
+  const signInWithGoogle = useCallback(
+    async (options?: { referralCode?: string; next?: string }) => {
+      await authSignInWithGoogle(options);
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     await authSignOut();
   }, []);
@@ -249,10 +258,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...state,
       signUp,
       signIn,
+      signInWithGoogle,
       signOut,
       refreshProfile,
     }),
-    [state, signUp, signIn, signOut, refreshProfile],
+    [state, signUp, signIn, signInWithGoogle, signOut, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

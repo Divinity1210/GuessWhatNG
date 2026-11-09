@@ -101,6 +101,66 @@ export async function signIn({ email, password }: SignInPayload) {
   return data;
 }
 
+export async function signInWithGoogle(options?: {
+  referralCode?: string;
+  next?: string;
+}) {
+  clearLocalDemoStorage();
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (supabaseUrl && supabaseAnonKey) {
+    try {
+      const settingsRes = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+        headers: { apikey: supabaseAnonKey },
+      });
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        if (!settings?.external?.google) {
+          throw new Error(
+            "Google Sign-In is being activated. Please sign in with your email or username for now.",
+          );
+        }
+      }
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        err.message.includes("Google Sign-In is being activated")
+      ) {
+        throw err;
+      }
+    }
+  }
+
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://guesswhat-tan.vercel.app";
+
+  const callbackUrl = new URL("/auth/callback", origin);
+  if (options?.next) {
+    callbackUrl.searchParams.set("next", options.next);
+  }
+  if (options?.referralCode?.trim()) {
+    callbackUrl.searchParams.set("ref", options.referralCode.trim().toUpperCase());
+  }
+
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: callbackUrl.toString(),
+      queryParams: {
+        prompt: "select_account",
+      },
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
 export async function signOut() {
   clearLocalDemoStorage();
   const supabase = createSupabaseBrowserClient();

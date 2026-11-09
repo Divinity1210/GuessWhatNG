@@ -1,20 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, Logo, ZapIcon, EyeIcon, EyeOffIcon } from "@/components/ui";
+import {
+  Button,
+  Logo,
+  ZapIcon,
+  EyeIcon,
+  EyeOffIcon,
+  GoogleIcon,
+} from "@/components/ui";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const errParam = params.get("error");
+    if (errParam === "oauth_cancelled") {
+      setError("Google sign-in was cancelled. You can try again or use your email.");
+    } else if (errParam === "auth_callback_failed") {
+      setError("Could not complete Google sign-in. Please try again.");
+    }
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle({ next: "/dashboard" });
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "message" in err) {
+        setError((err as { message: string }).message);
+      } else {
+        setError("Could not start Google sign-in. Please try again.");
+      }
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +82,8 @@ export default function LoginPage() {
     }
   };
 
+  const isBusy = loading || googleLoading;
+
   return (
     <div className="animate-fade-in">
       <div className="mb-6 flex justify-center">
@@ -69,7 +105,25 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={isBusy}
+            className="flex min-h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-sm)] border border-white/15 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-100 active:bg-slate-200 disabled:opacity-60"
+          >
+            <GoogleIcon className="size-4.5 shrink-0" />
+            <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
+          </button>
+        </div>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-rule" />
+          <span className="text-xs text-ink-muted">or continue with email</span>
+          <div className="h-px flex-1 bg-rule" />
+        </div>
+
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label
               htmlFor="login-email"
@@ -128,26 +182,22 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <Button className="w-full" size="lg" type="submit" disabled={loading}>
+          <Button className="w-full" size="lg" type="submit" disabled={isBusy}>
             {loading ? "Signing in..." : "Log In"}
           </Button>
         </form>
 
-        <div className="my-5 flex items-center gap-3">
-          <div className="h-px flex-1 bg-rule" />
-          <span className="text-xs text-ink-muted">or try a quick preview</span>
-          <div className="h-px flex-1 bg-rule" />
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={isBusy}
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[#F7911B]/30 bg-[#F7911B]/[0.08] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#F7911B] transition-colors hover:bg-[#F7911B]/18 disabled:opacity-60"
+          >
+            <ZapIcon className="size-4" />
+            <span>Try Instant Demo Account</span>
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={handleDemoLogin}
-          disabled={loading}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[#F7911B]/35 bg-[#F7911B]/10 px-4 py-2.5 text-sm font-semibold text-[#F7911B] transition-colors hover:bg-[#F7911B]/20"
-        >
-          <ZapIcon className="size-4" />
-          <span>Try Instant Demo Account</span>
-        </button>
 
         <div className="mt-5 text-center text-sm text-ink-muted">
           New to GuessWhat?{" "}
