@@ -847,15 +847,16 @@ export default function PlayPage() {
                 <span>🎉 Crowd Feedback &amp; Winners Popup</span>
               </button>
             )}
-            <Button
-              size="lg"
-              href={isEnded ? "/leaderboard?tab=winners" : "/leaderboard"}
-              onClick={exitBrowserFullscreen}
-              className="inline-flex items-center justify-center gap-2"
-            >
-              <TrophyIcon className="size-4" />
-              <span>{isEnded ? "View Final Winners" : "View Live Leaderboard"}</span>
-            </Button>
+            <span onClick={() => void exitBrowserFullscreen()} className="inline-flex">
+              <Button
+                size="lg"
+                href={isEnded ? "/leaderboard?tab=winners" : "/leaderboard"}
+                className="inline-flex items-center justify-center gap-2 w-full"
+              >
+                <TrophyIcon className="size-4" />
+                <span>{isEnded ? "View Final Winners" : "View Live Leaderboard"}</span>
+              </Button>
+            </span>
             {!isEnded && (
               <Button
                 variant="secondary"

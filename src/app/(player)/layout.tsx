@@ -42,6 +42,26 @@ function InboxIcon({ className = "size-5", size, ...props }: IconProps) {
   );
 }
 
+function ChatBubbleIcon({ className = "size-5", size, ...props }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      width={size}
+      height={size}
+      {...props}
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 const navGroups = [
   {
     label: "Game",
@@ -49,6 +69,7 @@ const navGroups = [
       { label: "Home", href: "/dashboard", Icon: TrendingUpIcon },
       { label: "Play", href: "/play", Icon: PlayIcon },
       { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon },
+      { label: "Community", href: "/community", Icon: ChatBubbleIcon, isLive: true },
       { label: "Inbox", href: "/inbox", Icon: InboxIcon, showBadge: true },
     ],
   },
@@ -161,11 +182,16 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                           <item.Icon className="size-4.5" />
                           <span>{item.label}</span>
                         </span>
-                        {badgeCount > 0 && (
+                        {badgeCount > 0 ? (
                           <span className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-white">
                             {badgeCount}
                           </span>
-                        )}
+                        ) : "isLive" in item && item.isLive ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold text-emerald-300">
+                            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>Live</span>
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   );
@@ -385,7 +411,11 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           </div>
         )}
 
-        <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8 pb-28 md:pb-10 flex-1 w-full">
+        <div
+          className={`mx-auto ${
+            pathname.startsWith("/community") ? "max-w-7xl" : "max-w-5xl px-4 py-6 md:px-8 md:py-8"
+          } pb-28 md:pb-10 flex-1 w-full`}
+        >
           {children}
         </div>
       </main>

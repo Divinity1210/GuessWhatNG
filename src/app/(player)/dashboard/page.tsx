@@ -71,6 +71,10 @@ export default function DashboardPage() {
   const [previousSessionId, setPreviousSessionId] = useState<string | null>(null);
   const [previousSessionName, setPreviousSessionName] = useState<string>("Lagos vs Abuja Street Derby");
   const [unreadInboxCount, setUnreadInboxCount] = useState(0);
+  const [arenaPreview, setArenaPreview] = useState<{
+    recentChat: { id: number; username: string; state: string; rank: number | null; body: string }[];
+    topPoll: { id: string; category: string; title: string; totalVotes: number } | null;
+  }>({ recentChat: [], topPoll: null });
   const [loading, setLoading] = useState(true);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
@@ -192,15 +196,41 @@ export default function DashboardPage() {
           setPreviousWinners(prevLb.slice(0, 3));
         }
 
-        const inboxRes = await fetch(
-          `/api/inbox?userId=${encodeURIComponent(user?.id ?? "")}`,
-          { cache: "no-store" },
-        ).catch(() => null);
+        const [inboxRes, commRes] = await Promise.all([
+          fetch(`/api/inbox?userId=${encodeURIComponent(user?.id ?? "")}`, {
+            cache: "no-store",
+          }).catch(() => null),
+          fetch(`/api/community?userId=${encodeURIComponent(user?.id ?? "")}`, {
+            cache: "no-store",
+          }).catch(() => null),
+        ]);
         if (inboxRes && inboxRes.ok) {
           const inboxData = await inboxRes.json();
           if (typeof inboxData.unreadCount === "number") {
             setUnreadInboxCount(inboxData.unreadCount);
           }
+        }
+        if (commRes && commRes.ok) {
+          const commData = await commRes.json();
+          const recentChat = ((commData.liveChat ?? []) as {
+            id: number;
+            username: string;
+            state: string;
+            rank: number | null;
+            body: string;
+            isSystem?: boolean;
+          }[])
+            .slice(-3)
+            .reverse();
+          const topPoll =
+            ((commData.posts ?? []) as {
+              id: string;
+              kind: string;
+              category: string;
+              title: string;
+              totalVotes: number;
+            }[]).find((p) => p.kind === "poll" || p.kind === "sponsored_poll") ?? null;
+          setArenaPreview({ recentChat, topPoll });
         }
       } catch (err) {
         console.error("Dashboard load error:", err);
@@ -600,6 +630,92 @@ export default function DashboardPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* ── Live Community Arena & Daily Pulse Preview ── */}
+      <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <span className="size-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <div>
+              <h2 className="font-display text-lg font-bold text-white">
+                Community Arena &amp; Daily Pulse
+              </h2>
+              <p className="text-xs text-slate-400">
+                Rep your state in live banter and vote on today&apos;s pulse polls
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/community"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-accent/15 border border-accent/30 px-3.5 py-2 text-xs font-bold text-accent hover:bg-accent/25 transition-colors"
+          >
+            <span>Enter Arena</span>
+            <ArrowRightIcon className="size-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Recent Live Banter */}
+          <div className="rounded-xl border border-white/[0.06] bg-[#07090e] p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-300">Live Banter Room</span>
+              <Link href="/community" className="text-accent hover:underline font-semibold">
+                Reply live
+              </Link>
+            </div>
+            {arenaPreview.recentChat.length > 0 ? (
+              arenaPreview.recentChat.map((m) => (
+                <div
+                  key={m.id}
+                  className="border-t border-white/[0.05] pt-2 first:border-t-0 first:pt-0 text-xs"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-white">{m.username}</span>
+                    <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-400">
+                      {m.state}
+                    </span>
+                    {m.rank && (
+                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                        #{m.rank}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 line-clamp-1 text-slate-300">{m.body}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-slate-500 py-2">
+                Jump into the Live Banter Room and represent your state.
+              </p>
+            )}
+          </div>
+
+          {/* Featured Pulse Poll */}
+          <Link
+            href="/community"
+            className="flex flex-col justify-between rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.08] to-[#07090e] p-4 hover:border-amber-500/40 transition-colors"
+          >
+            <div>
+              <span className="inline-block rounded-md bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                {arenaPreview.topPoll?.category || "Daily Pulse Poll"}
+              </span>
+              <h3 className="mt-2 text-sm font-bold leading-snug text-white">
+                {arenaPreview.topPoll?.title ||
+                  "Vote on today's Nigerian consumer & city rivalry polls"}
+              </h3>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs">
+              <span className="text-slate-400">
+                {arenaPreview.topPoll
+                  ? `${arenaPreview.topPoll.totalVotes.toLocaleString()} votes cast`
+                  : "Live state breakdown"}
+              </span>
+              <span className="font-bold text-amber-300">Cast your vote →</span>
+            </div>
+          </Link>
         </div>
       </section>
 

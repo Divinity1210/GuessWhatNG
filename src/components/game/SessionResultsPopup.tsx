@@ -582,7 +582,7 @@ export function SessionResultsPopup() {
               type="button"
               onClick={() => void closeTopLayer()}
               aria-label="Close session results popup"
-              autofocus
+              autoFocus
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white transition-colors"
             >
               <span>✕ Close</span>

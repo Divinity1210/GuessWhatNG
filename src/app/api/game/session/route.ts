@@ -1043,6 +1043,30 @@ export async function POST(req: NextRequest) {
               attempts_count: mine.attemptsCount,
             },
           });
+
+          if (mine.rank <= 3) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("username, state, turf")
+              .eq("id", entryRow.user_id)
+              .maybeSingle();
+            const uname = prof?.username || "A sharp player";
+            const st =
+              (prof?.state || "").trim() ||
+              (prof?.turf || "").replace(/\s*\(.*?\)\s*/g, "").trim() ||
+              "Nigeria";
+            const secs = Math.max(1, Math.round(mine.response_ms / 1000));
+            const timeStr = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+            await supabase.from("community_messages").insert({
+              room: "live_arena",
+              session_id: sessionId,
+              is_system: true,
+              body: `${uname} (${st}) just moved into #${mine.rank} on ${sessionRow.name} with ${mine.points} pts in ${timeStr}!`,
+              author_username: "Arena Live",
+              author_state: st,
+              author_rank: mine.rank,
+            });
+          }
         }
       }
 
