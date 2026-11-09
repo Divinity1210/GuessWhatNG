@@ -69,6 +69,7 @@ type MyIdentity = {
   hasDob: boolean;
   rank: number | null;
   points: number | null;
+  nextTopicAllowedAt?: string | null;
 };
 
 type MentionCandidate = {
@@ -325,6 +326,8 @@ export default function CommunityPage() {
   const { user, refreshProfile } = useAuth();
   const [mobileTab, setMobileTab] = useState<"chat" | "feed">("chat");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "official" | "player">("all");
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const [activeSession, setActiveSession] = useState<{ id: string; name: string } | null>(null);
   const [myIdentity, setMyIdentity] = useState<MyIdentity | null>(null);
@@ -718,8 +721,18 @@ export default function CommunityPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.nextTopicAllowedAt) {
+          setMyIdentity((prev) =>
+            prev ? { ...prev, nextTopicAllowedAt: data.nextTopicAllowedAt } : prev,
+          );
+        }
         setTopicError(data.error || "Could not publish topic.");
       } else {
+        if (data.nextTopicAllowedAt) {
+          setMyIdentity((prev) =>
+            prev ? { ...prev, nextTopicAllowedAt: data.nextTopicAllowedAt } : prev,
+          );
+        }
         setComposerOpen(false);
         setNewTitle("");
         setNewBody("");
@@ -810,7 +823,15 @@ export default function CommunityPage() {
       const clean = (username || "").trim();
       if (!clean) return;
       const key = clean.toLowerCase();
-      if (key === "guesswhat" || key === "player" || key === meLower) return;
+      if (
+        key === "guesswhat" ||
+        key === "player" ||
+        key === "superadmin" ||
+        key === "masteradmin" ||
+        key === meLower
+      ) {
+        return;
+      }
       const existing = pool.get(key);
       if (!existing) {
         pool.set(key, {
@@ -1048,6 +1069,29 @@ export default function CommunityPage() {
     });
   };
 
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, []);
+
+  const topicCooldownMinsLeft = useMemo(() => {
+    const iso = myIdentity?.nextTopicAllowedAt;
+    if (!iso) return 0;
+    const diffMs = new Date(iso).getTime() - nowMs;
+    if (diffMs <= 0) return 0;
+    return Math.max(1, Math.ceil(diffMs / 60000));
+  }, [myIdentity?.nextTopicAllowedAt, nowMs]);
+
+  const displayedPosts = useMemo(() => {
+    if (sourceFilter === "official") {
+      return posts.filter((p) => p.isOfficial || Boolean(p.sponsorName));
+    }
+    if (sourceFilter === "player") {
+      return posts.filter((p) => !p.isOfficial && !p.sponsorName);
+    }
+    return posts;
+  }, [posts, sourceFilter]);
+
   const chatBannerAd = ads.find((a) => a.placement === "chat_banner") ?? null;
   const feedAds = ads.filter((a) => a.placement === "feed");
 
@@ -1095,10 +1139,21 @@ export default function CommunityPage() {
 
           <button
             type="button"
-            onClick={() => setComposerOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#F7911B]/20 hover:opacity-95 transition-opacity"
+            onClick={() => {
+              setTopicError(null);
+              setComposerOpen(true);
+            }}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-opacity ${
+              topicCooldownMinsLeft > 0
+                ? "border border-white/15 bg-[#121624] text-slate-200 hover:border-white/25"
+                : "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-[#F7911B]/20 hover:opacity-95"
+            }`}
           >
-            <span>+ Start topic or poll</span>
+            {topicCooldownMinsLeft > 0 ? (
+              <span>Next topic/poll in {topicCooldownMinsLeft}m</span>
+            ) : (
+              <span>+ Start topic or poll</span>
+            )}
           </button>
         </div>
       </div>
@@ -1229,6 +1284,37 @@ export default function CommunityPage() {
             </form>
           )}
 
+          {/* Source Filter: All vs GuessWhat Official vs Player Created */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex rounded-xl border border-white/[0.08] bg-[#0b0e17] p-1">
+              {(
+                [
+                  { id: "all", label: "All Posts" },
+                  { id: "official", label: "✦ GuessWhat Official" },
+                  { id: "player", label: "Player Polls & Topics" },
+                ] as const
+              ).map((tab) => {
+                const active = sourceFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSourceFilter(tab.id)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      active
+                        ? tab.id === "player"
+                          ? "bg-indigo-500 text-white"
+                          : "bg-accent text-white"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Category Filter Bar */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             {CATEGORIES.map((cat) => {
@@ -1251,7 +1337,7 @@ export default function CommunityPage() {
           </div>
 
           {/* Posts & Interleaved Native Sponsor Cards */}
-          {loading && posts.length === 0 ? (
+          {loading && displayedPosts.length === 0 ? (
             <div className="space-y-3">
               {[1, 2, 3].map((n) => (
                 <div
@@ -1260,24 +1346,28 @@ export default function CommunityPage() {
                 />
               ))}
             </div>
-          ) : posts.length === 0 ? (
+          ) : displayedPosts.length === 0 ? (
             <div className="rounded-2xl border border-white/[0.07] bg-[#0b0e17] p-8 text-center">
-              <p className="text-sm font-semibold text-white">No topics in this category yet</p>
+              <p className="text-sm font-semibold text-white">No topics match this filter yet</p>
               <p className="mt-1 text-xs text-slate-400">
-                Start the first debate or switch back to All topics.
+                Start the first debate or switch back to All Posts.
               </p>
               <button
                 type="button"
-                onClick={() => setComposerOpen(true)}
+                onClick={() => {
+                  setTopicError(null);
+                  setComposerOpen(true);
+                }}
                 className="mt-4 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white"
               >
                 Start a topic
               </button>
             </div>
           ) : (
-            posts.map((post, index) => {
+            displayedPosts.map((post, index) => {
               const hasPoll = post.pollOptions.length >= 2;
               const isExpanded = expandedPostId === post.id;
+              const isPlayerPost = !post.isOfficial && !post.sponsorName;
               const injectedAd =
                 feedAds.length > 0 && (index + 1) % 2 === 0
                   ? feedAds[Math.floor(index / 2) % feedAds.length]
@@ -1288,24 +1378,43 @@ export default function CommunityPage() {
 
               return (
                 <div key={post.id} className="space-y-4">
-                  <article className="rounded-2xl border border-white/[0.08] bg-[#0b0e17] p-4 sm:p-5 transition-colors hover:border-white/[0.13]">
+                  <article
+                    className={`rounded-2xl border p-4 sm:p-5 transition-colors ${
+                      post.sponsorName
+                        ? "border-sky-500/25 bg-[#0b0e17] hover:border-sky-400/40"
+                        : post.isOfficial
+                        ? "border-[#F7911B]/30 bg-gradient-to-br from-[#F7911B]/[0.06] via-[#0b0e17] to-[#0b0e17] hover:border-[#F7911B]/45"
+                        : "border-indigo-400/20 bg-[#0b0e17] hover:border-indigo-400/35"
+                    }`}
+                  >
                     {/* Post Meta Header */}
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div className="flex flex-wrap items-center gap-2">
+                        {post.sponsorName ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/15 border border-sky-500/35 px-2 py-0.5 text-[11px] font-bold text-sky-300">
+                            Sponsored · {post.sponsorName}
+                          </span>
+                        ) : post.isOfficial ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-[#FF0400]/20 to-[#F7911B]/25 border border-[#F7911B]/45 px-2 py-0.5 text-[11px] font-bold text-[#ffb457]">
+                            <span>✦</span>
+                            <span>GuessWhat {hasPoll ? "Official Poll" : "Official"}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/15 border border-indigo-400/35 px-2 py-0.5 text-[11px] font-bold text-indigo-300">
+                            <span>{hasPoll ? "Player Poll" : "Player Topic"}</span>
+                          </span>
+                        )}
+
                         {post.isPinned && (
                           <span className="rounded-md bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[11px] font-bold text-amber-300">
                             Pinned
                           </span>
                         )}
-                        {post.sponsorName ? (
-                          <span className="rounded-md bg-sky-500/15 border border-sky-500/30 px-2 py-0.5 text-[11px] font-bold text-sky-300">
-                            Sponsored · {post.sponsorName}
-                          </span>
-                        ) : (
-                          <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-[11px] font-medium text-slate-300">
-                            {post.category}
-                          </span>
-                        )}
+
+                        <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-[11px] font-medium text-slate-300">
+                          {post.category}
+                        </span>
+
                         {post.kind === "verdict" && (
                           <span className="rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
                             Session Results
@@ -1318,16 +1427,43 @@ export default function CommunityPage() {
 
                     {/* Author Line */}
                     <div className="mt-2.5 flex items-center gap-2 text-xs">
-                      <span className="font-semibold text-slate-200">{post.authorUsername}</span>
-                      {post.authorState && (
-                        <span className="rounded bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-slate-400">
-                          {post.authorState}
-                        </span>
-                      )}
-                      <RankBadge rank={post.authorRank} />
-                      {post.isOfficial && !post.sponsorName && (
-                        <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
-                          Official Pulse
+                      {post.isOfficial && !post.sponsorName ? (
+                        <>
+                          <span className="grid size-5 shrink-0 place-items-center rounded-md bg-gradient-to-br from-[#FF0400] to-[#F7911B] text-[9px] font-black text-white">
+                            GW
+                          </span>
+                          <span className="font-bold text-white">GuessWhat</span>
+                          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                            Official Pulse
+                          </span>
+                        </>
+                      ) : isPlayerPost ? (
+                        <>
+                          <span className="grid size-5 shrink-0 place-items-center rounded-md bg-indigo-500/25 border border-indigo-400/30 text-[9px] font-bold text-indigo-200">
+                            {(post.authorUsername || "PL").slice(0, 2).toUpperCase()}
+                          </span>
+                          <span className="text-slate-400">By</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExpandedPostId(post.id);
+                              quickTagUser(post.id, post.authorUsername);
+                            }}
+                            title={`Tag @${post.authorUsername}`}
+                            className="font-bold text-white hover:text-indigo-300 transition-colors"
+                          >
+                            @{post.authorUsername}
+                          </button>
+                          {post.authorState && (
+                            <span className="rounded bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-slate-300">
+                              {post.authorState}
+                            </span>
+                          )}
+                          <RankBadge rank={post.authorRank} />
+                        </>
+                      ) : (
+                        <span className="font-semibold text-slate-200">
+                          {post.authorUsername}
                         </span>
                       )}
                     </div>
@@ -1881,10 +2017,16 @@ export default function CommunityPage() {
                 setActiveMention(null);
                 handleSendChat(e);
               }}
-              className="relative border-t border-white/[0.08] bg-[#07090e] p-3"
+              className="border-t border-white/[0.08] bg-[#07090e] p-3"
             >
-              {activeMention?.target === "chat" && (
-                <div className="absolute bottom-full left-3 right-3 z-30 mb-1">
+              {chatError && (
+                <p className="mb-2 rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1.5 text-[11px] text-rose-300">
+                  {chatError}
+                </p>
+              )}
+
+              <div className="relative flex items-center gap-2">
+                {activeMention?.target === "chat" && (
                   <MentionPopover
                     candidates={filteredMentionCandidates}
                     highlightIdx={mentionHighlightIdx}
@@ -1892,16 +2034,7 @@ export default function CommunityPage() {
                     onSelect={applyMentionSelection}
                     onHover={setMentionHighlightIdx}
                   />
-                </div>
-              )}
-
-              {chatError && (
-                <p className="mb-2 rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1.5 text-[11px] text-rose-300">
-                  {chatError}
-                </p>
-              )}
-
-              <div className="flex items-center gap-2">
+                )}
                 <div className="relative flex-1">
                   <input
                     ref={chatInputRef}
@@ -1986,7 +2119,12 @@ export default function CommunityPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0b0e17] p-5 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
-              <h2 className="text-base font-bold text-white">Start a topic or poll</h2>
+              <div>
+                <h2 className="text-base font-bold text-white">Start a player topic or poll</h2>
+                <p className="text-[11px] text-slate-400">
+                  Published with a Player Poll / Player Topic badge · Limit: 1 per hour
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setComposerOpen(false)}
@@ -2010,6 +2148,22 @@ export default function CommunityPage() {
               </div>
             ) : (
               <form onSubmit={handleCreateTopic} className="mt-4 space-y-3.5">
+                {topicCooldownMinsLeft > 0 ? (
+                  <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200">
+                    <p className="font-bold text-amber-300">
+                      1-hour cooldown active ({topicCooldownMinsLeft}{" "}
+                      {topicCooldownMinsLeft === 1 ? "minute" : "minutes"} remaining)
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-300">
+                      To prevent Arena clutter, each player can create 1 new topic or poll per hour. You can still vote, @tag rivals, and reply freely!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-indigo-400/25 bg-indigo-500/10 px-3.5 py-2 text-[11px] text-indigo-200">
+                    Arena rule: Players can publish <span className="font-bold text-white">1 topic or poll per hour</span> to keep discussions sharp.
+                  </div>
+                )}
+
                 {topicError && (
                   <p className="rounded-xl border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs text-rose-300">
                     {topicError}
@@ -2021,9 +2175,10 @@ export default function CommunityPage() {
                     Category
                   </label>
                   <select
+                    disabled={topicCooldownMinsLeft > 0}
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3 py-2.5 text-xs text-white focus:border-accent focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3 py-2.5 text-xs text-white focus:border-accent focus:outline-none disabled:opacity-50"
                   >
                     {[
                       "Game Banter",
@@ -2047,11 +2202,12 @@ export default function CommunityPage() {
                   <input
                     type="text"
                     required
+                    disabled={topicCooldownMinsLeft > 0}
                     maxLength={140}
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="e.g. Which city has the sharpest GuessWhat players right now?"
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none disabled:opacity-50"
                   />
                 </div>
 
@@ -2061,11 +2217,12 @@ export default function CommunityPage() {
                   </label>
                   <textarea
                     rows={2}
+                    disabled={topicCooldownMinsLeft > 0}
                     maxLength={400}
                     value={newBody}
                     onChange={(e) => setNewBody(e.target.value)}
-                    placeholder="Add your take to kick off replies..."
-                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                    placeholder="Add your take or @tag a rival to kick off replies..."
+                    className="w-full rounded-xl border border-white/10 bg-[#07090e] px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none disabled:opacity-50"
                   />
                 </div>
 
@@ -2075,6 +2232,7 @@ export default function CommunityPage() {
                   </span>
                   <input
                     type="checkbox"
+                    disabled={topicCooldownMinsLeft > 0}
                     checked={includePoll}
                     onChange={(e) => setIncludePoll(e.target.checked)}
                     className="size-4 accent-[#F7911B]"
@@ -2087,6 +2245,7 @@ export default function CommunityPage() {
                       <div key={idx} className="flex items-center gap-2">
                         <input
                           type="text"
+                          disabled={topicCooldownMinsLeft > 0}
                           value={val}
                           maxLength={70}
                           onChange={(e) => {
@@ -2095,7 +2254,7 @@ export default function CommunityPage() {
                             setPollOpts(next);
                           }}
                           placeholder={`Option ${idx + 1}`}
-                          className="flex-1 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-xs text-white focus:border-accent focus:outline-none"
+                          className="flex-1 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-xs text-white focus:border-accent focus:outline-none disabled:opacity-50"
                         />
                         {pollOpts.length > 2 && (
                           <button
@@ -2128,14 +2287,22 @@ export default function CommunityPage() {
                     onClick={() => setComposerOpen(false)}
                     className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white"
                   >
-                    Cancel
+                    {topicCooldownMinsLeft > 0 ? "Close" : "Cancel"}
                   </button>
                   <button
                     type="submit"
-                    disabled={creatingTopic || !newTitle.trim()}
-                    className="rounded-xl bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-5 py-2 text-xs font-bold text-white disabled:opacity-50"
+                    disabled={
+                      creatingTopic ||
+                      topicCooldownMinsLeft > 0 ||
+                      !newTitle.trim()
+                    }
+                    className="rounded-xl bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-5 py-2 text-xs font-bold text-white disabled:opacity-40"
                   >
-                    {creatingTopic ? "Publishing..." : "Publish to Arena"}
+                    {creatingTopic
+                      ? "Publishing..."
+                      : topicCooldownMinsLeft > 0
+                      ? `Unlocks in ${topicCooldownMinsLeft}m`
+                      : "Publish to Arena"}
                   </button>
                 </div>
               </form>

@@ -52,6 +52,8 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get("category") || "all";
     const searchUsers = (searchParams.get("searchUsers") || "").trim();
 
+    const SYSTEM_INTERNAL_USERNAMES = new Set(["superadmin", "masteradmin"]);
+
     if (searchUsers) {
       const safeQuery = searchUsers.replace(/[^a-zA-Z0-9_]/g, "");
       if (!safeQuery) {
@@ -62,15 +64,20 @@ export async function GET(req: NextRequest) {
         .select("id, username, state, turf")
         .ilike("username", `%${safeQuery}%`)
         .order("username", { ascending: true })
-        .limit(12);
+        .limit(15);
 
       const lowerQ = safeQuery.toLowerCase();
-      const sorted = [...(matched ?? [])].sort((a, b) => {
-        const aStarts = (a.username || "").toLowerCase().startsWith(lowerQ) ? 0 : 1;
-        const bStarts = (b.username || "").toLowerCase().startsWith(lowerQ) ? 0 : 1;
-        if (aStarts !== bStarts) return aStarts - bStarts;
-        return (a.username || "").localeCompare(b.username || "");
-      });
+      const sorted = [...(matched ?? [])]
+        .filter(
+          (u) =>
+            u.username && !SYSTEM_INTERNAL_USERNAMES.has(u.username.toLowerCase()),
+        )
+        .sort((a, b) => {
+          const aStarts = (a.username || "").toLowerCase().startsWith(lowerQ) ? 0 : 1;
+          const bStarts = (b.username || "").toLowerCase().startsWith(lowerQ) ? 0 : 1;
+          if (aStarts !== bStarts) return aStarts - bStarts;
+          return (a.username || "").localeCompare(b.username || "");
+        });
 
       return NextResponse.json({
         ok: true,
@@ -124,6 +131,8 @@ export async function GET(req: NextRequest) {
 
     const rankSessionId = activeSession?.id ?? latestCompleted?.id ?? null;
 
+    const oneHourAgoIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
     const [
       { data: lbRows },
       { data: liveMessages, error: liveMsgErr },
@@ -132,6 +141,7 @@ export async function GET(req: NextRequest) {
       { data: threadMessages },
       { data: ads },
       { data: myProfile },
+      { data: recentMyPost },
     ] = await Promise.all([
       rankSessionId
         ? supabase
@@ -187,6 +197,16 @@ export async function GET(req: NextRequest) {
             .from("profiles")
             .select("id, username, state, turf, gender, date_of_birth")
             .eq("id", userId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      userId
+        ? supabase
+            .from("community_posts")
+            .select("created_at")
+            .eq("author_id", userId)
+            .gte("created_at", oneHourAgoIso)
+            .order("created_at", { ascending: false })
+            .limit(1)
             .maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
@@ -398,7 +418,9 @@ export async function GET(req: NextRequest) {
 
     for (const [uid, pInfo] of profileLookup.entries()) {
       if (!pInfo.username) continue;
-      mentionMap.set(pInfo.username.toLowerCase(), {
+      const key = pInfo.username.toLowerCase();
+      if (SYSTEM_INTERNAL_USERNAMES.has(key)) continue;
+      mentionMap.set(key, {
         username: pInfo.username,
         state: pInfo.state,
         rank: rankByUser.get(uid)?.rank ?? null,
@@ -407,6 +429,7 @@ export async function GET(req: NextRequest) {
     for (const rp of recentProfiles ?? []) {
       if (!rp.username) continue;
       const key = rp.username.toLowerCase();
+      if (SYSTEM_INTERNAL_USERNAMES.has(key)) continue;
       if (!mentionMap.has(key)) {
         mentionMap.set(key, {
           username: rp.username,
@@ -426,6 +449,11 @@ export async function GET(req: NextRequest) {
       .slice(0, 60);
 
     const myRankInfo = userId ? rankByUser.get(userId) ?? null : null;
+    const nextTopicAllowedAt = recentMyPost?.created_at
+      ? new Date(
+          new Date(recentMyPost.created_at).getTime() + 60 * 60 * 1000,
+        ).toISOString()
+      : null;
 
     return NextResponse.json({
       ok: true,
@@ -443,6 +471,7 @@ export async function GET(req: NextRequest) {
             hasDob: Boolean(myProfile.date_of_birth),
             rank: myRankInfo?.rank ?? null,
             points: myRankInfo?.points ?? null,
+            nextTopicAllowedAt,
           }
         : null,
       mentionDirectory,
@@ -787,6 +816,32 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "create_topic") {
+      // Enforce 1 user-created topic or poll per hour to prevent Arena database clogging
+      const oneHourAgoIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data: recentUserPost } = await supabase
+        .from("community_posts")
+        .select("id, created_at")
+        .eq("author_id", userId)
+        .gte("created_at", oneHourAgoIso)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recentUserPost?.created_at) {
+        const unlockAtMs =
+          new Date(recentUserPost.created_at).getTime() + 60 * 60 * 1000;
+        const minsLeft = Math.max(1, Math.ceil((unlockAtMs - Date.now()) / 60000));
+        return NextResponse.json(
+          {
+            error: `Players can create 1 topic or poll per hour to keep the Arena clean. You can post your next one in ${minsLeft} ${
+              minsLeft === 1 ? "minute" : "minutes"
+            }.`,
+            nextTopicAllowedAt: new Date(unlockAtMs).toISOString(),
+          },
+          { status: 429 },
+        );
+      }
+
       const titleCheck = validateCleanBanter(String(body.title ?? ""), 140);
       if (!titleCheck.ok) {
         return NextResponse.json({ error: titleCheck.error }, { status: 400 });
@@ -888,7 +943,13 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({ ok: true, postId: created.id });
+      return NextResponse.json({
+        ok: true,
+        postId: created.id,
+        nextTopicAllowedAt: new Date(
+          new Date(created.created_at || Date.now()).getTime() + 60 * 60 * 1000,
+        ).toISOString(),
+      });
     }
 
     return NextResponse.json({ error: "Unsupported community action" }, { status: 400 });
