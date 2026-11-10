@@ -444,7 +444,27 @@ export async function getSessionLeaderboard(sessionId: string, limit = 20) {
       .limit(limit);
 
     if (!error && data && data.length > 0) {
-      return data as unknown as LeaderboardRow[];
+      return (data as unknown as Array<
+        Omit<LeaderboardRow, "profiles"> & {
+          profiles:
+            | { username?: string | null; avatar_url?: string | null }
+            | { username?: string | null; avatar_url?: string | null }[]
+            | null;
+        }
+      >).map((row) => {
+        const prof = Array.isArray(row.profiles)
+          ? row.profiles[0] ?? null
+          : row.profiles ?? null;
+        return {
+          ...row,
+          profiles: prof
+            ? {
+                username: prof.username ?? "Player",
+                avatar_url: prof.avatar_url ?? null,
+              }
+            : null,
+        };
+      });
     }
   } catch {
     // Fall through

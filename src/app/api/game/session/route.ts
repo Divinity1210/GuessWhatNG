@@ -506,6 +506,24 @@ export async function GET(req: NextRequest) {
         : Promise.resolve({ data: null }),
     ]);
 
+    const normalizedLeaderboard = (lb ?? []).map((row) => {
+      const rawProf = row.profiles as
+        | { username?: string | null; avatar_url?: string | null }
+        | { username?: string | null; avatar_url?: string | null }[]
+        | null
+        | undefined;
+      const prof = Array.isArray(rawProf) ? rawProf[0] ?? null : rawProf ?? null;
+      return {
+        ...row,
+        profiles: prof
+          ? {
+              username: prof.username ?? "Player",
+              avatar_url: prof.avatar_url ?? null,
+            }
+          : null,
+      };
+    });
+
     const archivedAnswersCount = (archivedLogs ?? []).reduce((sum, l) => {
       const detail = (l.detail ?? {}) as ArchivedAttemptDetail;
       if (Array.isArray(detail.answers)) return sum + detail.answers.length;
@@ -521,7 +539,7 @@ export async function GET(req: NextRequest) {
         session: targetSession,
         sessions,
         totalGuesses,
-        leaderboard: lb ?? [],
+        leaderboard: normalizedLeaderboard,
       });
     }
 
@@ -733,10 +751,10 @@ export async function GET(req: NextRequest) {
       session: targetSession,
       sessions,
       totalGuesses,
-      leaderboard: lb ?? [],
+      leaderboard: normalizedLeaderboard,
       summary: {
         totalPlays: (allSessionEntries?.length ?? 0) + (archivedLogs?.length ?? 0),
-        uniquePlayers: Math.max(uniquePlayers, (lb ?? []).length),
+        uniquePlayers: Math.max(uniquePlayers, normalizedLeaderboard.length),
         totalGuesses,
         avgQuestionMs:
           totalAllAnswersCount > 0

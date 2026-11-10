@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback, useId } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { Avatar } from "@/components/ui/Avatar";
 import {
   playSessionComplete,
   playRankClimb,
   playOptionSelect,
 } from "@/lib/audio/sound-effects";
 import {
-  AwardIcon,
   BarChartIcon,
   CheckIcon,
   ChevronRightIcon,
@@ -56,11 +56,24 @@ export type PopupLeaderboardRow = {
   response_ms: number;
   prize: number;
   user_id: string;
-  profiles?: {
-    username?: string | null;
-    avatar_url?: string | null;
-  } | null;
+  profiles?:
+    | {
+        username?: string | null;
+        avatar_url?: string | null;
+      }
+    | {
+        username?: string | null;
+        avatar_url?: string | null;
+      }[]
+    | null;
 };
+
+function extractProfile(
+  profiles: PopupLeaderboardRow["profiles"],
+): { username?: string | null; avatar_url?: string | null } | null {
+  if (!profiles) return null;
+  return Array.isArray(profiles) ? profiles[0] ?? null : profiles;
+}
 
 export type PopupSessionMeta = {
   id: string;
@@ -168,7 +181,7 @@ const CONFETTI_PIECES = [
 ];
 
 export function SessionResultsPopup() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const titleId = useId();
   const feedbackTableCaptionId = useId();
   const winnersTableCaptionId = useId();
@@ -448,11 +461,21 @@ export function SessionResultsPopup() {
   const currentQuestion =
     questionFeedbacks[selectedQuestionIdx] ?? questionFeedbacks[0] ?? null;
 
+  const getPlayerDisplay = (row: PopupLeaderboardRow) => {
+    const isMe = Boolean(user?.id && row.user_id === user.id);
+    const prof = extractProfile(row.profiles);
+    const name =
+      prof?.username || (isMe ? profile?.username : null) || "Player";
+    const avatarUrl =
+      prof?.avatar_url || (isMe ? profile?.avatar_url : null) || null;
+    return { name, avatarUrl, isMe };
+  };
+
   const top3Winners = leaderboard.slice(0, 3);
   const filteredLeaderboard = leaderboard.filter((r) => {
     if (!winnerSearch.trim()) return true;
-    const uname = (r.profiles?.username ?? "Player").toLowerCase();
-    return uname.includes(winnerSearch.trim().toLowerCase());
+    const { name } = getPlayerDisplay(r);
+    return name.toLowerCase().includes(winnerSearch.trim().toLowerCase());
   });
 
   const handleSelectSessionInModal = async (nextSessionId: string) => {
@@ -474,134 +497,153 @@ export function SessionResultsPopup() {
       {...({ closedby: "any" } as Record<string, string>)}
       className="gw-session-results-dialog mt-auto mb-0 mx-0 sm:m-auto w-full max-w-full sm:w-[min(95vw,1040px)] max-h-[92dvh] rounded-t-3xl sm:rounded-3xl border border-white/15 bg-[#090d16] text-slate-100 shadow-[0_28px_90px_rgba(0,0,0,0.85)] p-0 overflow-hidden"
     >
-      {/* Modal Header */}
-      <div className="relative overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#141c2f] via-[#0d1220] to-[#1a1118] px-4 py-4 sm:px-7 sm:py-5 shrink-0">
-        {isSessionEnded && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 overflow-hidden"
+      {/* Slim Top Bar (Only Title + Close Button Stay Pinned) */}
+      <div className="relative flex items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0d1220] px-4 py-2.5 sm:px-6 sm:py-3 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span
+            className={`size-2 shrink-0 rounded-full ${
+              isSessionEnded ? "bg-amber-400" : "bg-emerald-400"
+            }`}
+          />
+          <h2
+            id={titleId}
+            className="font-display text-base sm:text-lg font-bold text-white tracking-tight truncate"
           >
-            {CONFETTI_PIECES.map((piece, idx) => (
-              <span
-                key={idx}
-                style={{
-                  left: piece.left,
-                  animationDelay: piece.delay,
-                  backgroundColor: piece.color,
-                }}
-                className="animate-gw-confetti absolute top-0 size-2 rounded-sm opacity-0"
-              />
-            ))}
-          </div>
-        )}
+            {sessionMeta?.name ?? "Session Results"}
+          </h2>
+          <span
+            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+              isSessionEnded
+                ? "border-amber-400/30 bg-amber-500/10 text-amber-300"
+                : "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+            }`}
+          >
+            {isSessionEnded ? "Results" : "Live"}
+          </span>
+        </div>
 
-        <div className="relative z-10 flex flex-col gap-3">
-          {/* Status Eyebrow + Close */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <span
-                className={`size-2 shrink-0 rounded-full ${
-                  isSessionEnded ? "bg-amber-400" : "bg-emerald-400"
-                }`}
-              />
-              <span
-                className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
-                  isSessionEnded ? "text-amber-300" : "text-emerald-300"
-                }`}
-              >
-                {isSessionEnded ? "Session Closed · Official Results" : "Session In Progress"}
-              </span>
-            </div>
+        <button
+          type="button"
+          onClick={() => void closeTopLayer()}
+          aria-label="Close session results"
+          autoFocus
+          className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/12 bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 hover:text-white transition-colors"
+        >
+          <CloseIcon className="size-4.5" />
+        </button>
+      </div>
 
-            <button
-              type="button"
-              onClick={() => void closeTopLayer()}
-              aria-label="Close session results"
-              autoFocus
-              className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/12 bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 hover:text-white transition-colors"
+      {/* Unified Scrollable Body (Overview Controls + Tabs + Details All Scroll Smoothly) */}
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3.5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-7 sm:py-5 space-y-4">
+        {/* Scrolling Overview Block */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#131b2e] via-[#0d1220] to-[#171018] p-3.5 sm:p-4 space-y-3">
+          {isSessionEnded && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 overflow-hidden"
             >
-              <CloseIcon className="size-4.5" />
-            </button>
-          </div>
-
-          {/* Title + Optional Session Switcher */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h2
-                id={titleId}
-                className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight truncate"
-              >
-                {sessionMeta?.name ?? "Session Results"}
-              </h2>
-              <p className="hidden sm:block text-xs text-slate-400 mt-0.5">
-                Crowd vote shares, option points (10 to 1), response speeds, and session leaderboard.
-              </p>
+              {CONFETTI_PIECES.map((piece, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    left: piece.left,
+                    animationDelay: piece.delay,
+                    backgroundColor: piece.color,
+                  }}
+                  className="animate-gw-confetti absolute top-0 size-2 rounded-sm opacity-0"
+                />
+              ))}
             </div>
+          )}
 
-            {sessions.length > 1 && (
-              <select
-                id="popup-session-select"
-                aria-label="Switch session"
-                value={selectedSessionId}
-                onChange={(e) => void handleSelectSessionInModal(e.target.value)}
-                className="min-h-10 w-full sm:w-auto rounded-lg border border-white/12 bg-[#07090e]/90 px-3 py-1.5 text-base sm:text-xs font-medium text-slate-200 focus:border-accent focus:outline-none"
-              >
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.status === "completed" ? "Ended" : "Live"})
-                  </option>
-                ))}
-              </select>
+          <div className="relative z-10 space-y-3">
+            {(sessions.length > 1 || (myPerformance && myPerformance.prize > 0)) && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                {sessions.length > 1 ? (
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <label
+                      htmlFor="popup-session-select"
+                      className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0"
+                    >
+                      Session
+                    </label>
+                    <select
+                      id="popup-session-select"
+                      value={selectedSessionId}
+                      onChange={(e) => void handleSelectSessionInModal(e.target.value)}
+                      className="min-h-10 flex-1 sm:w-auto rounded-xl border border-white/12 bg-[#07090e]/90 px-3 py-1.5 text-base sm:text-xs font-medium text-slate-100 focus:border-accent focus:outline-none"
+                    >
+                      {sessions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.status === "completed" ? "Ended" : "Live"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div />
+                )}
+
+                {myPerformance && myPerformance.prize > 0 && (
+                  <div className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                    <CheckIcon className="size-3.5 shrink-0" />
+                    <span>
+                      {isSessionEnded ? "Prize Won:" : "Projected Prize:"}{" "}
+                      <strong className="font-mono text-white">
+                        ₦{myPerformance.prize.toLocaleString()}
+                      </strong>
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
-          </div>
 
-          {/* Read-Only Metric Strip (No Background Fill, No Button Borders) */}
-          <dl className="grid grid-cols-4 divide-x divide-white/10 border-y border-white/[0.08] py-2.5">
-            <div className="pr-2 sm:pr-4 min-w-0">
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Pool
-              </dt>
-              <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-amber-300 tabular-nums truncate">
-                ₦{animatedPrizePool.toLocaleString()}
-              </dd>
-            </div>
+            {/* Read-Only Metric Strip */}
+            <dl className="grid grid-cols-4 divide-x divide-white/10 border-y border-white/[0.08] py-2.5">
+              <div className="pr-2 sm:pr-4 min-w-0">
+                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Pool
+                </dt>
+                <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-amber-300 tabular-nums truncate">
+                  ₦{animatedPrizePool.toLocaleString()}
+                </dd>
+              </div>
 
-            <div className="px-2 sm:px-4 min-w-0">
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Guesses
-              </dt>
-              <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-white tabular-nums">
-                {animatedGuesses.toLocaleString()}
-              </dd>
-            </div>
+              <div className="px-2 sm:px-4 min-w-0">
+                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Guesses
+                </dt>
+                <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-white tabular-nums">
+                  {animatedGuesses.toLocaleString()}
+                </dd>
+              </div>
 
-            <div className="px-2 sm:px-4 min-w-0">
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Players
-              </dt>
-              <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-white tabular-nums">
-                {summary?.uniquePlayers ?? leaderboard.length}
-              </dd>
-            </div>
+              <div className="px-2 sm:px-4 min-w-0">
+                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Players
+                </dt>
+                <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-white tabular-nums">
+                  {summary?.uniquePlayers ?? leaderboard.length}
+                </dd>
+              </div>
 
-            <div className="pl-2 sm:pl-4 min-w-0">
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400 truncate">
-                Your Score
-              </dt>
-              <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-accent tabular-nums truncate">
-                {myPerformance?.rank
-                  ? `${formatOrdinal(myPerformance.rank)} · ${animatedMyScore}p`
-                  : `${animatedMyScore} pts`}
-              </dd>
-            </div>
-          </dl>
+              <div className="pl-2 sm:pl-4 min-w-0">
+                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400 truncate">
+                  Your Score
+                </dt>
+                <dd className="mt-0.5 font-display text-sm sm:text-base font-bold text-accent tabular-nums truncate">
+                  {myPerformance?.rank
+                    ? `${formatOrdinal(myPerformance.rank)} · ${animatedMyScore}p`
+                    : `${animatedMyScore} pts`}
+                </dd>
+              </div>
+            </dl>
 
-          {/* Section Tabs */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Section Tabs (Scroll Away Naturally With Body) */}
             <div
               role="tablist"
               aria-label="Session results sections"
-              className="grid w-full grid-cols-3 sm:flex sm:w-auto rounded-xl border border-white/10 bg-[#07090e]/90 p-1 gap-1"
+              className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto rounded-xl border border-white/10 bg-[#07090e]/90 p-1 gap-1"
             >
               <button
                 type="button"
@@ -611,7 +653,7 @@ export function SessionResultsPopup() {
                   setActiveTab("feedback");
                   setBarAnimKey((k) => k + 1);
                 }}
-                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === "feedback"
                     ? "bg-accent text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
@@ -630,14 +672,17 @@ export function SessionResultsPopup() {
                   setActiveTab("winners");
                   playRankClimb();
                 }}
-                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === "winners"
                     ? "bg-accent text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
                 <TrophyIcon className="size-3.5 shrink-0" />
-                <span>
+                <span className="sm:hidden">
+                  {isSessionEnded ? "Winners" : "Ranks"} ({leaderboard.length})
+                </span>
+                <span className="hidden sm:inline">
                   {isSessionEnded ? "Winners" : "Leaderboard"} ({leaderboard.length})
                 </span>
               </button>
@@ -647,7 +692,7 @@ export function SessionResultsPopup() {
                 role="tab"
                 aria-selected={activeTab === "mypicks"}
                 onClick={() => setActiveTab("mypicks")}
-                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 sm:px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === "mypicks"
                     ? "bg-accent text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
@@ -657,24 +702,9 @@ export function SessionResultsPopup() {
                 <span>My Picks</span>
               </button>
             </div>
-
-            {myPerformance && myPerformance.prize > 0 && (
-              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
-                <CheckIcon className="size-3.5" />
-                <span>
-                  {isSessionEnded ? "Prize Won:" : "Projected Prize:"}{" "}
-                  <strong className="font-mono text-white">
-                    ₦{myPerformance.prize.toLocaleString()}
-                  </strong>
-                </span>
-              </div>
-            )}
           </div>
         </div>
-      </div>
 
-      {/* Scrollable Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-7 sm:py-5 space-y-5">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
@@ -1121,82 +1151,117 @@ export function SessionResultsPopup() {
               </div>
             )}
 
-            {/* Tab 2: Winners & Podium */}
+            {/* Tab 2: Winners & Leaderboard */}
             {activeTab === "winners" && (
-              <div className="space-y-5 animate-fade-in">
+              <div className="space-y-4 animate-fade-in">
                 {top3Winners.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 items-end pt-1">
-                    {top3Winners[1] && (
-                      <div
-                        style={{ animationDelay: "120ms" }}
-                        className="animate-gw-podium order-2 sm:order-1 rounded-2xl border border-slate-400/25 bg-gradient-to-b from-slate-400/12 to-[#0d111c] p-4 text-center space-y-1.5"
-                      >
-                        <div className="mx-auto grid size-10 place-items-center rounded-full bg-slate-300/15 border border-slate-300/35 text-slate-200">
-                          <AwardIcon className="size-5" />
+                  <div
+                    className={`grid gap-2.5 sm:gap-3.5 items-end pt-1 ${
+                      top3Winners.length === 1
+                        ? "grid-cols-1 max-w-xs mx-auto"
+                        : top3Winners.length === 2
+                        ? "grid-cols-2 max-w-lg mx-auto"
+                        : "grid-cols-3"
+                    }`}
+                  >
+                    {top3Winners[1] && (() => {
+                      const p2 = getPlayerDisplay(top3Winners[1]);
+                      return (
+                        <div
+                          style={{ animationDelay: "120ms" }}
+                          className="animate-gw-podium order-2 sm:order-1 min-w-0 rounded-2xl border border-slate-400/25 bg-gradient-to-b from-slate-400/12 to-[#0d111c] p-3 sm:p-4 text-center space-y-1.5"
+                        >
+                          <div className="flex justify-center">
+                            <Avatar
+                              name={p2.name}
+                              src={p2.avatarUrl}
+                              size="md"
+                              rank={2}
+                            />
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-300 truncate">
+                            {isSessionEnded ? "2nd Place" : "Rank #2"}
+                          </p>
+                          <p className="font-display text-xs sm:text-base font-bold text-white truncate">
+                            {p2.name}
+                          </p>
+                          <p className="font-display text-sm sm:text-lg font-extrabold text-emerald-300 tabular-nums truncate">
+                            ₦{Number(top3Winners[1].prize || 50000).toLocaleString()}
+                          </p>
+                          <p className="font-mono text-[10px] sm:text-xs text-slate-400 tabular-nums truncate">
+                            {top3Winners[1].points}p ·{" "}
+                            {formatTotalClock(top3Winners[1].response_ms)}
+                          </p>
                         </div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                          {isSessionEnded ? "2nd Place" : "Provisional #2"}
-                        </p>
-                        <p className="font-display text-base font-bold text-white truncate">
-                          {top3Winners[1].profiles?.username ?? "Player"}
-                        </p>
-                        <p className="font-display text-lg font-extrabold text-emerald-300 tabular-nums">
-                          ₦{Number(top3Winners[1].prize || 50000).toLocaleString()}
-                        </p>
-                        <p className="font-mono text-xs text-slate-400">
-                          {top3Winners[1].points} pts ·{" "}
-                          {formatTotalClock(top3Winners[1].response_ms)}
-                        </p>
-                      </div>
-                    )}
+                      );
+                    })()}
 
-                    {top3Winners[0] && (
-                      <div
-                        style={{ animationDelay: "0ms" }}
-                        className="animate-gw-podium order-1 sm:order-2 rounded-2xl border border-amber-400/45 bg-gradient-to-b from-amber-500/20 via-amber-500/8 to-[#0d111c] p-5 text-center space-y-2"
-                      >
-                        <div className="mx-auto grid size-12 place-items-center rounded-full bg-amber-400/20 border border-amber-300/60 text-amber-300">
-                          <CrownIcon className="size-6" />
+                    {top3Winners[0] && (() => {
+                      const p1 = getPlayerDisplay(top3Winners[0]);
+                      return (
+                        <div
+                          style={{ animationDelay: "0ms" }}
+                          className={`animate-gw-podium min-w-0 rounded-2xl border border-amber-400/45 bg-gradient-to-b from-amber-500/20 via-amber-500/8 to-[#0d111c] p-3.5 sm:p-5 text-center space-y-1.5 sm:space-y-2 ${
+                            top3Winners.length >= 2 ? "order-1 sm:order-2" : ""
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <CrownIcon className="size-4 sm:size-5 text-amber-300" />
+                            <Avatar
+                              name={p1.name}
+                              src={p1.avatarUrl}
+                              size="lg"
+                              rank={1}
+                            />
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-300 truncate">
+                            {isSessionEnded ? "Champion" : "Rank #1"}
+                          </p>
+                          <p className="font-display text-sm sm:text-lg font-bold text-white truncate">
+                            {p1.name}
+                          </p>
+                          <p className="font-display text-base sm:text-2xl font-extrabold text-amber-300 tabular-nums truncate">
+                            ₦{Number(top3Winners[0].prize || 100000).toLocaleString()}
+                          </p>
+                          <p className="font-mono text-[10px] sm:text-xs text-amber-100/85 tabular-nums truncate">
+                            {top3Winners[0].points}p ·{" "}
+                            {formatTotalClock(top3Winners[0].response_ms)}
+                          </p>
                         </div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
-                          {isSessionEnded ? "1st Place Champion" : "Provisional #1"}
-                        </p>
-                        <p className="font-display text-lg font-bold text-white truncate">
-                          {top3Winners[0].profiles?.username ?? "Player"}
-                        </p>
-                        <p className="font-display text-2xl font-extrabold text-amber-300 tabular-nums">
-                          ₦{Number(top3Winners[0].prize || 100000).toLocaleString()}
-                        </p>
-                        <p className="font-mono text-xs text-amber-100/85">
-                          {top3Winners[0].points} pts ·{" "}
-                          {formatTotalClock(top3Winners[0].response_ms)}
-                        </p>
-                      </div>
-                    )}
+                      );
+                    })()}
 
-                    {top3Winners[2] && (
-                      <div
-                        style={{ animationDelay: "220ms" }}
-                        className="animate-gw-podium order-3 rounded-2xl border border-amber-700/35 bg-gradient-to-b from-amber-700/15 to-[#0d111c] p-4 text-center space-y-1.5"
-                      >
-                        <div className="mx-auto grid size-10 place-items-center rounded-full bg-amber-700/20 border border-amber-600/35 text-amber-400">
-                          <AwardIcon className="size-5" />
+                    {top3Winners[2] && (() => {
+                      const p3 = getPlayerDisplay(top3Winners[2]);
+                      return (
+                        <div
+                          style={{ animationDelay: "220ms" }}
+                          className="animate-gw-podium order-3 min-w-0 rounded-2xl border border-amber-700/35 bg-gradient-to-b from-amber-700/15 to-[#0d111c] p-3 sm:p-4 text-center space-y-1.5"
+                        >
+                          <div className="flex justify-center">
+                            <Avatar
+                              name={p3.name}
+                              src={p3.avatarUrl}
+                              size="md"
+                              rank={3}
+                            />
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-400 truncate">
+                            {isSessionEnded ? "3rd Place" : "Rank #3"}
+                          </p>
+                          <p className="font-display text-xs sm:text-base font-bold text-white truncate">
+                            {p3.name}
+                          </p>
+                          <p className="font-display text-sm sm:text-lg font-extrabold text-emerald-300 tabular-nums truncate">
+                            ₦{Number(top3Winners[2].prize || 20000).toLocaleString()}
+                          </p>
+                          <p className="font-mono text-[10px] sm:text-xs text-slate-400 tabular-nums truncate">
+                            {top3Winners[2].points}p ·{" "}
+                            {formatTotalClock(top3Winners[2].response_ms)}
+                          </p>
                         </div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
-                          {isSessionEnded ? "3rd Place" : "Provisional #3"}
-                        </p>
-                        <p className="font-display text-base font-bold text-white truncate">
-                          {top3Winners[2].profiles?.username ?? "Player"}
-                        </p>
-                        <p className="font-display text-lg font-extrabold text-emerald-300 tabular-nums">
-                          ₦{Number(top3Winners[2].prize || 20000).toLocaleString()}
-                        </p>
-                        <p className="font-mono text-xs text-slate-400">
-                          {top3Winners[2].points} pts ·{" "}
-                          {formatTotalClock(top3Winners[2].response_ms)}
-                        </p>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -1227,37 +1292,66 @@ export function SessionResultsPopup() {
 
                   {/* Mobile Rows */}
                   <div className="space-y-2 sm:hidden">
-                    {filteredLeaderboard.map((row) => {
-                      const isMe = row.user_id === user?.id;
-                      return (
-                        <div
-                          key={row.user_id}
-                          className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 ${
-                            isMe
-                              ? "border-accent/35 bg-accent/10"
-                              : "border-white/[0.06] bg-white/[0.02]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="font-display text-xs font-bold text-amber-300 w-8 shrink-0">
-                              {formatOrdinal(row.rank)}
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-white">
-                                {row.profiles?.username ?? "Player"}
-                                {isMe ? " (You)" : ""}
-                              </p>
-                              <p className="font-mono text-xs text-slate-400 tabular-nums">
-                                {row.points} pts · {formatTotalClock(row.response_ms)}
-                              </p>
+                    {filteredLeaderboard.length > 0 ? (
+                      filteredLeaderboard.map((row) => {
+                        const { name, avatarUrl, isMe } = getPlayerDisplay(row);
+                        return (
+                          <div
+                            key={row.user_id}
+                            className={`flex items-center justify-between gap-2.5 rounded-xl border px-3 py-2.5 ${
+                              isMe
+                                ? "border-accent/35 bg-accent/10"
+                                : "border-white/[0.06] bg-white/[0.02]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span
+                                className={`font-display text-xs font-bold w-7 shrink-0 tabular-nums ${
+                                  row.rank === 1
+                                    ? "text-amber-300"
+                                    : row.rank === 2
+                                    ? "text-slate-200"
+                                    : row.rank === 3
+                                    ? "text-amber-400"
+                                    : "text-slate-400"
+                                }`}
+                              >
+                                {formatOrdinal(row.rank)}
+                              </span>
+                              <Avatar
+                                name={name}
+                                src={avatarUrl}
+                                size="sm"
+                                rank={row.rank}
+                                showRankBadge={false}
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="truncate text-sm font-semibold text-white">
+                                    {name}
+                                  </p>
+                                  {isMe && (
+                                    <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-1.5 py-0.5 text-[10px] font-bold text-accent leading-none">
+                                      You
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="font-mono text-xs text-slate-400 tabular-nums">
+                                  {row.points} pts · {formatTotalClock(row.response_ms)}
+                                </p>
+                              </div>
                             </div>
+                            <span className="font-mono text-xs font-bold text-emerald-300 tabular-nums shrink-0">
+                              {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "-"}
+                            </span>
                           </div>
-                          <span className="font-mono text-xs font-bold text-emerald-300 tabular-nums shrink-0">
-                            {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "-"}
-                          </span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    ) : (
+                      <p className="py-6 text-center text-sm text-slate-500">
+                        No players matching your search.
+                      </p>
+                    )}
                   </div>
 
                   {/* Desktop Table */}
@@ -1274,17 +1368,17 @@ export function SessionResultsPopup() {
                       <thead>
                         <tr className="border-b border-white/10 text-left text-xs font-semibold text-slate-400">
                           <th className="py-2.5 pr-4">Rank</th>
+                          <th className="py-2.5 pr-4">Player</th>
                           <th className="py-2.5 pr-4">
                             {isSessionEnded ? "Prize (₦)" : "Projected Prize (₦)"}
                           </th>
-                          <th className="py-2.5 pr-4">Player</th>
                           <th className="py-2.5 pr-4">Points</th>
                           <th className="py-2.5 text-right">Time</th>
                         </tr>
                       </thead>
                       <tbody className="stagger">
                         {filteredLeaderboard.map((row) => {
-                          const isMe = row.user_id === user?.id;
+                          const { name, avatarUrl, isMe } = getPlayerDisplay(row);
                           return (
                             <tr
                               key={row.user_id}
@@ -1298,18 +1392,33 @@ export function SessionResultsPopup() {
                             >
                               <th
                                 scope="row"
-                                className="py-3 pr-4 font-display font-bold text-left"
+                                className="py-3 pr-4 font-display font-bold text-left whitespace-nowrap"
                               >
                                 {formatOrdinal(row.rank)}
                               </th>
+                              <td className="py-3 pr-4">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <Avatar
+                                    name={name}
+                                    src={avatarUrl}
+                                    size="sm"
+                                    rank={row.rank}
+                                    showRankBadge={false}
+                                  />
+                                  <span className="truncate font-semibold text-white">
+                                    {name}
+                                  </span>
+                                  {isMe && (
+                                    <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-2 py-0.5 text-[10px] font-bold text-accent">
+                                      You
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
                               <td className="py-3 pr-4 font-mono text-emerald-300 font-semibold tabular-nums">
                                 {row.prize > 0
                                   ? `₦${row.prize.toLocaleString()}`
                                   : "-"}
-                              </td>
-                              <td className="py-3 pr-4">
-                                {row.profiles?.username ?? "Player"}
-                                {isMe ? " (You)" : ""}
                               </td>
                               <td className="py-3 pr-4 font-mono font-bold tabular-nums">
                                 {row.points} pts
@@ -1435,23 +1544,19 @@ export function SessionResultsPopup() {
                 </div>
               </div>
             )}
+
+            {/* Non-pinned scroll-end Done button (never blocks viewport while scrolling) */}
+            <div className="pt-1 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void closeTopLayer()}
+                className="min-h-10 w-full sm:w-auto rounded-xl border border-white/12 bg-white/[0.05] hover:bg-white/[0.1] px-6 py-2.5 text-xs font-bold text-slate-200 hover:text-white transition-colors"
+              >
+                Close Results
+              </button>
+            </div>
           </>
         )}
-      </div>
-
-      {/* Modal Footer */}
-      <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-[#0b0f19] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-7 sm:py-3.5 shrink-0">
-        <p className="hidden sm:block text-xs text-slate-400">
-          Select Q1 through Q10 above to inspect option-by-option crowd shares.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => void closeTopLayer()}
-          className="min-h-10 w-full sm:w-auto rounded-xl bg-accent hover:bg-accent-hover px-6 py-2 text-xs font-bold text-white shadow-md transition-colors ml-auto"
-        >
-          Done
-        </button>
       </div>
     </dialog>
   );

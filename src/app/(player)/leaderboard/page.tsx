@@ -15,6 +15,7 @@ import {
   playRankClimb,
 } from "@/lib/audio/sound-effects";
 import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
+import { Avatar } from "@/components/ui/Avatar";
 import {
   BarChartIcon,
   TrophyIcon,
@@ -49,7 +50,7 @@ function formatOrdinal(n: number): string {
 }
 
 export default function LeaderboardPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [tab, setTab] = useState<"live" | "winners" | "prizes">("live");
   const [allSessions, setAllSessions] = useState<SessionRow[]>([]);
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
@@ -293,16 +294,25 @@ export default function LeaderboardPage() {
     );
   }
 
+  const getPlayerDisplay = (row: LeaderboardRow) => {
+    const isMe = Boolean(user?.id && row.user_id === user.id);
+    const name =
+      row.profiles?.username || (isMe ? profile?.username : null) || "Player";
+    const avatarUrl =
+      row.profiles?.avatar_url || (isMe ? profile?.avatar_url : null) || null;
+    return { name, avatarUrl, isMe };
+  };
+
   const filteredLiveRows = liveRows.filter((r) => {
     if (!searchQuery.trim()) return true;
-    const name = (r.profiles?.username ?? "").toLowerCase();
-    return name.includes(searchQuery.trim().toLowerCase());
+    const { name } = getPlayerDisplay(r);
+    return name.toLowerCase().includes(searchQuery.trim().toLowerCase());
   });
 
   const filteredCompletedWinners = completedWinners.filter((r) => {
     if (!searchQuery.trim()) return true;
-    const name = (r.profiles?.username ?? "").toLowerCase();
-    return name.includes(searchQuery.trim().toLowerCase());
+    const { name } = getPlayerDisplay(r);
+    return name.toLowerCase().includes(searchQuery.trim().toLowerCase());
   });
 
   const activeStructure =
@@ -444,13 +454,13 @@ export default function LeaderboardPage() {
       </div>
 
       {/* Session Switcher */}
-      {allSessions.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {(tab === "winners" ? completedSessions : allSessions).length > 0 && (
+        <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="hidden sm:flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">
               Session:
             </span>
-            {allSessions.map((sess) => {
+            {(tab === "winners" ? completedSessions : allSessions).map((sess) => {
               const isSelected =
                 tab === "winners"
                   ? selectedCompletedId === sess.id
@@ -462,7 +472,7 @@ export default function LeaderboardPage() {
                   key={sess.id}
                   type="button"
                   onClick={() => {
-                    if (tab === "winners" && sess.status === "completed") {
+                    if (tab === "winners") {
                       setSelectedCompletedId(sess.id);
                     } else {
                       if (tab === "prizes") setTab("live");
@@ -503,7 +513,7 @@ export default function LeaderboardPage() {
               }}
               className="min-h-11 w-full sm:w-auto rounded-xl border border-white/15 bg-[#07090e] px-3.5 py-2 text-base sm:text-xs font-medium text-white focus:border-accent focus:outline-none"
             >
-              {allSessions.map((s) => (
+              {(tab === "winners" ? completedSessions : allSessions).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.status === "active" ? "Live" : "Ended"})
                 </option>
@@ -513,7 +523,7 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Tab 1: Live / Selected Session Standings */}
+      {/* Tab 1: Live / Selected Session Leaderboard */}
       {tab === "live" && (
         <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -574,7 +584,7 @@ export default function LeaderboardPage() {
             </div>
           </div>
 
-          {/* Mobile Compact Standings (<640px) */}
+          {/* Mobile Compact Leaderboard (<640px) */}
           <div
             className={`space-y-2 sm:hidden transition-opacity ${
               switchingSession ? "opacity-50" : "opacity-100"
@@ -582,12 +592,12 @@ export default function LeaderboardPage() {
           >
             {filteredLiveRows.length > 0 ? (
               filteredLiveRows.map((row) => {
-                const isMe = row.user_id === user?.id;
+                const { name, avatarUrl, isMe } = getPlayerDisplay(row);
                 const climbDelta = climbedMap[row.user_id] ?? 0;
                 return (
                   <div
                     key={row.user_id}
-                    className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${
+                    className={`flex items-center justify-between gap-2.5 rounded-xl border px-3 py-3 ${
                       climbDelta > 0
                         ? "border-emerald-500/35 bg-emerald-500/12"
                         : isMe
@@ -595,23 +605,38 @@ export default function LeaderboardPage() {
                         : "border-white/[0.06] bg-white/[0.02]"
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <span
-                        className={`grid size-8 shrink-0 place-items-center rounded-lg font-display text-xs font-bold ${
+                        className={`w-7 shrink-0 font-display text-xs font-bold tabular-nums ${
                           row.rank === 1
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/35"
-                            : row.rank <= 3
-                            ? "bg-white/[0.08] text-white"
-                            : "bg-white/[0.04] text-slate-300"
+                            ? "text-amber-300"
+                            : row.rank === 2
+                            ? "text-slate-200"
+                            : row.rank === 3
+                            ? "text-amber-400"
+                            : "text-slate-400"
                         }`}
                       >
                         {formatOrdinal(row.rank)}
                       </span>
+                      <Avatar
+                        name={name}
+                        src={avatarUrl}
+                        size="sm"
+                        rank={row.rank}
+                        showRankBadge={false}
+                      />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-white">
-                          {row.profiles?.username ?? "Player"}
-                          {isMe ? " (You)" : ""}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-semibold text-white">
+                            {name}
+                          </p>
+                          {isMe && (
+                            <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-1.5 py-0.5 text-[10px] font-bold text-accent leading-none">
+                              You
+                            </span>
+                          )}
+                        </div>
                         <p className="font-mono text-xs text-slate-400 tabular-nums">
                           {row.points} pts · {formatDuration(row.response_ms)}
                           {climbDelta > 0 ? ` · +${climbDelta}` : ""}
@@ -633,7 +658,7 @@ export default function LeaderboardPage() {
             )}
           </div>
 
-          {/* Desktop Standings Table (>=640px) */}
+          {/* Desktop Leaderboard Table (>=640px) */}
           <div
             tabIndex={0}
             role="region"
@@ -644,17 +669,17 @@ export default function LeaderboardPage() {
           >
             <table className="w-full text-sm">
               <caption id="live-lb-caption" className="sr-only">
-                Session leaderboard standings
+                Session leaderboard
               </caption>
               <thead>
                 <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
                   <th className="py-3 pr-4">Rank</th>
+                  <th className="py-3 pr-4">Player</th>
                   <th className="py-3 pr-4">
                     {selectedSession?.status === "active"
                       ? "Projected Prize (₦)"
                       : "Official Prize (₦)"}
                   </th>
-                  <th className="py-3 pr-4">Player</th>
                   <th className="py-3 pr-4">Points</th>
                   <th className="py-3 text-right">Time</th>
                 </tr>
@@ -662,7 +687,7 @@ export default function LeaderboardPage() {
               <tbody>
                 {filteredLiveRows.length > 0 ? (
                   filteredLiveRows.map((row) => {
-                    const isMe = row.user_id === user?.id;
+                    const { name, avatarUrl, isMe } = getPlayerDisplay(row);
                     const climbDelta = climbedMap[row.user_id] ?? 0;
 
                     return (
@@ -692,12 +717,27 @@ export default function LeaderboardPage() {
                             )}
                           </span>
                         </th>
+                        <td className="py-3.5 pr-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Avatar
+                              name={name}
+                              src={avatarUrl}
+                              size="sm"
+                              rank={row.rank}
+                              showRankBadge={false}
+                            />
+                            <span className="truncate font-semibold text-white">
+                              {name}
+                            </span>
+                            {isMe && (
+                              <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-2 py-0.5 text-[10px] font-bold text-accent">
+                                You
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-3.5 pr-4 font-mono text-emerald-400 tabular-nums">
                           {row.prize > 0 ? `₦${row.prize.toLocaleString()}` : "-"}
-                        </td>
-                        <td className="py-3.5 pr-4">
-                          {row.profiles?.username ?? "Player"}
-                          {isMe ? " (You)" : ""}
                         </td>
                         <td className="py-3.5 pr-4 font-mono font-bold tabular-nums">
                           {row.points}
@@ -739,57 +779,74 @@ export default function LeaderboardPage() {
                   Verified rankings and cash payouts from ended sessions.
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="w-full sm:w-64">
                 <input
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search winner..."
-                  className="min-h-11 rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                  className="min-h-11 w-full rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                 />
-                {completedSessions.length > 0 && (
-                  <select
-                    value={selectedCompletedId}
-                    onChange={(e) => setSelectedCompletedId(e.target.value)}
-                    aria-label="Select completed session"
-                    className="min-h-11 rounded-xl border border-white/15 bg-[#07090e] px-3.5 py-2 text-base sm:text-xs text-white focus:border-accent focus:outline-none"
-                  >
-                    {completedSessions.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
               </div>
             </div>
 
             {/* Mobile Winners Cards */}
             <div className="space-y-2 sm:hidden">
               {filteredCompletedWinners.length > 0 ? (
-                filteredCompletedWinners.map((w) => (
-                  <div
-                    key={w.user_id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/[0.06] font-display text-xs font-bold text-white">
-                        {formatOrdinal(w.rank)}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-white">
-                          {w.profiles?.username ?? "Player"}
-                        </p>
-                        <p className="font-mono text-xs text-slate-400 tabular-nums">
-                          {w.points} pts · {formatDuration(w.response_ms)}
-                        </p>
+                filteredCompletedWinners.map((w) => {
+                  const { name, avatarUrl, isMe } = getPlayerDisplay(w);
+                  return (
+                    <div
+                      key={w.user_id}
+                      className={`flex items-center justify-between gap-2.5 rounded-xl border px-3 py-3 ${
+                        isMe
+                          ? "border-accent/35 bg-accent/10"
+                          : "border-white/[0.06] bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`w-7 shrink-0 font-display text-xs font-bold tabular-nums ${
+                            w.rank === 1
+                              ? "text-amber-300"
+                              : w.rank === 2
+                              ? "text-slate-200"
+                              : w.rank === 3
+                              ? "text-amber-400"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {formatOrdinal(w.rank)}
+                        </span>
+                        <Avatar
+                          name={name}
+                          src={avatarUrl}
+                          size="sm"
+                          rank={w.rank}
+                          showRankBadge={false}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="truncate text-sm font-semibold text-white">
+                              {name}
+                            </p>
+                            {isMe && (
+                              <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-1.5 py-0.5 text-[10px] font-bold text-accent leading-none">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-mono text-xs text-slate-400 tabular-nums">
+                            {w.points} pts · {formatDuration(w.response_ms)}
+                          </p>
+                        </div>
                       </div>
+                      <span className="font-mono text-xs font-bold text-accent tabular-nums shrink-0">
+                        {w.prize > 0 ? `₦${w.prize.toLocaleString()}` : "-"}
+                      </span>
                     </div>
-                    <span className="font-mono text-xs font-bold text-accent tabular-nums shrink-0">
-                      {w.prize > 0 ? `₦${w.prize.toLocaleString()}` : "-"}
-                    </span>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="py-8 text-center text-sm text-slate-500">
                   No winners matching your filter.
@@ -808,36 +865,62 @@ export default function LeaderboardPage() {
                 <thead>
                   <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
                     <th className="py-3 pr-4">Rank</th>
-                    <th className="py-3 pr-4">Prize (₦)</th>
                     <th className="py-3 pr-4">Player</th>
+                    <th className="py-3 pr-4">Prize (₦)</th>
                     <th className="py-3 pr-4">Points</th>
                     <th className="py-3 text-right">Time</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredCompletedWinners.length > 0 ? (
-                    filteredCompletedWinners.map((w) => (
-                      <tr
-                        key={w.user_id}
-                        className="border-b border-white/10 last:border-0 text-slate-200"
-                      >
-                        <th scope="row" className="py-3.5 pr-4 font-display font-bold text-left">
-                          {formatOrdinal(w.rank)}
-                        </th>
-                        <td className="py-3.5 pr-4 font-mono text-accent font-semibold tabular-nums">
-                          {w.prize > 0 ? `₦${w.prize.toLocaleString()}` : "-"}
-                        </td>
-                        <td className="py-3.5 pr-4">
-                          {w.profiles?.username ?? "Player"}
-                        </td>
-                        <td className="py-3.5 pr-4 font-mono font-bold tabular-nums">
-                          {w.points}
-                        </td>
-                        <td className="py-3.5 text-right font-mono text-slate-400 tabular-nums">
-                          {formatDuration(w.response_ms)}
-                        </td>
-                      </tr>
-                    ))
+                    filteredCompletedWinners.map((w) => {
+                      const { name, avatarUrl, isMe } = getPlayerDisplay(w);
+                      return (
+                        <tr
+                          key={w.user_id}
+                          className={`border-b border-white/10 last:border-0 ${
+                            isMe
+                              ? "bg-accent/10 text-accent font-semibold"
+                              : "text-slate-200"
+                          }`}
+                        >
+                          <th
+                            scope="row"
+                            className="py-3.5 pr-4 font-display font-bold text-left whitespace-nowrap"
+                          >
+                            {formatOrdinal(w.rank)}
+                          </th>
+                          <td className="py-3.5 pr-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Avatar
+                                name={name}
+                                src={avatarUrl}
+                                size="sm"
+                                rank={w.rank}
+                                showRankBadge={false}
+                              />
+                              <span className="truncate font-semibold text-white">
+                                {name}
+                              </span>
+                              {isMe && (
+                                <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-2 py-0.5 text-[10px] font-bold text-accent">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 pr-4 font-mono text-accent font-semibold tabular-nums">
+                            {w.prize > 0 ? `₦${w.prize.toLocaleString()}` : "-"}
+                          </td>
+                          <td className="py-3.5 pr-4 font-mono font-bold tabular-nums">
+                            {w.points}
+                          </td>
+                          <td className="py-3.5 text-right font-mono text-slate-400 tabular-nums">
+                            {formatDuration(w.response_ms)}
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-sm text-slate-500">

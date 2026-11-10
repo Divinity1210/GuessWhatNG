@@ -25,6 +25,8 @@ export default function ProfilePage() {
 
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [gender, setGender] = useState("");
@@ -54,6 +56,7 @@ export default function ProfilePage() {
           if (p) {
             setUsername(p.username ?? "");
             setFullName(p.full_name ?? "");
+            setAvatarUrl(p.avatar_url ?? null);
             setPhone(p.phone ?? "");
             setDateOfBirth(p.date_of_birth ?? "");
             setGender(p.gender ?? "");
@@ -74,6 +77,74 @@ export default function ProfilePage() {
     load();
   }, [user]);
 
+  const handleAvatarFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg("Please choose an image file.");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setErrorMsg(null);
+    setSavedMsg(null);
+
+    try {
+      const compressedDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Could not read image"));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error("Invalid image format"));
+          img.onload = () => {
+            const size = 160;
+            const canvas = document.createElement("canvas");
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              reject(new Error("Canvas unavailable"));
+              return;
+            }
+            const minSide = Math.min(img.width, img.height);
+            const sx = (img.width - minSide) / 2;
+            const sy = (img.height - minSide) / 2;
+            ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+            resolve(canvas.toDataURL("image/jpeg", 0.82));
+          };
+          img.src = String(reader.result);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      setAvatarUrl(compressedDataUrl);
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          avatarUrl: compressedDataUrl,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update avatar");
+      }
+      await refreshProfile();
+      setSavedMsg("Profile photo updated.");
+      setTimeout(() => setSavedMsg(null), 3500);
+    } catch (err) {
+      setErrorMsg(
+        err instanceof Error ? err.message : "Failed to upload photo",
+      );
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -89,6 +160,7 @@ export default function ProfilePage() {
           userId: user.id,
           username,
           fullName,
+          avatarUrl: avatarUrl ?? "",
           phone,
           dateOfBirth,
           gender,
@@ -129,12 +201,28 @@ export default function ProfilePage() {
       {/* Header Card */}
       <section className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 min-w-0">
-          <Avatar name={displayName} size="lg" />
-          <div className="min-w-0">
+          <Avatar
+            name={displayName}
+            src={avatarUrl || profile?.avatar_url}
+            size="lg"
+          />
+          <div className="min-w-0 space-y-1">
             <h1 className="font-display text-lg sm:text-xl font-bold text-white truncate">
               {displayName}
             </h1>
             <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+            <div className="pt-0.5">
+              <label className="inline-flex min-h-8 cursor-pointer items-center rounded-lg border border-white/12 bg-white/[0.04] hover:bg-white/[0.08] px-2.5 py-1 text-xs font-semibold text-slate-200 transition-colors">
+                <span>{uploadingAvatar ? "Uploading..." : "Change photo"}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingAvatar}
+                  onChange={handleAvatarFileChange}
+                  className="sr-only"
+                />
+              </label>
+            </div>
           </div>
         </div>
 

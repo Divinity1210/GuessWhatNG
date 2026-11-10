@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { MobileNav, Logo } from "@/components/ui";
+import { Avatar, MobileNav, Logo } from "@/components/ui";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { playMenuClick } from "@/lib/audio/sound-effects";
 import {
@@ -59,7 +59,6 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   const [unreadCount, setUnreadCount] = useState(0);
 
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Player";
-  const initials = displayName.slice(0, 2).toUpperCase();
   const isAdmin =
     profile?.role === "super_admin" ||
     user?.email === "admin@guesswhat.ng" ||
@@ -204,9 +203,15 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             <Link
               href="/profile"
               onClick={() => playMenuClick()}
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent font-display text-xs font-bold text-white"
+              aria-label="Profile"
+              className="shrink-0 rounded-full"
             >
-              {initials}
+              <Avatar
+                name={displayName}
+                src={profile?.avatar_url}
+                size="sm"
+                showRankBadge={false}
+              />
             </Link>
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-semibold text-white">{displayName}</p>
@@ -270,9 +275,14 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
               href="/profile"
               onClick={() => playMenuClick()}
               aria-label="Profile"
-              className="grid size-10 place-items-center rounded-xl bg-accent/15 border border-accent/30 text-xs font-bold text-accent active:bg-accent/25"
+              className="grid size-10 place-items-center rounded-full shrink-0"
             >
-              {initials}
+              <Avatar
+                name={displayName}
+                src={profile?.avatar_url}
+                size="sm"
+                showRankBadge={false}
+              />
             </Link>
           </div>
         </header>

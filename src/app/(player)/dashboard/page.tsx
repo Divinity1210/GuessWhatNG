@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Button, Badge } from "@/components/ui";
+import { Avatar, Button, Badge } from "@/components/ui";
 import {
   TrophyIcon,
   TimerIcon,
@@ -270,6 +270,15 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const getPlayerDisplay = (row: LeaderboardRow) => {
+    const isMe = Boolean(user?.id && row.user_id === user.id);
+    const name =
+      row.profiles?.username || (isMe ? profile?.username : null) || "Player";
+    const avatarUrl =
+      row.profiles?.avatar_url || (isMe ? profile?.avatar_url : null) || null;
+    return { name, avatarUrl, isMe };
+  };
 
   const myRow = liveLeaderboard.find((r) => r.user_id === user?.id);
   const isSessionEnded =
@@ -539,12 +548,12 @@ export default function DashboardPage() {
         <div className="space-y-2 sm:hidden">
           {liveLeaderboard.length > 0 ? (
             liveLeaderboard.map((row) => {
-              const isMe = row.user_id === user?.id;
+              const { name, avatarUrl, isMe } = getPlayerDisplay(row);
               const climbDelta = climbedMap[row.user_id] ?? 0;
               return (
                 <div
                   key={row.user_id}
-                  className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 transition-colors ${
+                  className={`flex items-center justify-between gap-2.5 rounded-xl border px-3 py-3 transition-colors ${
                     climbDelta > 0
                       ? "border-emerald-500/35 bg-emerald-500/12"
                       : isMe
@@ -552,23 +561,38 @@ export default function DashboardPage() {
                       : "border-white/[0.06] bg-white/[0.02]"
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <span
-                      className={`grid size-8 shrink-0 place-items-center rounded-lg font-display text-xs font-bold ${
+                      className={`w-7 shrink-0 font-display text-xs font-bold tabular-nums ${
                         row.rank === 1
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/35"
-                          : row.rank <= 3
-                          ? "bg-white/[0.08] text-white"
-                          : "bg-white/[0.04] text-slate-300"
+                          ? "text-amber-300"
+                          : row.rank === 2
+                          ? "text-slate-200"
+                          : row.rank === 3
+                          ? "text-amber-400"
+                          : "text-slate-400"
                       }`}
                     >
                       {formatOrdinal(row.rank)}
                     </span>
+                    <Avatar
+                      name={name}
+                      src={avatarUrl}
+                      size="sm"
+                      rank={row.rank}
+                      showRankBadge={false}
+                    />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-white">
-                        {row.profiles?.username ?? profile?.username ?? "Player"}
-                        {isMe ? " (You)" : ""}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-semibold text-white">
+                          {name}
+                        </p>
+                        {isMe && (
+                          <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-1.5 py-0.5 text-[10px] font-bold text-accent leading-none">
+                            You
+                          </span>
+                        )}
+                      </div>
                       <p className="font-mono text-xs text-slate-400 tabular-nums">
                         {row.points} pts · {formatDuration(row.response_ms)}
                         {climbDelta > 0 ? ` · +${climbDelta}` : ""}
@@ -601,10 +625,10 @@ export default function DashboardPage() {
             <thead>
               <tr className="border-b border-white/10 text-left text-xs font-medium text-slate-400">
                 <th className="py-3 pr-4">Rank</th>
+                <th className="py-3 pr-4">Player</th>
                 <th className="py-3 pr-4">
                   {isSessionEnded ? "Prize" : "Projected Prize"}
                 </th>
-                <th className="py-3 pr-4">Player</th>
                 <th className="py-3 pr-4">Points</th>
                 <th className="py-3 text-right">Time</th>
               </tr>
@@ -612,7 +636,7 @@ export default function DashboardPage() {
             <tbody>
               {liveLeaderboard.length > 0 ? (
                 liveLeaderboard.map((row) => {
-                  const isMe = row.user_id === user?.id;
+                  const { name, avatarUrl, isMe } = getPlayerDisplay(row);
                   const climbDelta = climbedMap[row.user_id] ?? 0;
 
                   return (
@@ -637,12 +661,27 @@ export default function DashboardPage() {
                           )}
                         </span>
                       </td>
+                      <td className="py-3.5 pr-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar
+                            name={name}
+                            src={avatarUrl}
+                            size="sm"
+                            rank={row.rank}
+                            showRankBadge={false}
+                          />
+                          <span className="truncate font-semibold text-white">
+                            {name}
+                          </span>
+                          {isMe && (
+                            <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-2 py-0.5 text-[10px] font-bold text-accent">
+                              You
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3.5 pr-4 font-medium text-emerald-400 tabular-nums">
                         {row.prize > 0 ? formatNaira(row.prize) : "-"}
-                      </td>
-                      <td className="py-3.5 pr-4">
-                        {row.profiles?.username ?? profile?.username ?? "Player"}
-                        {isMe ? " (You)" : ""}
                       </td>
                       <td className="py-3.5 pr-4 font-mono font-bold tabular-nums">
                         {row.points}
@@ -796,27 +835,39 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            {previousWinners.slice(0, 3).map((w) => (
-              <div
-                key={w.user_id}
-                className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
-              >
-                <div className="min-w-0">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
-                    {formatOrdinal(w.rank)} Place
+            {previousWinners.slice(0, 3).map((w) => {
+              const { name, avatarUrl } = getPlayerDisplay(w);
+              return (
+                <div
+                  key={w.user_id}
+                  className="flex items-center justify-between gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar
+                      name={name}
+                      src={avatarUrl}
+                      size="sm"
+                      rank={w.rank}
+                      showRankBadge={false}
+                    />
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-300 leading-tight">
+                        {formatOrdinal(w.rank)} Place
+                      </span>
+                      <p className="truncate text-sm font-semibold text-white mt-0.5">
+                        {name}
+                      </p>
+                      <p className="font-mono text-xs text-slate-400 tabular-nums">
+                        {w.points} pts · {formatDuration(w.response_ms)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="font-display text-sm font-bold text-emerald-400 tabular-nums shrink-0">
+                    {formatNaira(w.prize)}
                   </span>
-                  <p className="truncate text-sm font-semibold text-white mt-0.5">
-                    {w.profiles?.username ?? "Player"}
-                  </p>
-                  <p className="font-mono text-xs text-slate-400 tabular-nums">
-                    {w.points} pts · {formatDuration(w.response_ms)}
-                  </p>
                 </div>
-                <span className="font-display text-sm font-bold text-emerald-400 tabular-nums shrink-0 pl-2">
-                  {formatNaira(w.prize)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
