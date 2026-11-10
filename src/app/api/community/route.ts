@@ -6,12 +6,19 @@ const URL_REGEX =
 const PHONE_REGEX = /(\+?234\s?\d{9,10}|\b0[789][01]\d[\s-]?\d{3}[\s-]?\d{4}\b)/;
 
 function cleanStateName(rawState?: string | null, rawTurf?: string | null): string {
-  const s = (rawState || "").trim();
+  const s = (rawState || "").replace(/\s*\(.*?\)\s*/g, "").trim();
   if (s && s.toLowerCase() !== "unspecified") return s;
-  const t = (rawTurf || "").trim();
-  if (!t) return "Nigeria";
-  // e.g. "Lagos (Eko)" -> "Lagos"
-  return t.replace(/\s*\(.*?\)\s*/g, "").trim() || "Nigeria";
+  const t = (rawTurf || "").replace(/\s*\(.*?\)\s*/g, "").trim();
+  return t || "Nigeria";
+}
+
+function sanitizeSystemNoticeText(raw: string): string {
+  return (raw || "")
+    .replace(/^room notice:\s*/i, "")
+    .replace(/\(([^()]+?)\s*\([^()]*\)\)/g, "($1)")
+    .replace(/\s+/g, " ")
+    .replace(/!+$/, "")
+    .trim();
 }
 
 function validateCleanBanter(text: string, maxLen = 500): { ok: boolean; error?: string; cleaned: string } {
@@ -61,7 +68,7 @@ export async function GET(req: NextRequest) {
       }
       const { data: matched } = await supabase
         .from("profiles")
-        .select("id, username, state, turf")
+        .select("id, username, state, turf, avatar_url")
         .ilike("username", `%${safeQuery}%`)
         .order("username", { ascending: true })
         .limit(15);
@@ -84,6 +91,7 @@ export async function GET(req: NextRequest) {
         users: sorted.slice(0, 8).map((u) => ({
           id: u.id,
           username: u.username,
+          avatarUrl: u.avatar_url ?? null,
           state: cleanStateName(u.state, u.turf),
           rank: null,
         })),
@@ -136,6 +144,7 @@ export async function GET(req: NextRequest) {
     const [
       { data: lbRows },
       { data: liveMessages, error: liveMsgErr },
+      { data: systemMessages },
       { data: posts, error: postsErr },
       { data: pollVotes },
       { data: threadMessages },
@@ -155,9 +164,20 @@ export async function GET(req: NextRequest) {
           "id, room, session_id, user_id, is_system, body, author_username, author_state, author_rank, reactions, created_at",
         )
         .eq("room", "live_arena")
+        .eq("is_system", false)
         .eq("status", "visible")
         .order("created_at", { ascending: false })
         .limit(80),
+      supabase
+        .from("community_messages")
+        .select(
+          "id, room, session_id, user_id, is_system, body, author_username, author_state, author_rank, created_at",
+        )
+        .eq("room", "live_arena")
+        .eq("is_system", true)
+        .eq("status", "visible")
+        .order("created_at", { ascending: false })
+        .limit(25),
       supabase
         .from("community_posts")
         .select("*")
@@ -195,7 +215,7 @@ export async function GET(req: NextRequest) {
       userId
         ? supabase
             .from("profiles")
-            .select("id, username, state, turf, gender, date_of_birth")
+            .select("id, username, state, turf, gender, date_of_birth, avatar_url")
             .eq("id", userId)
             .maybeSingle()
         : Promise.resolve({ data: null }),
@@ -224,50 +244,160 @@ export async function GET(req: NextRequest) {
       rankByUser.set(r.user_id, { rank: r.rank, points: r.points });
     }
 
-    // Fetch live state/username for message & post authors + top leaderboard players so badges & @mentions stay current
+    // Fetch live state/username/avatar for message & post authors + top leaderboard players so badges & @mentions stay current
     const authorIds = new Set<string>();
-    for (const m of liveMessages ?? []) if (m.user_id) authorIds.add(m.user_id);
-    for (const m of threadMessages ?? []) if (m.user_id) authorIds.add(m.user_id);
+    const legacyUsernames = new Set<string>();
+    for (const m of liveMessages ?? []) {
+      if (m.user_id) authorIds.add(m.user_id);
+      else if (m.author_username) legacyUsernames.add(m.author_username);
+    }
+    for (const sm of systemMessages ?? []) {
+      if (sm.user_id) {
+        authorIds.add(sm.user_id);
+      } else {
+        const cleaned = sanitizeSystemNoticeText(sm.body || "");
+        const parsed = /^([a-zA-Z0-9_]+)\s*\(/.exec(cleaned);
+        if (parsed?.[1]) legacyUsernames.add(parsed[1]);
+      }
+    }
+    for (const m of threadMessages ?? []) {
+      if (m.user_id) authorIds.add(m.user_id);
+      else if (m.author_username) legacyUsernames.add(m.author_username);
+    }
     for (const p of posts ?? []) if (p.author_id) authorIds.add(p.author_id);
     for (const lb of (lbRows ?? []).slice(0, 40)) if (lb.user_id) authorIds.add(lb.user_id);
     if (recentMyPost?.author_id) authorIds.add(recentMyPost.author_id);
 
     const profileLookup = new Map<
       string,
-      { username: string; state: string }
+      { id: string; username: string; state: string; avatarUrl: string | null }
     >();
-    if (authorIds.size > 0) {
-      const { data: authorProfiles } = await supabase
-        .from("profiles")
-        .select("id, username, state, turf")
-        .in("id", Array.from(authorIds));
-      for (const ap of authorProfiles ?? []) {
-        profileLookup.set(ap.id, {
-          username: ap.username,
-          state: cleanStateName(ap.state, ap.turf),
-        });
+    const profileByUsernameLower = new Map<
+      string,
+      { id: string; username: string; state: string; avatarUrl: string | null }
+    >();
+
+    const [{ data: authorProfiles }, { data: recentProfiles }, { data: legacyProfiles }] =
+      await Promise.all([
+        authorIds.size > 0
+          ? supabase
+              .from("profiles")
+              .select("id, username, state, turf, avatar_url")
+              .in("id", Array.from(authorIds))
+          : Promise.resolve({ data: [] }),
+        supabase
+          .from("profiles")
+          .select("id, username, state, turf, avatar_url")
+          .order("updated_at", { ascending: false })
+          .limit(50),
+        legacyUsernames.size > 0
+          ? supabase
+              .from("profiles")
+              .select("id, username, state, turf, avatar_url")
+              .in("username", Array.from(legacyUsernames))
+          : Promise.resolve({ data: [] }),
+      ]);
+
+    for (const ap of [
+      ...(recentProfiles ?? []),
+      ...(legacyProfiles ?? []),
+      ...(authorProfiles ?? []),
+    ]) {
+      if (!ap?.id) continue;
+      const entry = {
+        id: ap.id,
+        username: ap.username,
+        state: cleanStateName(ap.state, ap.turf),
+        avatarUrl: ap.avatar_url ?? null,
+      };
+      profileLookup.set(ap.id, entry);
+      if (ap.username) {
+        profileByUsernameLower.set(ap.username.toLowerCase(), entry);
       }
     }
 
-    // Format Live Arena Chat messages (chronological: oldest -> newest)
+    // Format Live Arena Chat messages (strictly human messages, chronological: oldest -> newest)
     const enrichedLiveChat = [...(liveMessages ?? [])]
       .reverse()
       .map((m) => {
-        const prof = m.user_id ? profileLookup.get(m.user_id) : undefined;
-        const lb = m.user_id ? rankByUser.get(m.user_id) : undefined;
+        const prof =
+          (m.user_id ? profileLookup.get(m.user_id) : undefined) ??
+          (m.author_username
+            ? profileByUsernameLower.get(m.author_username.toLowerCase())
+            : undefined);
+        const resolvedUid = m.user_id || prof?.id || null;
+        const lb = resolvedUid ? rankByUser.get(resolvedUid) : undefined;
         return {
           id: m.id,
-          userId: m.user_id,
-          isSystem: m.is_system,
+          userId: resolvedUid,
+          isSystem: false,
           body: m.body,
           username: prof?.username || m.author_username || "Player",
-          state: prof?.state || m.author_state || "Nigeria",
+          avatarUrl: prof?.avatarUrl ?? null,
+          state: prof?.state || cleanStateName(m.author_state, null),
           rank: lb?.rank ?? m.author_rank ?? null,
           points: lb?.points ?? null,
           reactions: (m.reactions ?? {}) as Record<string, number>,
           createdAt: m.created_at,
         };
       });
+
+    // Deduplicate recent Top-3 rank notices (newest -> oldest, max 4 unique players)
+    const seenNoticePlayers = new Set<string>();
+    const rankNotices: {
+      id: number;
+      userId: string | null;
+      username: string;
+      avatarUrl: string | null;
+      state: string;
+      rank: number | null;
+      body: string;
+      createdAt: string;
+    }[] = [];
+
+    for (const sm of systemMessages ?? []) {
+      const cleanBody = sanitizeSystemNoticeText(sm.body || "");
+      if (!cleanBody) continue;
+      const parsedMatch = /^([a-zA-Z0-9_]+)\s*\(([^)]+)\)/.exec(cleanBody);
+      const parsedRank = /#(\d+)/.exec(cleanBody);
+
+      const candidateName =
+        (sm.user_id ? profileLookup.get(sm.user_id)?.username : null) ||
+        (sm.author_username && sm.author_username.toLowerCase() !== "arena live"
+          ? sm.author_username
+          : null) ||
+        parsedMatch?.[1] ||
+        "Player";
+
+      const dedupeKey = candidateName.toLowerCase();
+      if (seenNoticePlayers.has(dedupeKey)) continue;
+      seenNoticePlayers.add(dedupeKey);
+
+      const prof =
+        (sm.user_id ? profileLookup.get(sm.user_id) : undefined) ??
+        profileByUsernameLower.get(dedupeKey);
+      const resolvedUid = sm.user_id || prof?.id || null;
+      const lb = resolvedUid ? rankByUser.get(resolvedUid) : undefined;
+
+      rankNotices.push({
+        id: sm.id,
+        userId: resolvedUid,
+        username: prof?.username || candidateName,
+        avatarUrl: prof?.avatarUrl ?? null,
+        state:
+          prof?.state ||
+          cleanStateName(sm.author_state, parsedMatch?.[2] ?? null),
+        rank:
+          sm.author_rank ??
+          (parsedRank?.[1] ? Number(parsedRank[1]) : null) ??
+          lb?.rank ??
+          null,
+        body: cleanBody,
+        createdAt: sm.created_at,
+      });
+
+      if (rankNotices.length >= 4) break;
+    }
 
     // Compute active states count from live chat + thread replies for city rivalry strip
     const stateActivityCounts: Record<string, number> = {};
@@ -297,8 +427,10 @@ export async function GET(req: NextRequest) {
       {
         id: number;
         userId: string | null;
+        isSystem: boolean;
         body: string;
         username: string;
+        avatarUrl: string | null;
         state: string;
         rank: number | null;
         reactions: Record<string, number>;
@@ -308,18 +440,25 @@ export async function GET(req: NextRequest) {
 
     for (const tm of threadMessages ?? []) {
       if (!tm.post_id) continue;
-      const prof = tm.user_id ? profileLookup.get(tm.user_id) : undefined;
-      const lb = tm.user_id ? rankByUser.get(tm.user_id) : undefined;
-      const st = prof?.state || tm.author_state || "Nigeria";
+      const prof =
+        (tm.user_id ? profileLookup.get(tm.user_id) : undefined) ??
+        (tm.author_username
+          ? profileByUsernameLower.get(tm.author_username.toLowerCase())
+          : undefined);
+      const resolvedUid = tm.user_id || prof?.id || null;
+      const lb = resolvedUid ? rankByUser.get(resolvedUid) : undefined;
+      const st = prof?.state || cleanStateName(tm.author_state, null);
       if (st && st !== "Nigeria") {
         stateActivityCounts[st] = (stateActivityCounts[st] ?? 0) + 1;
       }
       const list = repliesByPost.get(tm.post_id) ?? [];
       list.push({
         id: tm.id,
-        userId: tm.user_id,
+        userId: resolvedUid,
+        isSystem: Boolean(tm.is_system),
         body: tm.body,
         username: prof?.username || tm.author_username || "Player",
+        avatarUrl: prof?.avatarUrl ?? null,
         state: st,
         rank: lb?.rank ?? tm.author_rank ?? null,
         reactions: (tm.reactions ?? {}) as Record<string, number>,
@@ -366,6 +505,7 @@ export async function GET(req: NextRequest) {
           sponsorCtaLabel: p.sponsor_cta_label || null,
           sponsorCtaUrl: p.sponsor_cta_url || null,
           authorUsername: authorProf?.username || (p.sponsor_name ? p.sponsor_name : "GuessWhat"),
+          authorAvatarUrl: authorProf?.avatarUrl ?? null,
           authorState: authorProf?.state || null,
           authorRank: authorLb?.rank ?? null,
           isOfficial: !p.author_id,
@@ -404,15 +544,9 @@ export async function GET(req: NextRequest) {
       .map(([state, count]) => ({ state, count }));
 
     // Build mentionDirectory (leaderboard + recent chat/thread participants + recent profiles)
-    const { data: recentProfiles } = await supabase
-      .from("profiles")
-      .select("id, username, state, turf")
-      .order("updated_at", { ascending: false })
-      .limit(50);
-
     const mentionMap = new Map<
       string,
-      { username: string; state: string; rank: number | null }
+      { username: string; avatarUrl: string | null; state: string; rank: number | null }
     >();
 
     for (const [uid, pInfo] of profileLookup.entries()) {
@@ -421,21 +555,10 @@ export async function GET(req: NextRequest) {
       if (SYSTEM_INTERNAL_USERNAMES.has(key)) continue;
       mentionMap.set(key, {
         username: pInfo.username,
+        avatarUrl: pInfo.avatarUrl ?? null,
         state: pInfo.state,
         rank: rankByUser.get(uid)?.rank ?? null,
       });
-    }
-    for (const rp of recentProfiles ?? []) {
-      if (!rp.username) continue;
-      const key = rp.username.toLowerCase();
-      if (SYSTEM_INTERNAL_USERNAMES.has(key)) continue;
-      if (!mentionMap.has(key)) {
-        mentionMap.set(key, {
-          username: rp.username,
-          state: cleanStateName(rp.state, rp.turf),
-          rank: rankByUser.get(rp.id)?.rank ?? null,
-        });
-      }
     }
 
     const mentionDirectory = Array.from(mentionMap.values())
@@ -471,6 +594,7 @@ export async function GET(req: NextRequest) {
       myIdentity: myProfile
         ? {
             username: myProfile.username,
+            avatarUrl: myProfile.avatar_url ?? null,
             state: cleanStateName(myProfile.state, myProfile.turf),
             hasExplicitState: Boolean(myProfile.state && myProfile.state.trim()),
             hasGender: Boolean(myProfile.gender && myProfile.gender.trim()),
@@ -482,6 +606,7 @@ export async function GET(req: NextRequest) {
         : null,
       mentionDirectory,
       topStates,
+      rankNotices,
       liveChat: enrichedLiveChat,
       posts: filteredPosts,
       ads: eligibleAds.map((ad) => ({
@@ -584,7 +709,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, username, state, turf")
+      .select("id, username, state, turf, avatar_url")
       .eq("id", userId)
       .maybeSingle();
 
@@ -813,6 +938,7 @@ export async function POST(req: NextRequest) {
           isSystem: inserted.is_system,
           body: inserted.body,
           username: inserted.author_username,
+          avatarUrl: profile.avatar_url ?? null,
           state: inserted.author_state || "Nigeria",
           rank: inserted.author_rank,
           reactions: (inserted.reactions ?? {}) as Record<string, number>,

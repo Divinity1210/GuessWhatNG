@@ -69,7 +69,14 @@ export default function DashboardPage() {
   const [previousSessionName, setPreviousSessionName] = useState<string>("Previous Session");
   const [unreadInboxCount, setUnreadInboxCount] = useState(0);
   const [arenaPreview, setArenaPreview] = useState<{
-    recentChat: { id: number; username: string; state: string; rank: number | null; body: string }[];
+    recentChat: {
+      id: number;
+      username: string;
+      avatarUrl?: string | null;
+      state: string;
+      rank: number | null;
+      body: string;
+    }[];
     topPoll: { id: string; category: string; title: string; totalVotes: number } | null;
   }>({ recentChat: [], topPoll: null });
   const [loading, setLoading] = useState(true);
@@ -211,6 +218,7 @@ export default function DashboardPage() {
           const recentChat = ((commData.liveChat ?? []) as {
             id: number;
             username: string;
+            avatarUrl?: string | null;
             state: string;
             rank: number | null;
             body: string;
@@ -742,20 +750,30 @@ export default function DashboardPage() {
               arenaPreview.recentChat.map((m) => (
                 <div
                   key={m.id}
-                  className="border-t border-white/[0.05] pt-2 first:border-t-0 first:pt-0 text-xs"
+                  className="flex items-start gap-2.5 border-t border-white/[0.05] pt-2.5 first:border-t-0 first:pt-0 text-xs"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white">{m.username}</span>
-                    <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-400">
-                      {m.state}
-                    </span>
-                    {m.rank && (
-                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-                        #{m.rank}
+                  <Avatar
+                    name={m.username}
+                    src={m.avatarUrl}
+                    size="xs"
+                    rank={m.rank ?? undefined}
+                    showRankBadge={false}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-bold text-white truncate">{m.username}</span>
+                      <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-400">
+                        {m.state}
                       </span>
-                    )}
+                      {m.rank && (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                          #{m.rank}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 line-clamp-1 text-slate-300">{m.body}</p>
                   </div>
-                  <p className="mt-0.5 line-clamp-1 text-slate-300">{m.body}</p>
                 </div>
               ))
             ) : (

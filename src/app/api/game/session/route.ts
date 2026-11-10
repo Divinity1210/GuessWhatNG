@@ -1062,28 +1062,53 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          if (mine.rank <= 3) {
+          if (mine.rank <= 3 && !myStats?.isBestRetained) {
             const { data: prof } = await supabase
               .from("profiles")
               .select("username, state, turf")
               .eq("id", entryRow.user_id)
               .maybeSingle();
-            const uname = prof?.username || "A sharp player";
-            const st =
-              (prof?.state || "").trim() ||
-              (prof?.turf || "").replace(/\s*\(.*?\)\s*/g, "").trim() ||
-              "Nigeria";
+            const uname = prof?.username || "Player";
+            const rawLoc = (prof?.state || "").trim() || (prof?.turf || "").trim();
+            const st = rawLoc.replace(/\s*\(.*?\)\s*/g, "").trim() || "Nigeria";
             const secs = Math.max(1, Math.round(mine.response_ms / 1000));
             const timeStr = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-            await supabase.from("community_messages").insert({
-              room: "live_arena",
-              session_id: sessionId,
-              is_system: true,
-              body: `${uname} (${st}) just moved into #${mine.rank} on ${sessionRow.name} with ${mine.points} pts in ${timeStr}!`,
-              author_username: "Arena Live",
-              author_state: st,
-              author_rank: mine.rank,
-            });
+            const noticeBody = `${uname} (${st}) moved into #${mine.rank} on ${sessionRow.name} with ${mine.points} pts in ${timeStr}`;
+
+            const { data: existingNotice } = await supabase
+              .from("community_messages")
+              .select("id")
+              .eq("room", "live_arena")
+              .eq("session_id", sessionId)
+              .eq("is_system", true)
+              .eq("user_id", entryRow.user_id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (existingNotice?.id) {
+              await supabase
+                .from("community_messages")
+                .update({
+                  body: noticeBody,
+                  author_username: uname,
+                  author_state: st,
+                  author_rank: mine.rank,
+                  created_at: new Date().toISOString(),
+                })
+                .eq("id", existingNotice.id);
+            } else {
+              await supabase.from("community_messages").insert({
+                room: "live_arena",
+                session_id: sessionId,
+                user_id: entryRow.user_id,
+                is_system: true,
+                body: noticeBody,
+                author_username: uname,
+                author_state: st,
+                author_rank: mine.rank,
+              });
+            }
           }
         }
       }

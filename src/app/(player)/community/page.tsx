@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Avatar } from "@/components/ui/Avatar";
 import {
   FlameIcon,
   SmileIcon,
@@ -13,6 +14,7 @@ import {
   ExternalLinkIcon,
   PlusIcon,
   SendIcon,
+  TrophyIcon,
 } from "@/components/ui/Icons";
 
 type ChatMessage = {
@@ -22,10 +24,22 @@ type ChatMessage = {
   isSystem: boolean;
   body: string;
   username: string;
+  avatarUrl?: string | null;
   state: string;
   rank: number | null;
   points?: number | null;
   reactions: Record<string, number>;
+  createdAt: string;
+};
+
+type RankNotice = {
+  id: number;
+  userId: string | null;
+  username: string;
+  avatarUrl?: string | null;
+  state: string;
+  rank: number | null;
+  body: string;
   createdAt: string;
 };
 
@@ -48,6 +62,7 @@ type CommunityPost = {
   sponsorCtaLabel: string | null;
   sponsorCtaUrl: string | null;
   authorUsername: string;
+  authorAvatarUrl?: string | null;
   authorState: string | null;
   authorRank: number | null;
   isOfficial: boolean;
@@ -73,6 +88,7 @@ type CommunityAd = {
 
 type MyIdentity = {
   username: string;
+  avatarUrl?: string | null;
   state: string;
   hasExplicitState: boolean;
   hasGender: boolean;
@@ -84,6 +100,7 @@ type MyIdentity = {
 
 type MentionCandidate = {
   username: string;
+  avatarUrl?: string | null;
   state: string;
   rank: number | null;
 };
@@ -259,6 +276,21 @@ function renderBodyWithMentions(
   });
 }
 
+function sanitizeNoticeText(raw: string): string {
+  return (raw || "")
+    .replace(/^room notice:\s*/i, "")
+    .replace(/\(([^()]+?)\s*\([^()]*\)\)/g, "($1)")
+    .replace(/\s+/g, " ")
+    .replace(/!+$/, "")
+    .trim();
+}
+
+function parseNoticeMetrics(body: string): { pts: string; time: string } | null {
+  const m = /with\s+(\d+\s*pts)\s+in\s+([0-9:]+)/i.exec(body);
+  if (!m) return null;
+  return { pts: m[1], time: m[2] };
+}
+
 function MentionPopover({
   candidates,
   highlightIdx,
@@ -290,7 +322,6 @@ function MentionPopover({
       <div className="max-h-52 overflow-y-auto py-1">
         {candidates.map((cand, idx) => {
           const active = idx === safeIdx;
-          const initials = (cand.username || "PL").slice(0, 2).toUpperCase();
           return (
             <button
               key={cand.username}
@@ -308,18 +339,14 @@ function MentionPopover({
                   : "text-slate-200 hover:bg-white/[0.05]"
               }`}
             >
-              <div className="flex min-w-0 items-center gap-2">
-                <span
-                  className={`grid size-6 shrink-0 place-items-center rounded-md text-[10px] font-bold ${
-                    cand.rank === 1
-                      ? "bg-amber-400 text-slate-950"
-                      : active
-                      ? "bg-accent text-white"
-                      : "bg-white/10 text-slate-200"
-                  }`}
-                >
-                  {initials}
-                </span>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Avatar
+                  name={cand.username}
+                  src={cand.avatarUrl}
+                  size="xs"
+                  rank={cand.rank ?? undefined}
+                  showRankBadge={false}
+                />
                 <span className="truncate font-bold text-white">
                   @{cand.username}
                 </span>
@@ -339,7 +366,7 @@ function MentionPopover({
 }
 
 export default function CommunityPage() {
-  const { user, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [mobileTab, setMobileTab] = useState<"chat" | "feed">("chat");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sourceFilter, setSourceFilter] = useState<"all" | "official" | "player">("all");
@@ -354,6 +381,10 @@ export default function CommunityPage() {
   const [mentionDirectory, setMentionDirectory] = useState<MentionCandidate[]>([]);
   const [remoteMentionUsers, setRemoteMentionUsers] = useState<MentionCandidate[]>([]);
   const [topStates, setTopStates] = useState<{ state: string; count: number }[]>([]);
+  const [rankNotices, setRankNotices] = useState<RankNotice[]>([]);
+  const [noticeIdx, setNoticeIdx] = useState(0);
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
+  const [noticePulse, setNoticePulse] = useState(false);
   const [liveChat, setLiveChat] = useState<ChatMessage[]>([]);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [ads, setAds] = useState<CommunityAd[]>([]);
@@ -442,11 +473,22 @@ export default function CommunityPage() {
           setTopStates(data.topStates);
         }
 
-        if (Array.isArray(data.liveChat)) {
-          setLiveChat((prev) =>
-            silent && data.liveChat.length === 0 && prev.length > 0
+        if (Array.isArray(data.rankNotices)) {
+          setRankNotices((prev) =>
+            silent && data.rankNotices.length === 0 && prev.length > 0
               ? prev
-              : data.liveChat,
+              : data.rankNotices,
+          );
+        }
+
+        if (Array.isArray(data.liveChat)) {
+          const cleanHumanChat = (data.liveChat as ChatMessage[]).filter(
+            (m) => !m.isSystem,
+          );
+          setLiveChat((prev) =>
+            silent && cleanHumanChat.length === 0 && prev.length > 0
+              ? prev
+              : cleanHumanChat,
           );
         }
 
@@ -502,23 +544,64 @@ export default function CommunityPage() {
           };
 
           if (row.room === "live_arena") {
-            setLiveChat((prev) => {
-              if (prev.some((m) => m.id === row.id)) return prev;
-              return [
-                ...prev,
-                {
-                  id: row.id,
-                  userId: row.user_id,
-                  isSystem: row.is_system,
-                  body: row.body,
-                  username: row.author_username || "Player",
-                  state: row.author_state || "Nigeria",
-                  rank: row.author_rank,
-                  reactions: row.reactions ?? {},
-                  createdAt: row.created_at,
-                },
-              ];
-            });
+            if (row.is_system) {
+              const cleanBody = sanitizeNoticeText(row.body);
+              const parsedMatch = /^([a-zA-Z0-9_]+)\s*\(([^)]+)\)/.exec(cleanBody);
+              const uname =
+                row.author_username &&
+                row.author_username.toLowerCase() !== "arena live"
+                  ? row.author_username
+                  : parsedMatch?.[1] || "Player";
+              const st = (
+                row.author_state ||
+                parsedMatch?.[2] ||
+                "Nigeria"
+              )
+                .replace(/\s*\(.*?\)\s*/g, "")
+                .trim();
+
+              setRankNotices((prev) => {
+                const filtered = prev.filter(
+                  (n) => n.username.toLowerCase() !== uname.toLowerCase(),
+                );
+                return [
+                  {
+                    id: row.id,
+                    userId: row.user_id,
+                    username: uname,
+                    state: st || "Nigeria",
+                    rank: row.author_rank,
+                    body: cleanBody,
+                    createdAt: row.created_at,
+                  },
+                  ...filtered,
+                ].slice(0, 4);
+              });
+              setNoticeIdx(0);
+              setNoticeDismissed(false);
+              setNoticePulse(true);
+              setTimeout(() => setNoticePulse(false), 2600);
+            } else {
+              setLiveChat((prev) => {
+                if (prev.some((m) => m.id === row.id)) return prev;
+                return [
+                  ...prev,
+                  {
+                    id: row.id,
+                    userId: row.user_id,
+                    isSystem: false,
+                    body: row.body,
+                    username: row.author_username || "Player",
+                    state: (row.author_state || "Nigeria")
+                      .replace(/\s*\(.*?\)\s*/g, "")
+                      .trim(),
+                    rank: row.author_rank,
+                    reactions: row.reactions ?? {},
+                    createdAt: row.created_at,
+                  },
+                ];
+              });
+            }
           } else if (row.post_id) {
             setPosts((prev) =>
               prev.map((p) => {
@@ -865,6 +948,52 @@ export default function CommunityPage() {
     };
   }, [activeMention?.query]);
 
+  const avatarByUsername = useMemo(() => {
+    const map = new Map<string, string>();
+    const record = (uname?: string | null, url?: string | null) => {
+      if (!uname || !url) return;
+      map.set(uname.toLowerCase(), url);
+    };
+    for (const d of mentionDirectory) record(d.username, d.avatarUrl);
+    for (const u of remoteMentionUsers) record(u.username, u.avatarUrl);
+    for (const n of rankNotices) record(n.username, n.avatarUrl);
+    for (const m of liveChat) record(m.username, m.avatarUrl);
+    for (const p of posts) {
+      if (!p.isOfficial) record(p.authorUsername, p.authorAvatarUrl);
+      for (const r of p.replies) record(r.username, r.avatarUrl);
+    }
+    if (myIdentity?.username) record(myIdentity.username, myIdentity.avatarUrl);
+    if (profile?.username) record(profile.username, profile.avatar_url);
+    return map;
+  }, [
+    mentionDirectory,
+    remoteMentionUsers,
+    rankNotices,
+    liveChat,
+    posts,
+    myIdentity,
+    profile?.username,
+    profile?.avatar_url,
+  ]);
+
+  const resolveAvatar = useCallback(
+    (username?: string | null, directUrl?: string | null): string | null => {
+      if (directUrl) return directUrl;
+      if (!username) return null;
+      return avatarByUsername.get(username.toLowerCase()) ?? null;
+    },
+    [avatarByUsername],
+  );
+
+  // Rotate recent Top-3 rank notices smoothly when multiple players moved
+  useEffect(() => {
+    if (rankNotices.length <= 1 || noticeDismissed) return;
+    const timer = setInterval(() => {
+      setNoticeIdx((prev) => (prev + 1) % rankNotices.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, [rankNotices.length, noticeDismissed]);
+
   const filteredMentionCandidates = useMemo(() => {
     if (!activeMention) return [];
     const meLower = myIdentity?.username ? myIdentity.username.toLowerCase() : "";
@@ -874,6 +1003,7 @@ export default function CommunityPage() {
       username: string | null | undefined,
       state: string | null | undefined,
       rank: number | null | undefined,
+      avatarUrl?: string | null,
     ) => {
       const clean = (username || "").trim();
       if (!clean) return;
@@ -887,15 +1017,24 @@ export default function CommunityPage() {
       ) {
         return;
       }
+      const resolvedUrl = avatarUrl ?? avatarByUsername.get(key) ?? null;
       const existing = pool.get(key);
       if (!existing) {
         pool.set(key, {
           username: clean,
+          avatarUrl: resolvedUrl,
           state: state || "Nigeria",
           rank: rank ?? null,
         });
-      } else if (existing.rank === null && rank !== null && rank !== undefined) {
-        pool.set(key, { ...existing, rank });
+      } else {
+        pool.set(key, {
+          ...existing,
+          avatarUrl: existing.avatarUrl ?? resolvedUrl,
+          rank:
+            existing.rank === null && rank !== null && rank !== undefined
+              ? rank
+              : existing.rank,
+        });
       }
     };
 
@@ -904,13 +1043,14 @@ export default function CommunityPage() {
       if (targetPost) {
         for (let i = targetPost.replies.length - 1; i >= 0; i--) {
           const r = targetPost.replies[i];
-          if (!r.isSystem) pushCandidate(r.username, r.state, r.rank);
+          if (!r.isSystem) pushCandidate(r.username, r.state, r.rank, r.avatarUrl);
         }
         if (!targetPost.isOfficial) {
           pushCandidate(
             targetPost.authorUsername,
             targetPost.authorState,
             targetPost.authorRank,
+            targetPost.authorAvatarUrl,
           );
         }
       }
@@ -918,22 +1058,22 @@ export default function CommunityPage() {
 
     for (let i = liveChat.length - 1; i >= 0; i--) {
       const m = liveChat[i];
-      if (!m.isSystem) pushCandidate(m.username, m.state, m.rank);
+      if (!m.isSystem) pushCandidate(m.username, m.state, m.rank, m.avatarUrl);
     }
 
     for (const p of posts) {
       for (let i = p.replies.length - 1; i >= 0; i--) {
         const r = p.replies[i];
-        if (!r.isSystem) pushCandidate(r.username, r.state, r.rank);
+        if (!r.isSystem) pushCandidate(r.username, r.state, r.rank, r.avatarUrl);
       }
     }
 
     for (const d of mentionDirectory) {
-      pushCandidate(d.username, d.state, d.rank);
+      pushCandidate(d.username, d.state, d.rank, d.avatarUrl);
     }
 
     for (const u of remoteMentionUsers) {
-      pushCandidate(u.username, u.state, u.rank);
+      pushCandidate(u.username, u.state, u.rank, u.avatarUrl);
     }
 
     const all = Array.from(pool.values());
@@ -956,6 +1096,7 @@ export default function CommunityPage() {
     liveChat,
     mentionDirectory,
     remoteMentionUsers,
+    avatarByUsername,
   ]);
 
   const handleInputMentionScan = (
@@ -1196,8 +1337,14 @@ export default function CommunityPage() {
 
         <div className="flex items-center gap-2.5">
           {myIdentity && (
-            <div className="hidden xl:flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#0b0e17] px-3 py-2 text-xs">
-              <span className="text-slate-400">Badge:</span>
+            <div className="hidden xl:flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#0b0e17] px-3 py-1.5 text-xs">
+              <Avatar
+                name={myIdentity.username}
+                src={resolveAvatar(myIdentity.username, myIdentity.avatarUrl)}
+                size="xs"
+                rank={myIdentity.rank ?? undefined}
+                showRankBadge={false}
+              />
               <span className="font-semibold text-white">{myIdentity.username}</span>
               <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-slate-300">
                 {myIdentity.state}
@@ -1522,9 +1669,13 @@ export default function CommunityPage() {
                         </>
                       ) : isPlayerPost ? (
                         <>
-                          <span className="grid size-5 shrink-0 place-items-center rounded-md bg-emerald-500/20 border border-emerald-500/30 text-[9px] font-bold text-emerald-200">
-                            {(post.authorUsername || "PL").slice(0, 2).toUpperCase()}
-                          </span>
+                          <Avatar
+                            name={post.authorUsername}
+                            src={resolveAvatar(post.authorUsername, post.authorAvatarUrl)}
+                            size="xs"
+                            rank={post.authorRank ?? undefined}
+                            showRankBadge={false}
+                          />
                           <span className="text-slate-400">By</span>
                           <button
                             type="button"
@@ -1690,70 +1841,80 @@ export default function CommunityPage() {
                           return (
                             <div
                               key={rep.id}
-                              className={`border-b border-white/[0.04] pb-2.5 last:border-b-0 last:pb-0 ${
+                              className={`flex items-start gap-2.5 border-b border-white/[0.04] pb-2.5 last:border-b-0 last:pb-0 ${
                                 taggedMe
                                   ? "rounded-lg bg-amber-500/[0.08] px-2 py-1.5 border border-amber-400/30"
                                   : ""
                               }`}
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-1.5">
-                                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                                  <button
-                                    type="button"
-                                    onClick={() => quickTagUser(post.id, rep.username)}
-                                    title={`Tag @${rep.username}`}
-                                    className="font-bold text-white hover:text-accent transition-colors"
-                                  >
-                                    {rep.username}
-                                  </button>
-                                  <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">
-                                    {rep.state}
-                                  </span>
-                                  <RankBadge rank={rep.rank} />
-                                  {taggedMe && (
-                                    <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
-                                      Tagged you
-                                    </span>
-                                  )}
-                                  <span className="text-[10px] tabular-nums text-slate-500">
-                                    {timeAgo(rep.createdAt)}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-1">
-                                  {!isMyReply && !post.isLocked && (
+                              <Avatar
+                                name={rep.username}
+                                src={resolveAvatar(rep.username, rep.avatarUrl)}
+                                size="xs"
+                                rank={rep.rank ?? undefined}
+                                showRankBadge={false}
+                                className="mt-0.5"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
                                     <button
                                       type="button"
                                       onClick={() => quickTagUser(post.id, rep.username)}
-                                      className="inline-flex min-h-7 items-center rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
+                                      title={`Tag @${rep.username}`}
+                                      className="font-bold text-white hover:text-accent transition-colors"
                                     >
-                                      @ Reply
+                                      {rep.username}
                                     </button>
-                                  )}
-                                  {REACTION_MAP.map((rx) => {
-                                    const count = rep.reactions?.[rx.key] ?? 0;
-                                    return (
+                                    <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">
+                                      {rep.state}
+                                    </span>
+                                    <RankBadge rank={rep.rank} />
+                                    {taggedMe && (
+                                      <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+                                        Tagged you
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] tabular-nums text-slate-500">
+                                      {timeAgo(rep.createdAt)}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-1">
+                                    {!isMyReply && !post.isLocked && (
                                       <button
-                                        key={rx.key}
                                         type="button"
-                                        onClick={() => handleReactMessage(rep.id, rx.key)}
-                                        aria-label={rx.label}
-                                        className="inline-flex min-h-7 items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300 hover:bg-white/10"
+                                        onClick={() => quickTagUser(post.id, rep.username)}
+                                        className="inline-flex min-h-7 items-center rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
                                       >
-                                        <ReactionGlyph kind={rx.key} />
-                                        {count > 0 && <span>{count}</span>}
+                                        @ Reply
                                       </button>
-                                    );
-                                  })}
+                                    )}
+                                    {REACTION_MAP.map((rx) => {
+                                      const count = rep.reactions?.[rx.key] ?? 0;
+                                      return (
+                                        <button
+                                          key={rx.key}
+                                          type="button"
+                                          onClick={() => handleReactMessage(rep.id, rx.key)}
+                                          aria-label={rx.label}
+                                          className="inline-flex min-h-7 items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300 hover:bg-white/10"
+                                        >
+                                          <ReactionGlyph kind={rx.key} />
+                                          {count > 0 && <span>{count}</span>}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
+                                <p className="mt-1 break-words text-xs leading-relaxed text-slate-200">
+                                  {renderBodyWithMentions(
+                                    rep.body,
+                                    myIdentity?.username,
+                                    (uname) => quickTagUser(post.id, uname),
+                                  )}
+                                </p>
                               </div>
-                              <p className="mt-1 break-words text-xs leading-relaxed text-slate-200">
-                                {renderBodyWithMentions(
-                                  rep.body,
-                                  myIdentity?.username,
-                                  (uname) => quickTagUser(post.id, uname),
-                                )}
-                              </p>
                             </div>
                           );
                         })}
@@ -1958,121 +2119,198 @@ export default function CommunityPage() {
               </a>
             )}
 
+            {/* Compact Live Podium Ticker (replaces stacked Room Notice cards) */}
+            {rankNotices.length > 0 && !noticeDismissed && (() => {
+              const safeNoticeIdx = noticeIdx % rankNotices.length;
+              const activeNotice = rankNotices[safeNoticeIdx];
+              const metrics = parseNoticeMetrics(activeNotice.body);
+
+              return (
+                <div
+                  className={`flex items-center justify-between gap-2 border-b px-3 py-2 text-xs transition-colors ${
+                    noticePulse
+                      ? "border-emerald-400/35 bg-emerald-500/12"
+                      : "border-white/[0.07] bg-[#0e1322]"
+                  }`}
+                >
+                  <Link
+                    href="/leaderboard"
+                    className="flex min-w-0 flex-1 items-center gap-2 hover:opacity-90 transition-opacity"
+                    title="View live leaderboard"
+                  >
+                    <Avatar
+                      name={activeNotice.username}
+                      src={resolveAvatar(activeNotice.username, activeNotice.avatarUrl)}
+                      size="xs"
+                      rank={activeNotice.rank ?? undefined}
+                      showRankBadge={false}
+                    />
+                    <TrophyIcon className="size-3.5 shrink-0 text-amber-400" />
+                    <div className="min-w-0 flex-1 truncate text-[11px] sm:text-xs text-slate-300">
+                      <span className="font-bold text-white">
+                        {activeNotice.username}
+                      </span>{" "}
+                      <span className="text-slate-400">({activeNotice.state})</span>{" "}
+                      {metrics ? (
+                        <>
+                          <span>claimed </span>
+                          <span className="font-bold text-amber-300">
+                            #{activeNotice.rank ?? 1}
+                          </span>
+                          <span> · </span>
+                          <span className="font-mono font-semibold text-emerald-300">
+                            {metrics.pts}
+                          </span>
+                          <span> in </span>
+                          <span className="font-mono text-slate-200">
+                            {metrics.time}
+                          </span>
+                        </>
+                      ) : (
+                        <span>{activeNotice.body}</span>
+                      )}
+                    </div>
+                  </Link>
+
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <span className="text-[10px] tabular-nums text-slate-500">
+                      {timeAgo(activeNotice.createdAt)}
+                    </span>
+                    {rankNotices.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNoticeIdx((prev) => (prev + 1) % rankNotices.length)
+                        }
+                        title="Next podium update"
+                        className="rounded-md bg-white/[0.06] hover:bg-white/[0.12] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-slate-300 transition-colors"
+                      >
+                        {safeNoticeIdx + 1}/{rankNotices.length}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label="Dismiss podium ticker"
+                      onClick={() => setNoticeDismissed(true)}
+                      className="grid size-6 place-items-center rounded-md text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 transition-colors"
+                    >
+                      <CloseIcon className="size-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Fast-Scrolling Messages Stream */}
             <div
               ref={chatScrollRef}
               onScroll={handleChatScroll}
               className="flex-1 space-y-2.5 overflow-y-auto p-3"
             >
-              {liveChat.map((msg) => {
-                if (msg.isSystem) {
+              {liveChat.length === 0 && !loading ? (
+                <div className="flex h-full min-h-40 flex-col items-center justify-center px-4 text-center">
+                  <p className="text-xs font-semibold text-slate-300">
+                    No messages in the room yet
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Drop the first take or @tag a rival to start the banter.
+                  </p>
+                </div>
+              ) : (
+                liveChat.map((msg) => {
+                  const isMe = Boolean(user?.id && msg.userId === user.id);
+                  const taggedMe =
+                    !isMe && hasSelfMention(msg.body, myIdentity?.username);
+
                   return (
                     <div
                       key={msg.id}
-                      className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+                      className={`group rounded-xl border px-3 py-2.5 transition-colors ${
+                        taggedMe
+                          ? "border-amber-400/45 bg-amber-500/[0.09]"
+                          : isMe
+                          ? "border-accent/30 bg-accent/[0.07]"
+                          : "border-white/[0.05] bg-[#07090e]/90"
+                      }`}
                     >
-                      <span className="font-bold text-amber-300">Room Notice: </span>
-                      <span>{msg.body}</span>
-                    </div>
-                  );
-                }
+                      <div className="flex items-start gap-2.5">
+                        <Avatar
+                          name={msg.username}
+                          src={resolveAvatar(msg.username, msg.avatarUrl)}
+                          size="sm"
+                          rank={msg.rank ?? undefined}
+                          showRankBadge={false}
+                          className="mt-0.5"
+                        />
 
-                const isMe = Boolean(user?.id && msg.userId === user.id);
-                const taggedMe =
-                  !isMe && hasSelfMention(msg.body, myIdentity?.username);
-                const initials = (msg.username || "PL").slice(0, 2).toUpperCase();
-
-                return (
-                  <div
-                    key={msg.id}
-                    className={`group rounded-xl border px-3 py-2.5 transition-colors ${
-                      taggedMe
-                        ? "border-amber-400/45 bg-amber-500/[0.09]"
-                        : isMe
-                        ? "border-accent/30 bg-accent/[0.07]"
-                        : "border-white/[0.05] bg-[#07090e]/90"
-                    }`}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div
-                        className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg text-[10px] font-bold ${
-                          msg.rank === 1
-                            ? "bg-amber-400 text-slate-950"
-                            : isMe
-                            ? "bg-accent text-white"
-                            : "bg-white/10 text-slate-200"
-                        }`}
-                      >
-                        {initials}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => quickTagUser("chat", msg.username)}
-                            title={`Tag @${msg.username}`}
-                            className="text-xs font-bold text-white hover:text-accent transition-colors"
-                          >
-                            {msg.username}
-                          </button>
-                          <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
-                            {msg.state}
-                          </span>
-                          <RankBadge rank={msg.rank} />
-                          {taggedMe && (
-                            <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
-                              Tagged you
-                            </span>
-                          )}
-                          <span className="ml-auto text-[10px] tabular-nums text-slate-500">
-                            {timeAgo(msg.createdAt)}
-                          </span>
-                        </div>
-
-                        <p className="mt-1 break-words text-xs leading-relaxed text-slate-200">
-                          {renderBodyWithMentions(
-                            msg.body,
-                            myIdentity?.username,
-                            (uname) => quickTagUser("chat", uname),
-                          )}
-                        </p>
-
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          {!isMe && (
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => quickTagUser("chat", msg.username)}
-                              className="inline-flex min-h-7 items-center rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
+                              title={`Tag @${msg.username}`}
+                              className="text-xs font-bold text-white hover:text-accent transition-colors"
                             >
-                              @ Reply
+                              {msg.username}
                             </button>
-                          )}
-                          {REACTION_MAP.map((rx) => {
-                            const count = msg.reactions?.[rx.key] ?? 0;
-                            return (
+                            <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
+                              {msg.state}
+                            </span>
+                            <RankBadge rank={msg.rank} />
+                            {taggedMe && (
+                              <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+                                Tagged you
+                              </span>
+                            )}
+                            <span className="ml-auto text-[10px] tabular-nums text-slate-500">
+                              {timeAgo(msg.createdAt)}
+                            </span>
+                          </div>
+
+                          <p className="mt-1 break-words text-xs leading-relaxed text-slate-200">
+                            {renderBodyWithMentions(
+                              msg.body,
+                              myIdentity?.username,
+                              (uname) => quickTagUser("chat", uname),
+                            )}
+                          </p>
+
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {!isMe && (
                               <button
-                                key={rx.key}
                                 type="button"
-                                onClick={() => handleReactMessage(msg.id, rx.key)}
-                                aria-label={rx.label}
-                                className={`inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] tabular-nums transition-colors ${
-                                  count > 0
-                                    ? "bg-white/10 text-white font-semibold"
-                                    : "bg-white/[0.03] text-slate-400 hover:bg-white/10 hover:text-white"
-                                }`}
+                                onClick={() => quickTagUser("chat", msg.username)}
+                                className="inline-flex min-h-7 items-center rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
                               >
-                                <ReactionGlyph kind={rx.key} />
-                                {count > 0 && <span>{count}</span>}
+                                @ Reply
                               </button>
-                            );
-                          })}
+                            )}
+                            {REACTION_MAP.map((rx) => {
+                              const count = msg.reactions?.[rx.key] ?? 0;
+                              return (
+                                <button
+                                  key={rx.key}
+                                  type="button"
+                                  onClick={() => handleReactMessage(msg.id, rx.key)}
+                                  aria-label={rx.label}
+                                  className={`inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] tabular-nums transition-colors ${
+                                    count > 0
+                                      ? "bg-white/10 text-white font-semibold"
+                                      : "bg-white/[0.03] text-slate-400 hover:bg-white/10 hover:text-white"
+                                  }`}
+                                >
+                                  <ReactionGlyph kind={rx.key} />
+                                  {count > 0 && <span>{count}</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             {!autoScroll && (
