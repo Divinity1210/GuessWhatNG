@@ -6,9 +6,6 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import {
-  FlameIcon,
-  SmileIcon,
-  TargetIcon,
   ShieldCheckIcon,
   CloseIcon,
   ExternalLinkIcon,
@@ -164,16 +161,24 @@ const NIGERIAN_STATES = [
   "Diaspora",
 ];
 
-const REACTION_MAP: { key: "fire" | "laugh" | "target"; label: string }[] = [
-  { key: "fire", label: "Hot take" },
-  { key: "laugh", label: "Funny" },
-  { key: "target", label: "Spot on" },
+type ReactionKey = "love" | "laugh" | "fire" | "like";
+
+const REACTION_MAP: { key: ReactionKey; emoji: string; label: string }[] = [
+  { key: "love", emoji: "\u2764\uFE0F", label: "Love" },
+  { key: "laugh", emoji: "\uD83D\uDE02", label: "Haha" },
+  { key: "fire", emoji: "\uD83D\uDD25", label: "Fire" },
+  { key: "like", emoji: "\uD83D\uDC4D", label: "Like" },
 ];
 
-function ReactionGlyph({ kind }: { kind: "fire" | "laugh" | "target" }) {
-  if (kind === "fire") return <FlameIcon className="size-3.5 text-orange-400" />;
-  if (kind === "laugh") return <SmileIcon className="size-3.5 text-amber-300" />;
-  return <TargetIcon className="size-3.5 text-emerald-400" />;
+function getReactionCount(
+  reactions: Record<string, number> | undefined,
+  key: ReactionKey,
+): number {
+  if (!reactions) return 0;
+  if (key === "like") {
+    return (reactions.like ?? 0) + (reactions.target ?? 0);
+  }
+  return reactions[key] ?? 0;
 }
 
 function timeAgo(iso: string): string {
@@ -380,7 +385,6 @@ export default function CommunityPage() {
   const [myIdentity, setMyIdentity] = useState<MyIdentity | null>(null);
   const [mentionDirectory, setMentionDirectory] = useState<MentionCandidate[]>([]);
   const [remoteMentionUsers, setRemoteMentionUsers] = useState<MentionCandidate[]>([]);
-  const [topStates, setTopStates] = useState<{ state: string; count: number }[]>([]);
   const [rankNotices, setRankNotices] = useState<RankNotice[]>([]);
   const [noticeIdx, setNoticeIdx] = useState(0);
   const [noticeDismissed, setNoticeDismissed] = useState(false);
@@ -389,6 +393,18 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [ads, setAds] = useState<CommunityAd[]>([]);
   const [loading, setLoading] = useState(true);
+  const [myReactions, setMyReactions] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gw_community_reactions");
+      if (saved) {
+        setMyReactions(JSON.parse(saved) as Record<string, boolean>);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
 
   // @Mention autocomplete state & input refs
   const [activeMention, setActiveMention] = useState<ActiveMentionContext | null>(null);
@@ -467,10 +483,6 @@ export default function CommunityPage() {
           (data.mentionDirectory.length > 0 || !silent)
         ) {
           setMentionDirectory(data.mentionDirectory);
-        }
-
-        if (Array.isArray(data.topStates) && (data.topStates.length > 0 || !silent)) {
-          setTopStates(data.topStates);
         }
 
         if (Array.isArray(data.rankNotices)) {
@@ -794,11 +806,43 @@ export default function CommunityPage() {
     }
   };
 
-  const handleReactMessage = async (messageId: number, emoji: string) => {
+  const handleReactMessage = async (messageId: number, emoji: ReactionKey) => {
+    const reactKey = `${messageId}:${emoji}`;
+    const alreadyReacted = Boolean(myReactions[reactKey]);
+    const delta = alreadyReacted ? -1 : 1;
+
+    setMyReactions((prev) => {
+      const next = { ...prev };
+      if (alreadyReacted) {
+        delete next[reactKey];
+      } else {
+        next[reactKey] = true;
+      }
+      try {
+        localStorage.setItem("gw_community_reactions", JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+
+    const updateReactionsObj = (
+      current: Record<string, number> | undefined,
+    ): Record<string, number> => {
+      const base = { ...(current ?? {}) };
+      const nextVal = Math.max(0, (base[emoji] ?? 0) + delta);
+      if (nextVal === 0) {
+        delete base[emoji];
+      } else {
+        base[emoji] = nextVal;
+      }
+      return base;
+    };
+
     setLiveChat((prev) =>
       prev.map((m) =>
         m.id === messageId
-          ? { ...m, reactions: { ...m.reactions, [emoji]: (m.reactions[emoji] ?? 0) + 1 } }
+          ? { ...m, reactions: updateReactionsObj(m.reactions) }
           : m,
       ),
     );
@@ -807,7 +851,7 @@ export default function CommunityPage() {
         ...p,
         replies: p.replies.map((r) =>
           r.id === messageId
-            ? { ...r, reactions: { ...r.reactions, [emoji]: (r.reactions[emoji] ?? 0) + 1 } }
+            ? { ...r, reactions: updateReactionsObj(r.reactions) }
             : r,
         ),
       })),
@@ -816,7 +860,7 @@ export default function CommunityPage() {
     await fetch("/api/community", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "react_message", messageId, emoji }),
+      body: JSON.stringify({ action: "react_message", messageId, emoji, delta }),
     }).catch(() => null);
   };
 
@@ -1302,7 +1346,6 @@ export default function CommunityPage() {
     return posts;
   }, [posts, sourceFilter]);
 
-  const chatBannerAd = ads.find((a) => a.placement === "chat_banner") ?? null;
   const feedAds = ads.filter((a) => a.placement === "feed");
 
   const needsStateBadgeUnlock =
@@ -1312,27 +1355,28 @@ export default function CommunityPage() {
     !demoDismissed;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-3.5 py-4 md:px-6 md:py-7">
-      {/* Top Arena Header */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-white">
-              Community Arena
-            </h1>
-            {activeSession && (
-              <Link
-                href="/leaderboard"
-                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/25 transition-colors"
-              >
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="truncate max-w-[180px]">{activeSession.name}</span>
-              </Link>
-            )}
-          </div>
-          <p className="mt-0.5 text-xs sm:text-sm text-slate-400">
-            Live session banter, state rivalries, and daily Nigerian polls.
-          </p>
+    <div
+      className={`mx-auto w-full max-w-7xl ${
+        mobileTab === "chat"
+          ? "flex h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] flex-col overflow-hidden px-2.5 pt-2 pb-1.5 md:h-dvh md:px-4 md:py-3 lg:block lg:h-auto lg:overflow-visible lg:px-6 lg:py-4"
+          : "px-2.5 pt-2 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-4 md:py-3 lg:px-6 lg:py-4"
+      }`}
+    >
+      {/* Slim Desktop Header (hidden on mobile/tablet so chat & feed get maximum screen height) */}
+      <div className="mb-3 hidden lg:flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <h1 className="font-display text-xl font-bold tracking-tight text-white">
+            Community Arena
+          </h1>
+          {activeSession && (
+            <Link
+              href="/leaderboard"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+            >
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="truncate max-w-[220px]">{activeSession.name}</span>
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -1359,23 +1403,23 @@ export default function CommunityPage() {
               setTopicError(null);
               setComposerOpen(true);
             }}
-            className={`inline-flex min-h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+            className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
               !isTopicSlotOpen
                 ? "border border-amber-500/35 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15"
-                : "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-lg shadow-[#F7911B]/20 hover:opacity-95"
+                : "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-md shadow-[#F7911B]/20 hover:opacity-95"
             }`}
           >
             {!isTopicSlotOpen ? (
               <>
-                <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
-                <span>Next topic/poll in</span>
+                <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span>Next post in</span>
                 <span className="rounded bg-black/40 px-1.5 py-0.5 font-mono tabular-nums text-amber-300">
                   {formattedTopicCountdown}
                 </span>
               </>
             ) : (
               <>
-                <PlusIcon className="size-4 shrink-0" />
+                <PlusIcon className="size-3.5 shrink-0" />
                 <span>Start topic or poll</span>
               </>
             )}
@@ -1383,59 +1427,71 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {/* Active States Rivalry Strip */}
-      {topStates.length > 0 && (
-        <div className="mb-4 flex items-center gap-2 overflow-x-auto no-scrollbar rounded-xl border border-white/[0.06] bg-[#0b0e17] px-3 py-2 text-xs">
-          <span className="shrink-0 font-semibold text-slate-400">Loudest states:</span>
-          {topStates.map((item, idx) => (
+      {/* Compact Single-Row Mobile/Tablet Bar: Switcher + Inline Post Button */}
+      <div className="mb-2 flex shrink-0 items-center gap-2 lg:hidden">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-[#0b0e17] p-1">
+          <button
+            type="button"
+            onClick={() => setMobileTab("chat")}
+            className={`flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${
+              mobileTab === "chat"
+                ? "bg-accent text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
             <span
-              key={item.state}
-              className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-semibold ${
-                idx === 0
-                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                  : "bg-white/[0.04] text-slate-300"
+              className={`size-1.5 shrink-0 rounded-full ${
+                mobileTab === "chat" ? "bg-white" : "bg-emerald-400"
               }`}
-            >
-              <span>{item.state}</span>
-              <span className="text-[10px] tabular-nums opacity-75">({item.count})</span>
-            </span>
-          ))}
+            />
+            <span className="truncate">Chat ({liveChat.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("feed")}
+            className={`flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${
+              mobileTab === "feed"
+                ? "bg-accent text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <span className="truncate">Polls &amp; Topics ({posts.length})</span>
+          </button>
         </div>
-      )}
 
-      {/* Mobile Switcher: Fast Live Chat vs Topic & Poll Threads */}
-      <div className="mb-4 grid grid-cols-2 gap-1.5 rounded-xl border border-white/[0.08] bg-[#0b0e17] p-1 lg:hidden">
         <button
           type="button"
-          onClick={() => setMobileTab("chat")}
-          className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
-            mobileTab === "chat"
-              ? "bg-accent text-white"
-              : "text-slate-400 hover:text-white"
+          onClick={() => {
+            setTopicError(null);
+            setComposerOpen(true);
+          }}
+          aria-label="Start topic or poll"
+          className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-bold transition-all ${
+            !isTopicSlotOpen
+              ? "border border-amber-500/35 bg-amber-500/10 font-mono tabular-nums text-amber-200"
+              : "bg-gradient-to-r from-[#FF0400] to-[#F7911B] text-white shadow-sm shadow-[#F7911B]/20"
           }`}
         >
-          <span className="size-2 shrink-0 rounded-full bg-emerald-400" />
-          <span className="truncate">Live Chat ({liveChat.length})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab("feed")}
-          className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-bold transition-colors ${
-            mobileTab === "feed"
-              ? "bg-accent text-white"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          <span className="truncate">Polls &amp; Topics ({posts.length})</span>
+          {!isTopicSlotOpen ? (
+            <>
+              <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span>{formattedTopicCountdown}</span>
+            </>
+          ) : (
+            <>
+              <PlusIcon className="size-3.5 shrink-0" />
+              <span>Post</span>
+            </>
+          )}
         </button>
       </div>
 
       {/* Main Split Grid */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-12 lg:gap-4 lg:items-start">
         {/* LEFT COLUMN (7 cols): Polls, Topics, Verdicts & Native Feed Ads */}
         <section
           aria-label="Polls and topic threads"
-          className={`lg:col-span-7 space-y-4 ${
+          className={`lg:col-span-7 space-y-3 ${
             mobileTab === "feed" ? "block" : "hidden lg:block"
           }`}
         >
@@ -1443,32 +1499,32 @@ export default function CommunityPage() {
           {needsStateBadgeUnlock && (
             <form
               onSubmit={handleSaveQuickDemographics}
-              className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-[#0b0e17] to-[#0b0e17] p-4"
+              className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-[#0b0e17] to-[#0b0e17] p-3.5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-white">
+                  <h2 className="text-xs sm:text-sm font-bold text-white">
                     Unlock your State Badge in chat
                   </h2>
-                  <p className="mt-0.5 text-xs text-slate-300">
-                    Represent your state in Live Arena banter and state-vs-state polls.
+                  <p className="mt-0.5 text-[11px] text-slate-300">
+                    Represent your state in Arena banter and state-vs-state polls.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setDemoDismissed(true)}
-                  className="min-h-8 px-2 text-xs text-slate-400 hover:text-white"
+                  className="min-h-7 px-2 text-xs text-slate-400 hover:text-white"
                 >
                   Later
                 </button>
               </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-4">
+              <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <select
                   aria-label="Select your state"
                   value={quickState}
                   onChange={(e) => setQuickState(e.target.value)}
-                  className="min-h-11 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="min-h-10 rounded-xl border border-white/10 bg-[#07090e] px-2.5 py-1.5 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
                 >
                   {NIGERIAN_STATES.map((st) => (
                     <option key={st} value={st}>
@@ -1481,7 +1537,7 @@ export default function CommunityPage() {
                   aria-label="Select gender"
                   value={quickGender}
                   onChange={(e) => setQuickGender(e.target.value)}
-                  className="min-h-11 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="min-h-10 rounded-xl border border-white/10 bg-[#07090e] px-2.5 py-1.5 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
@@ -1493,75 +1549,76 @@ export default function CommunityPage() {
                   max={2010}
                   value={quickBirthYear}
                   onChange={(e) => setQuickBirthYear(e.target.value)}
-                  placeholder="Birth year (1998)"
+                  placeholder="Birth year"
                   aria-label="Birth year"
-                  className="min-h-11 rounded-xl border border-white/10 bg-[#07090e] px-3 py-2 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="min-h-10 rounded-xl border border-white/10 bg-[#07090e] px-2.5 py-1.5 text-base sm:text-xs text-white focus:border-amber-400 focus:outline-none"
                 />
 
                 <button
                   type="submit"
                   disabled={savingDemo}
-                  className="min-h-11 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+                  className="min-h-10 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-colors"
                 >
-                  {savingDemo ? "Saving..." : "Activate badge"}
+                  {savingDemo ? "Saving..." : "Activate"}
                 </button>
               </div>
             </form>
           )}
 
-          {/* Source Filter: All vs GuessWhat Official vs Player Created */}
-          <div className="flex items-center overflow-x-auto no-scrollbar">
-            <div className="inline-flex shrink-0 rounded-xl border border-white/[0.08] bg-[#0b0e17] p-1">
-              {(
-                [
-                  { id: "all", label: "All Posts" },
-                  { id: "official", label: "GuessWhat Official" },
-                  { id: "player", label: "Player Created" },
-                ] as const
-              ).map((tab) => {
-                const active = sourceFilter === tab.id;
+          {/* Compact Combined Filter Strip */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <div className="inline-flex shrink-0 rounded-xl border border-white/[0.08] bg-[#0b0e17] p-0.5">
+                {(
+                  [
+                    { id: "all", label: "All" },
+                    { id: "official", label: "Official" },
+                    { id: "player", label: "Players" },
+                  ] as const
+                ).map((tab) => {
+                  const active = sourceFilter === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSourceFilter(tab.id)}
+                      className={`inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        active
+                          ? tab.id === "player"
+                            ? "bg-emerald-600 text-white"
+                            : "bg-accent text-white"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      {tab.id === "official" && (
+                        <ShieldCheckIcon className="size-3 shrink-0" />
+                      )}
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <span className="h-4 w-px shrink-0 bg-white/10" aria-hidden="true" />
+
+              {CATEGORIES.map((cat) => {
+                const active = selectedCategory === cat;
                 return (
                   <button
-                    key={tab.id}
+                    key={cat}
                     type="button"
-                    onClick={() => setSourceFilter(tab.id)}
-                    className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`min-h-8 shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
                       active
-                        ? tab.id === "player"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-accent text-white"
-                        : "text-slate-400 hover:text-white"
+                        ? "bg-white/15 text-white border border-white/20"
+                        : "bg-[#0b0e17] border border-white/[0.06] text-slate-400 hover:text-white"
                     }`}
                   >
-                    {tab.id === "official" && (
-                      <ShieldCheckIcon className="size-3.5 shrink-0" />
-                    )}
-                    <span>{tab.label}</span>
+                    {cat === "all" ? "All topics" : cat}
                   </button>
                 );
               })}
             </div>
-          </div>
-
-          {/* Category Filter Bar */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-            {CATEGORIES.map((cat) => {
-              const active = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`min-h-9 shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    active
-                      ? "bg-accent text-white"
-                      : "bg-[#0b0e17] border border-white/[0.06] text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {cat === "all" ? "All topics" : cat}
-                </button>
-              );
-            })}
           </div>
 
           {/* Posts & Interleaved Native Sponsor Cards */}
@@ -1856,68 +1913,75 @@ export default function CommunityPage() {
                                 className="mt-0.5"
                               />
                               <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                                    <button
-                                      type="button"
-                                      onClick={() => quickTagUser(post.id, rep.username)}
-                                      title={`Tag @${rep.username}`}
-                                      className="font-bold text-white hover:text-accent transition-colors"
-                                    >
-                                      {rep.username}
-                                    </button>
-                                    <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">
-                                      {rep.state}
+                                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => quickTagUser(post.id, rep.username)}
+                                    title={`Tag @${rep.username}`}
+                                    className="font-bold text-white hover:text-accent transition-colors"
+                                  >
+                                    {rep.username}
+                                  </button>
+                                  <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">
+                                    {rep.state}
+                                  </span>
+                                  <RankBadge rank={rep.rank} />
+                                  {taggedMe && (
+                                    <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+                                      Tagged you
                                     </span>
-                                    <RankBadge rank={rep.rank} />
-                                    {taggedMe && (
-                                      <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
-                                        Tagged you
-                                      </span>
-                                    )}
-                                    <span className="text-[10px] tabular-nums text-slate-500">
-                                      {timeAgo(rep.createdAt)}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center gap-1">
-                                    {!isMyReply && !post.isLocked && (
-                                      <button
-                                        type="button"
-                                        onClick={() => quickTagUser(post.id, rep.username)}
-                                        className="inline-flex min-h-7 items-center rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
-                                      >
-                                        @ Reply
-                                      </button>
-                                    )}
-                                    {REACTION_MAP.map((rx) => {
-                                      const count = rep.reactions?.[rx.key] ?? 0;
-                                      return (
-                                        <button
-                                          key={rx.key}
-                                          type="button"
-                                          onClick={() => handleReactMessage(rep.id, rx.key)}
-                                          aria-label={rx.label}
-                                          className="inline-flex min-h-7 items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300 hover:bg-white/10"
-                                        >
-                                          <ReactionGlyph kind={rx.key} />
-                                          {count > 0 && <span>{count}</span>}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
+                                  )}
+                                  <span className="ml-auto text-[10px] tabular-nums text-slate-500">
+                                    {timeAgo(rep.createdAt)}
+                                  </span>
                                 </div>
-                                <p className="mt-1 break-words text-xs leading-relaxed text-slate-200">
+
+                                <p className="mt-0.5 break-words text-[13px] leading-snug text-slate-100">
                                   {renderBodyWithMentions(
                                     rep.body,
                                     myIdentity?.username,
                                     (uname) => quickTagUser(post.id, uname),
                                   )}
                                 </p>
+
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                  {!isMyReply && !post.isLocked && (
+                                    <button
+                                      type="button"
+                                      onClick={() => quickTagUser(post.id, rep.username)}
+                                      className="inline-flex h-6 items-center rounded-full bg-white/[0.04] px-2 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
+                                    >
+                                      Reply
+                                    </button>
+                                  )}
+                                  {REACTION_MAP.map((rx) => {
+                                    const count = getReactionCount(rep.reactions, rx.key);
+                                    const isMine = Boolean(myReactions[`${rep.id}:${rx.key}`]);
+                                    return (
+                                      <button
+                                        key={rx.key}
+                                        type="button"
+                                        onClick={() => handleReactMessage(rep.id, rx.key)}
+                                        aria-label={rx.label}
+                                        aria-pressed={isMine}
+                                        className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] tabular-nums transition-all active:scale-95 ${
+                                          isMine
+                                            ? "border-accent/45 bg-accent/15 text-white font-semibold"
+                                            : count > 0
+                                            ? "border-white/15 bg-white/[0.08] text-slate-100 font-medium"
+                                            : "border-transparent bg-white/[0.03] text-slate-400 hover:bg-white/[0.08] hover:text-white"
+                                        }`}
+                                      >
+                                        <span className="text-xs leading-none">{rx.emoji}</span>
+                                        {count > 0 && <span>{count}</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </div>
-                          );
-                        })}
+                            );
+                          })}
 
                         {!post.isLocked && (
                           <div className="relative flex items-center gap-2 pt-1">
@@ -2067,59 +2131,32 @@ export default function CommunityPage() {
           )}
         </section>
 
-        {/* RIGHT COLUMN (5 cols): Fast-Scrolling Live Arena Chat Room */}
+        {/* RIGHT COLUMN (5 cols): Full-Height Live Arena Chat Room */}
         <aside
           aria-label="Live chat room"
-          className={`lg:col-span-5 lg:sticky lg:top-6 ${
-            mobileTab === "chat" ? "block" : "hidden lg:block"
-          }`}
+          className={`${
+            mobileTab === "chat" ? "flex min-h-0 flex-1 flex-col" : "hidden"
+          } lg:block lg:col-span-5 lg:sticky lg:top-4`}
         >
-          <div className="flex h-[calc(100dvh-16rem)] min-h-[380px] max-h-[680px] lg:max-h-none lg:h-[calc(100dvh-5rem)] flex-col overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0b0e17]">
-            {/* Chat Room Header */}
-            <div className="border-b border-white/[0.07] px-3.5 py-3 flex items-center justify-between gap-2">
+          <div className="flex min-h-0 flex-1 lg:h-[calc(100dvh-5.25rem)] flex-col overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0b0e17]">
+            {/* Desktop Chat Room Header (hidden on mobile since top bar already shows active Chat tab) */}
+            <div className="hidden lg:flex border-b border-white/[0.07] px-3.5 py-2.5 items-center justify-between gap-2 shrink-0">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="size-2.5 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
-                <div className="min-w-0">
-                  <h2 className="truncate text-sm font-bold text-white">Live Banter Room</h2>
-                  <p className="truncate text-[11px] text-slate-400">
-                    Live rank and state badges
-                  </p>
-                </div>
+                <span className="size-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                <h2 className="truncate text-sm font-bold text-white">Live Banter Room</h2>
+                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-slate-300">
+                  {liveChat.length}
+                </span>
               </div>
               <Link
                 href="/play"
-                className="shrink-0 rounded-lg bg-accent/15 border border-accent/30 px-2.5 py-1.5 text-[11px] font-bold text-accent hover:bg-accent/25 transition-colors"
+                className="shrink-0 rounded-lg bg-accent/15 border border-accent/30 px-2.5 py-1 text-[11px] font-bold text-accent hover:bg-accent/25 transition-colors"
               >
                 Play live
               </Link>
             </div>
 
-            {/* Pinned Native Chat Sponsor Strip */}
-            {chatBannerAd && (
-              <a
-                href={chatBannerAd.ctaUrl}
-                target={chatBannerAd.ctaUrl.startsWith("http") ? "_blank" : undefined}
-                rel="noopener noreferrer"
-                onClick={() => trackAdClick(chatBannerAd.id)}
-                className="flex items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-500/[0.08] px-3.5 py-2.5 hover:bg-amber-500/[0.13] transition-colors"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-300">
-                    <span>Sponsored</span>
-                    <span>·</span>
-                    <span className="truncate">{chatBannerAd.sponsorName}</span>
-                  </div>
-                  <p className="truncate text-xs font-semibold text-white">
-                    {chatBannerAd.headline}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-lg bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold text-amber-200">
-                  {chatBannerAd.ctaLabel}
-                </span>
-              </a>
-            )}
-
-            {/* Compact Live Podium Ticker (replaces stacked Room Notice cards) */}
+            {/* Slim 1-Line Live Podium Ticker */}
             {rankNotices.length > 0 && !noticeDismissed && (() => {
               const safeNoticeIdx = noticeIdx % rankNotices.length;
               const activeNotice = rankNotices[safeNoticeIdx];
@@ -2127,7 +2164,7 @@ export default function CommunityPage() {
 
               return (
                 <div
-                  className={`flex items-center justify-between gap-2 border-b px-3 py-2 text-xs transition-colors ${
+                  className={`flex shrink-0 items-center justify-between gap-1.5 border-b px-2.5 py-1.5 text-xs transition-colors ${
                     noticePulse
                       ? "border-emerald-400/35 bg-emerald-500/12"
                       : "border-white/[0.07] bg-[#0e1322]"
@@ -2135,7 +2172,7 @@ export default function CommunityPage() {
                 >
                   <Link
                     href="/leaderboard"
-                    className="flex min-w-0 flex-1 items-center gap-2 hover:opacity-90 transition-opacity"
+                    className="flex min-w-0 flex-1 items-center gap-1.5 hover:opacity-90 transition-opacity"
                     title="View live leaderboard"
                   >
                     <Avatar
@@ -2145,25 +2182,25 @@ export default function CommunityPage() {
                       rank={activeNotice.rank ?? undefined}
                       showRankBadge={false}
                     />
-                    <TrophyIcon className="size-3.5 shrink-0 text-amber-400" />
-                    <div className="min-w-0 flex-1 truncate text-[11px] sm:text-xs text-slate-300">
+                    <TrophyIcon className="size-3 shrink-0 text-amber-400" />
+                    <div className="min-w-0 flex-1 truncate text-[11px] text-slate-300">
                       {metrics ? (
                         <>
                           <span className="font-bold text-white">
                             {activeNotice.username}
                           </span>{" "}
-                          <span className="text-slate-400">({activeNotice.state})</span>{" "}
-                          <span>claimed </span>
+                          <span className="hidden sm:inline text-slate-400">
+                            ({activeNotice.state}){" "}
+                          </span>
                           <span className="font-bold text-amber-300">
                             #{activeNotice.rank ?? 1}
                           </span>
                           <span> · </span>
                           <span className="font-mono font-semibold text-emerald-300">
                             {metrics.pts}
-                          </span>
-                          <span> in </span>
-                          <span className="font-mono text-slate-200">
-                            {metrics.time}
+                          </span>{" "}
+                          <span className="font-mono text-slate-400">
+                            ({metrics.time})
                           </span>
                         </>
                       ) : (
@@ -2172,10 +2209,7 @@ export default function CommunityPage() {
                     </div>
                   </Link>
 
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <span className="text-[10px] tabular-nums text-slate-500">
-                      {timeAgo(activeNotice.createdAt)}
-                    </span>
+                  <div className="flex shrink-0 items-center gap-1">
                     {rankNotices.length > 1 && (
                       <button
                         type="button"
@@ -2183,7 +2217,7 @@ export default function CommunityPage() {
                           setNoticeIdx((prev) => (prev + 1) % rankNotices.length)
                         }
                         title="Next podium update"
-                        className="rounded-md bg-white/[0.06] hover:bg-white/[0.12] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-slate-300 transition-colors"
+                        className="rounded bg-white/[0.06] hover:bg-white/[0.12] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-slate-300 transition-colors"
                       >
                         {safeNoticeIdx + 1}/{rankNotices.length}
                       </button>
@@ -2192,7 +2226,7 @@ export default function CommunityPage() {
                       type="button"
                       aria-label="Dismiss podium ticker"
                       onClick={() => setNoticeDismissed(true)}
-                      className="grid size-6 place-items-center rounded-md text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 transition-colors"
+                      className="grid size-6 place-items-center rounded text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 transition-colors"
                     >
                       <CloseIcon className="size-3" />
                     </button>
@@ -2201,150 +2235,155 @@ export default function CommunityPage() {
               );
             })()}
 
-            {/* Fast-Scrolling Messages Stream */}
-            <div
-              ref={chatScrollRef}
-              onScroll={handleChatScroll}
-              className="flex-1 space-y-2.5 overflow-y-auto p-3"
-            >
-              {liveChat.length === 0 && !loading ? (
-                <div className="flex h-full min-h-40 flex-col items-center justify-center px-4 text-center">
-                  <p className="text-xs font-semibold text-slate-300">
-                    No messages in the room yet
-                  </p>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Drop the first take or @tag a rival to start the banter.
-                  </p>
-                </div>
-              ) : (
-                liveChat.map((msg) => {
-                  const isMe = Boolean(user?.id && msg.userId === user.id);
-                  const taggedMe =
-                    !isMe && hasSelfMention(msg.body, myIdentity?.username);
+            {/* Fast-Scrolling Messages Stream + Floating Jump Pill */}
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <div
+                ref={chatScrollRef}
+                onScroll={handleChatScroll}
+                className="flex-1 min-h-0 space-y-1.5 overflow-y-auto px-2.5 py-2 sm:px-3 sm:py-2.5"
+              >
+                {liveChat.length === 0 && !loading ? (
+                  <div className="flex h-full min-h-36 flex-col items-center justify-center px-4 text-center">
+                    <p className="text-xs font-semibold text-slate-300">
+                      No messages in the room yet
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Drop the first take or @tag a rival to start the banter.
+                    </p>
+                  </div>
+                ) : (
+                  liveChat.map((msg) => {
+                    const isMe = Boolean(user?.id && msg.userId === user.id);
+                    const taggedMe =
+                      !isMe && hasSelfMention(msg.body, myIdentity?.username);
 
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`group rounded-xl border px-3 py-2.5 transition-colors ${
-                        taggedMe
-                          ? "border-amber-400/45 bg-amber-500/[0.09]"
-                          : isMe
-                          ? "border-accent/30 bg-accent/[0.07]"
-                          : "border-white/[0.05] bg-[#07090e]/90"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <Avatar
-                          name={msg.username}
-                          src={resolveAvatar(msg.username, msg.avatarUrl)}
-                          size="sm"
-                          rank={msg.rank ?? undefined}
-                          showRankBadge={false}
-                          className="mt-0.5"
-                        />
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`group rounded-xl border px-2.5 py-2 transition-colors ${
+                          taggedMe
+                            ? "border-amber-400/45 bg-amber-500/[0.09]"
+                            : isMe
+                            ? "border-accent/30 bg-accent/[0.07]"
+                            : "border-white/[0.05] bg-[#07090e]/90"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <Avatar
+                            name={msg.username}
+                            src={resolveAvatar(msg.username, msg.avatarUrl)}
+                            size="xs"
+                            rank={msg.rank ?? undefined}
+                            showRankBadge={false}
+                            className="mt-0.5"
+                          />
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => quickTagUser("chat", msg.username)}
-                              title={`Tag @${msg.username}`}
-                              className="text-xs font-bold text-white hover:text-accent transition-colors"
-                            >
-                              {msg.username}
-                            </button>
-                            <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
-                              {msg.state}
-                            </span>
-                            <RankBadge rank={msg.rank} />
-                            {taggedMe && (
-                              <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
-                                Tagged you
-                              </span>
-                            )}
-                            <span className="ml-auto text-[10px] tabular-nums text-slate-500">
-                              {timeAgo(msg.createdAt)}
-                            </span>
-                          </div>
-
-                          <p className="mt-1 break-words text-xs leading-relaxed text-slate-200">
-                            {renderBodyWithMentions(
-                              msg.body,
-                              myIdentity?.username,
-                              (uname) => quickTagUser("chat", uname),
-                            )}
-                          </p>
-
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            {!isMe && (
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => quickTagUser("chat", msg.username)}
-                                className="inline-flex min-h-7 items-center rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
+                                title={`Tag @${msg.username}`}
+                                className="text-xs font-bold text-white hover:text-accent transition-colors"
                               >
-                                @ Reply
+                                {msg.username}
                               </button>
-                            )}
-                            {REACTION_MAP.map((rx) => {
-                              const count = msg.reactions?.[rx.key] ?? 0;
-                              return (
+                              <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
+                                {msg.state}
+                              </span>
+                              <RankBadge rank={msg.rank} />
+                              {taggedMe && (
+                                <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+                                  Tagged you
+                                </span>
+                              )}
+                              <span className="ml-auto text-[10px] tabular-nums text-slate-500">
+                                {timeAgo(msg.createdAt)}
+                              </span>
+                            </div>
+
+                            <p className="mt-0.5 break-words text-[13px] leading-snug text-slate-100">
+                              {renderBodyWithMentions(
+                                msg.body,
+                                myIdentity?.username,
+                                (uname) => quickTagUser("chat", uname),
+                              )}
+                            </p>
+
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              {!isMe && (
                                 <button
-                                  key={rx.key}
                                   type="button"
-                                  onClick={() => handleReactMessage(msg.id, rx.key)}
-                                  aria-label={rx.label}
-                                  className={`inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] tabular-nums transition-colors ${
-                                    count > 0
-                                      ? "bg-white/10 text-white font-semibold"
-                                      : "bg-white/[0.03] text-slate-400 hover:bg-white/10 hover:text-white"
-                                  }`}
+                                  onClick={() => quickTagUser("chat", msg.username)}
+                                  className="inline-flex h-6 items-center rounded-full bg-white/[0.04] px-2 text-[10px] font-semibold text-slate-300 hover:bg-accent/20 hover:text-accent transition-colors"
                                 >
-                                  <ReactionGlyph kind={rx.key} />
-                                  {count > 0 && <span>{count}</span>}
+                                  Reply
                                 </button>
-                              );
-                            })}
+                              )}
+                              {REACTION_MAP.map((rx) => {
+                                const count = getReactionCount(msg.reactions, rx.key);
+                                const isMine = Boolean(myReactions[`${msg.id}:${rx.key}`]);
+                                return (
+                                  <button
+                                    key={rx.key}
+                                    type="button"
+                                    onClick={() => handleReactMessage(msg.id, rx.key)}
+                                    aria-label={rx.label}
+                                    aria-pressed={isMine}
+                                    className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] tabular-nums transition-all active:scale-95 ${
+                                      isMine
+                                        ? "border-accent/45 bg-accent/15 text-white font-semibold"
+                                        : count > 0
+                                        ? "border-white/15 bg-white/[0.08] text-slate-100 font-medium"
+                                        : "border-transparent bg-white/[0.03] text-slate-400 hover:bg-white/[0.08] hover:text-white"
+                                    }`}
+                                  >
+                                    <span className="text-xs leading-none">{rx.emoji}</span>
+                                    {count > 0 && <span>{count}</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                    );
+                  })
+                )}
+              </div>
 
-            {!autoScroll && (
-              <div className="px-4 py-1.5 bg-[#07090e] border-t border-white/5 text-center">
+              {!autoScroll && (
                 <button
                   type="button"
                   onClick={() => {
                     setAutoScroll(true);
                     if (chatScrollRef.current) {
-                      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+                      chatScrollRef.current.scrollTop =
+                        chatScrollRef.current.scrollHeight;
                     }
                   }}
-                  className="min-h-7 text-[11px] font-bold text-accent hover:underline"
+                  className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-1 rounded-full border border-accent/40 bg-[#111726]/95 px-3 py-1 text-[11px] font-bold text-accent shadow-lg backdrop-blur-md hover:bg-[#161e31]"
                 >
-                  Jump to latest messages
+                  <span>↓ Latest messages</span>
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Chat Composer */}
+            {/* Pinned Chat Composer */}
             <form
               onSubmit={(e) => {
                 setActiveMention(null);
                 handleSendChat(e);
               }}
-              className="border-t border-white/[0.08] bg-[#07090e] p-2.5 sm:p-3"
+              className="shrink-0 border-t border-white/[0.08] bg-[#07090e] p-2 sm:p-2.5"
             >
               {chatError && (
-                <p className="mb-2 rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1.5 text-[11px] text-rose-300">
+                <p className="mb-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1 text-[11px] text-rose-300">
                   {chatError}
                 </p>
               )}
 
-              <div className="relative flex items-center gap-2">
+              <div className="relative flex items-center gap-1.5">
                 {activeMention?.target === "chat" && (
                   <MentionPopover
                     candidates={filteredMentionCandidates}
@@ -2392,7 +2431,7 @@ export default function CommunityPage() {
                     }
                     disabled={!user}
                     maxLength={360}
-                    className="min-h-11 w-full rounded-xl border border-white/10 bg-[#0b0e17] pl-3.5 pr-10 py-2.5 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                    className="min-h-10 w-full rounded-xl border border-white/10 bg-[#0b0e17] pl-3 pr-9 py-2 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
                   />
                   {user && (
                     <button
@@ -2402,7 +2441,7 @@ export default function CommunityPage() {
                         e.preventDefault();
                         triggerAtPicker("chat");
                       }}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 grid size-8 place-items-center rounded-lg bg-white/[0.06] text-xs font-bold text-slate-300 hover:bg-accent/25 hover:text-accent transition-colors"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 grid size-7 place-items-center rounded-lg bg-white/[0.06] text-xs font-bold text-slate-300 hover:bg-accent/25 hover:text-accent transition-colors"
                     >
                       @
                     </button>
@@ -2411,20 +2450,16 @@ export default function CommunityPage() {
                 <button
                   type="submit"
                   disabled={!user || sendingChat || !chatInput.trim()}
-                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-3.5 sm:px-4 py-2.5 text-xs font-bold text-white disabled:opacity-40"
+                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#FF0400] to-[#F7911B] px-3.5 py-2 text-xs font-bold text-white disabled:opacity-40"
                 >
                   <SendIcon className="size-3.5 sm:hidden" />
                   <span>{sendingChat ? "..." : "Send"}</span>
                 </button>
               </div>
 
-              {myIdentity && (
-                <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-slate-500">
-                  <span className="truncate">
-                    Posting as {myIdentity.username} · {myIdentity.state}
-                    {myIdentity.rank ? ` · #${myIdentity.rank}` : ""}
-                  </span>
-                  <span className="shrink-0 tabular-nums">{chatInput.length}/360</span>
+              {chatInput.length >= 260 && (
+                <div className="mt-1 flex justify-end text-[10px] tabular-nums text-slate-500">
+                  <span>{chatInput.length}/360</span>
                 </div>
               )}
             </form>

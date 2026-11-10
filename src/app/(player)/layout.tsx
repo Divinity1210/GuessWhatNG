@@ -396,11 +396,11 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         )}
 
         <div
-          className={`mx-auto min-w-0 w-full max-w-full ${
+          className={`mx-auto min-w-0 w-full max-w-full flex-1 ${
             pathname.startsWith("/community")
-              ? "md:max-w-7xl"
-              : "md:max-w-5xl px-3.5 py-4 sm:px-5 sm:py-6 md:px-8 md:py-8"
-          } pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-10 flex-1`}
+              ? "md:max-w-7xl flex flex-col"
+              : "md:max-w-5xl px-3.5 py-4 sm:px-5 sm:py-6 md:px-8 md:py-8 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-10"
+          }`}
         >
           {children}
         </div>

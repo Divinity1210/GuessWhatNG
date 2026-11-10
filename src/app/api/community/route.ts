@@ -655,8 +655,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "react_message") {
-      const { messageId, emoji } = body;
-      const allowed = ["fire", "laugh", "target", "skull"];
+      const { messageId, emoji, delta } = body;
+      const allowed = ["love", "laugh", "fire", "like", "clap", "target", "skull"];
       if (!messageId || !allowed.includes(emoji)) {
         return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
       }
@@ -668,8 +668,14 @@ export async function POST(req: NextRequest) {
       if (!msg) {
         return NextResponse.json({ error: "Message not found" }, { status: 404 });
       }
+      const safeDelta = Number(delta) === -1 ? -1 : 1;
       const reactions = { ...((msg.reactions ?? {}) as Record<string, number>) };
-      reactions[emoji] = (reactions[emoji] ?? 0) + 1;
+      const nextCount = Math.max(0, (reactions[emoji] ?? 0) + safeDelta);
+      if (nextCount === 0) {
+        delete reactions[emoji];
+      } else {
+        reactions[emoji] = nextCount;
+      }
       await supabase
         .from("community_messages")
         .update({ reactions })
