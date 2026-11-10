@@ -5,7 +5,6 @@ import { Button } from "@/components/ui";
 import {
   BarChartIcon,
   CheckIcon,
-  CloseIcon,
   LockIcon,
   MusicIcon,
   PlayIcon,
@@ -223,12 +222,6 @@ export default function PlayPage() {
     }
   };
 
-  const handleExitRound = () => {
-    stopBackgroundMusic();
-    void exitBrowserFullscreen();
-    setPhase("lobby");
-  };
-
   useEffect(() => {
     if (
       isSessionEnded &&
@@ -396,7 +389,7 @@ export default function PlayPage() {
     return (
       <div
         ref={containerRef}
-        className="mx-auto max-w-xl min-h-[calc(100dvh-8.75rem)] md:min-h-0 flex flex-col justify-end md:justify-center py-2 sm:py-10 animate-fade-in"
+        className="mx-auto max-w-xl py-4 sm:py-10 animate-fade-in"
       >
         <section
           className={`rounded-2xl border bg-[#0d111c] px-5 py-8 sm:px-10 sm:py-12 text-center space-y-6 shadow-[0_16px_50px_rgba(0,0,0,0.4)] ${
@@ -507,107 +500,97 @@ export default function PlayPage() {
     );
   }
 
-  // 2. Result Sample Interstitial (Stays in Full-Viewport Stage on Mobile to Avoid Layout Jumps)
+  // 2. Result Sample Interstitial
   if (phase === "result_sample" && lastPick) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#07090e] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] md:static md:inset-auto md:z-auto md:bg-transparent md:px-0 md:pt-0 md:pb-0 md:mx-auto md:max-w-2xl md:py-10">
-        <div className="flex flex-1 items-center justify-center animate-fade-in">
-          <section className="w-full rounded-2xl border border-white/10 bg-[#0d111c] px-5 py-10 sm:px-12 sm:py-16">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-12 items-center text-center">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                  Locked In
-                </p>
-                <div className="flex justify-center">
-                  {lastPick.questionType === "color" ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <span
-                        className="size-16 rounded-full border-2 border-white shadow-lg"
-                        style={{
-                          backgroundColor: lastPick.option.media_url || "#F7911B",
-                        }}
-                      />
-                      <span className="text-sm font-semibold text-white">
-                        {lastPick.option.label}
-                      </span>
-                    </div>
-                  ) : (lastPick.questionType === "image" ||
-                      (lastPick.option.media_url &&
-                        (lastPick.option.media_url.startsWith("http") ||
-                          lastPick.option.media_url.startsWith("data:image/")))) &&
-                    lastPick.option.media_url ? (
-                    <div className="flex flex-col items-center gap-2.5">
-                      <div className="w-40 aspect-[4/3] overflow-hidden rounded-xl border-2 border-accent shadow-lg bg-slate-900">
-                        <img
-                          src={lastPick.option.media_url}
-                          alt={lastPick.option.label}
-                          width={320}
-                          height={240}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <span className="text-sm font-semibold text-white">
-                        {lastPick.option.label}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="min-w-36 rounded-xl border border-accent/35 bg-accent/10 px-6 py-3.5 text-base font-bold text-white">
+      <div className="mx-auto max-w-2xl py-6 sm:py-10 animate-fade-in">
+        <section className="rounded-2xl border border-white/10 bg-[#0d111c] px-5 py-12 sm:px-12 sm:py-20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 sm:gap-12 items-center text-center">
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                Locked In
+              </p>
+              <div className="flex justify-center">
+                {lastPick.questionType === "color" ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <span
+                      className="size-16 rounded-full border-2 border-white shadow-lg"
+                      style={{
+                        backgroundColor: lastPick.option.media_url || "#F7911B",
+                      }}
+                    />
+                    <span className="text-sm font-semibold text-white">
                       {lastPick.option.label}
+                    </span>
+                  </div>
+                ) : (lastPick.questionType === "image" ||
+                    (lastPick.option.media_url &&
+                      (lastPick.option.media_url.startsWith("http") ||
+                        lastPick.option.media_url.startsWith("data:image/")))) &&
+                  lastPick.option.media_url ? (
+                  <div className="flex flex-col items-center gap-2.5">
+                    <div className="w-40 aspect-[4/3] overflow-hidden rounded-xl border-2 border-accent shadow-lg bg-slate-900">
+                      <img
+                        src={lastPick.option.media_url}
+                        alt={lastPick.option.label}
+                        width={320}
+                        height={240}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1.5 sm:space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                  Response Time
-                </p>
-                <p className="font-mono text-2xl sm:text-3xl font-bold text-accent tabular-nums">
-                  {formatStopwatch(lastPick.tookMs)}
-                </p>
+                    <span className="text-sm font-semibold text-white">
+                      {lastPick.option.label}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="min-w-36 rounded-xl border border-accent/35 bg-accent/10 px-6 py-3.5 text-base font-bold text-white">
+                    {lastPick.option.label}
+                  </div>
+                )}
               </div>
             </div>
-          </section>
-        </div>
+
+            <div className="space-y-2 sm:space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                Response Time
+              </p>
+              <p className="font-mono text-2xl sm:text-3xl font-bold text-accent tabular-nums">
+                {formatStopwatch(lastPick.tookMs)}
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
 
-  // 3. Active Question Display (One-Handed Bottom Thumb-Zone Architecture on Mobile)
+  // 3. Active Question Display (Mobile-First Ergonomics)
   if (phase === "playing" && questions.length > 0) {
     const currentQ = questions[currentIndex];
     const q = currentQ.questions;
     const qType = q.type || "text";
-    const hasPromptImage =
-      !!q.notes &&
-      (q.notes.startsWith("http") || q.notes.startsWith("data:image/"));
+    const isTextQuestion =
+      qType !== "color" && qType !== "number" && qType !== "image";
+    const progressPct = Math.round(((currentIndex + 1) / questions.length) * 100);
 
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-[#07090e] md:static md:inset-auto md:z-auto md:bg-transparent md:mx-auto md:max-w-4xl md:py-3">
+      <div className="mx-auto max-w-4xl py-1 sm:py-3 animate-fade-in">
         <section
-          key={currentQ.question_id}
-          className="flex flex-1 flex-col justify-between overflow-y-auto md:overflow-visible md:rounded-2xl md:border md:border-white/10 md:bg-[#0d111c] md:p-8 md:space-y-7 animate-fade-in"
+          className={`rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-8 space-y-5 sm:space-y-8 ${
+            isTextQuestion
+              ? "min-h-[calc(100dvh-10.25rem)] sm:min-h-0 flex flex-col sm:block"
+              : ""
+          }`}
         >
-          {/* Top HUD: Eye-Level Progress & Audio Controls */}
-          <div className="shrink-0 space-y-2.5 px-3.5 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-0 md:pt-0">
+          {/* Compact Mobile-Safe Top Bar */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleExitRound}
-                  aria-label="Exit round"
-                  className="grid size-8 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-400 active:bg-white/10 md:hidden"
-                >
-                  <CloseIcon className="size-4" />
-                </button>
-                <span className="font-display text-sm sm:text-base font-bold text-slate-200 tabular-nums">
-                  Question {currentIndex + 1}{" "}
-                  <span className="text-slate-500 font-normal">/ {questions.length}</span>
-                </span>
-              </div>
+              <span className="font-display text-sm sm:text-base font-bold text-slate-200">
+                Question {currentIndex + 1} <span className="text-slate-500 font-normal">/ {questions.length}</span>
+              </span>
 
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-1 font-mono text-sm sm:text-base font-bold text-accent tabular-nums">
+                <span className="rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-1.5 font-mono text-sm sm:text-base font-bold text-accent tabular-nums">
                   {formatStopwatch(liveQuestionMs)}
                 </span>
 
@@ -616,7 +599,7 @@ export default function PlayPage() {
                   onClick={handleToggleMusic}
                   aria-pressed={musicPlaying}
                   aria-label={musicPlaying ? "Pause background music" : "Play background music"}
-                  className={`grid size-8 sm:size-9 place-items-center rounded-lg border transition-colors ${
+                  className={`grid size-9 place-items-center rounded-lg border transition-colors ${
                     musicPlaying
                       ? "border-accent/40 bg-accent/15 text-accent"
                       : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
@@ -630,7 +613,7 @@ export default function PlayPage() {
                   onClick={toggleSound}
                   aria-pressed={!soundMuted}
                   aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
-                  className="grid size-8 sm:size-9 place-items-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-300 hover:text-white transition-colors"
+                  className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-300 hover:text-white transition-colors"
                 >
                   {soundMuted ? (
                     <VolumeMuteIcon className="size-4 text-slate-500" />
@@ -642,156 +625,135 @@ export default function PlayPage() {
                 <button
                   type="button"
                   onClick={isFullscreen ? exitBrowserFullscreen : requestBrowserFullscreen}
-                  className="hidden md:inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-slate-400 hover:text-white"
+                  className="hidden sm:inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-slate-400 hover:text-white"
                 >
                   {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 </button>
               </div>
             </div>
 
-            {/* 10-Step Segmented Progress Track */}
-            <div
-              aria-hidden="true"
-              className="grid gap-1"
-              style={{
-                gridTemplateColumns: `repeat(${Math.max(1, questions.length)}, minmax(0, 1fr))`,
-              }}
-            >
-              {questions.map((step, idx) => (
-                <span
-                  key={step.question_id}
-                  className={`h-1 rounded-full transition-colors duration-200 ${
-                    idx < currentIndex
-                      ? "bg-accent"
-                      : idx === currentIndex
-                      ? "bg-amber-300"
-                      : "bg-white/10"
-                  }`}
-                />
-              ))}
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className="h-full gradient-brand transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
           </div>
 
-          {/* Eye-Level Question Prompt (Upper-Middle Viewing Zone so Thumb Never Covers Text) */}
-          <div className="flex flex-1 flex-col items-center justify-center px-4 py-3 text-center space-y-2.5 md:flex-initial md:px-0 md:py-2">
-            {q.category && (
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-accent">
-                {q.category}
-              </span>
-            )}
-            <h2 className="font-display text-xl sm:text-2xl md:text-3xl font-bold text-white leading-snug max-w-2xl">
+          {/* Question Title */}
+          <div
+            className={`text-center space-y-3 ${
+              isTextQuestion ? "my-auto py-4 sm:my-0 sm:py-0" : ""
+            }`}
+          >
+            <h2 className="font-display text-lg sm:text-2xl md:text-3xl font-bold text-white leading-snug">
               {q.title}
             </h2>
-            {hasPromptImage && q.notes && (
-              <div className="flex justify-center pt-1">
-                <img
-                  src={q.notes}
-                  alt={q.title}
-                  width={480}
-                  height={300}
-                  className="max-h-32 sm:max-h-52 rounded-xl object-cover border border-white/15 shadow-lg"
-                />
-              </div>
-            )}
+            {q.notes &&
+              (q.notes.startsWith("http") || q.notes.startsWith("data:image/")) && (
+                <div className="flex justify-center">
+                  <img
+                    src={q.notes}
+                    alt={q.title}
+                    width={480}
+                    height={300}
+                    className="max-h-44 sm:max-h-56 rounded-xl object-cover border border-white/15 shadow-lg"
+                  />
+                </div>
+              )}
           </div>
 
-          {/* Bottom-Anchored One-Handed Thumb-Zone Option Deck */}
-          <div className="mt-auto shrink-0 rounded-t-3xl border-t border-white/10 bg-[#0d111c] px-3.5 pt-3.5 pb-[max(0.9rem,env(safe-area-inset-bottom))] shadow-[0_-14px_40px_rgba(0,0,0,0.5)] md:mt-0 md:rounded-none md:border-t-0 md:bg-transparent md:p-0 md:shadow-none">
-            <p className="mb-2.5 text-center text-[11px] font-medium text-slate-400 md:hidden">
-              Tap the crowd&apos;s top pick
-            </p>
-
-            {qType === "color" ? (
-              <div className="grid grid-cols-5 gap-2.5 sm:gap-6 justify-items-center py-1">
-                {q.question_options.map((opt, idx) => {
-                  const hex =
-                    opt.media_url && opt.media_url.startsWith("#")
-                      ? opt.media_url
-                      : FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      disabled={submitting}
-                      onClick={() => handleSelectOption(opt)}
-                      aria-label={opt.label}
-                      className="group flex min-h-16 flex-col items-center justify-center gap-1.5 py-1 focus:outline-none active:scale-95 transition-transform select-none"
-                    >
-                      <span
-                        className="size-12 sm:size-16 rounded-full border-2 border-white/80 shadow-md transition-transform duration-150 sm:group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-accent"
-                        style={{ backgroundColor: hex }}
+          {/* 10 Options Optimized for Zero-Scroll Mobile Tapping */}
+          {qType === "color" ? (
+            <div className="grid grid-cols-5 gap-2.5 sm:gap-6 justify-items-center py-2">
+              {q.question_options.map((opt, idx) => {
+                const hex =
+                  opt.media_url && opt.media_url.startsWith("#")
+                    ? opt.media_url
+                    : FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleSelectOption(opt)}
+                    aria-label={opt.label}
+                    className="group flex flex-col items-center gap-1.5 py-1 focus:outline-none active:scale-95 transition-transform"
+                  >
+                    <span
+                      className="size-12 sm:size-18 rounded-full border-2 border-white/80 shadow-md transition-transform duration-150 sm:group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-accent"
+                      style={{ backgroundColor: hex }}
+                    />
+                    <span className="text-[11px] sm:text-xs font-medium text-slate-300 text-center leading-tight line-clamp-1 max-w-16 sm:max-w-24">
+                      {opt.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : qType === "number" ? (
+            <div className="grid grid-cols-5 gap-2.5 sm:gap-4 max-w-2xl mx-auto py-2">
+              {q.question_options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => handleSelectOption(opt)}
+                  className="h-14 sm:h-20 rounded-xl border border-white/20 bg-white/[0.04] hover:border-accent hover:bg-accent/10 active:scale-95 font-display text-xl sm:text-2xl font-bold text-white transition-all duration-150"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          ) : qType === "image" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
+              {q.question_options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => handleSelectOption(opt)}
+                  className="group overflow-hidden rounded-xl border border-white/15 bg-white/[0.03] hover:border-accent active:scale-[0.98] transition-all duration-150 text-left flex flex-col"
+                >
+                  <div className="aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden bg-slate-900">
+                    {opt.media_url ? (
+                      <img
+                        src={opt.media_url}
+                        alt={opt.label}
+                        width={400}
+                        height={300}
+                        loading="eager"
+                        className="h-full w-full object-cover transition-transform duration-200 sm:group-hover:scale-105"
                       />
-                      <span className="text-[11px] sm:text-xs font-medium text-slate-300 text-center leading-tight line-clamp-1 max-w-16 sm:max-w-24">
+                    ) : (
+                      <div className="h-full w-full grid place-items-center text-xs text-slate-500">
                         {opt.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : qType === "number" ? (
-              <div className="grid grid-cols-5 gap-2 sm:gap-4 max-w-2xl mx-auto py-1">
-                {q.question_options.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => handleSelectOption(opt)}
-                    className="h-14 sm:h-20 rounded-xl border border-white/15 bg-[#141a29] md:bg-white/[0.04] hover:border-accent hover:bg-accent/10 active:scale-95 active:border-accent active:bg-accent/20 font-display text-xl sm:text-2xl font-bold text-white transition-all duration-100 select-none"
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            ) : qType === "image" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4">
-                {q.question_options.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => handleSelectOption(opt)}
-                    className="group min-h-13 overflow-hidden rounded-xl border border-white/15 bg-[#141a29] sm:bg-white/[0.03] hover:border-accent active:scale-[0.98] active:border-accent active:bg-accent/15 transition-all duration-100 text-left flex items-center gap-2.5 p-1.5 sm:p-0 sm:flex-col select-none"
-                  >
-                    <div className="size-10 shrink-0 overflow-hidden rounded-lg bg-slate-900 sm:size-auto sm:aspect-[4/3] sm:w-full sm:rounded-none">
-                      {opt.media_url ? (
-                        <img
-                          src={opt.media_url}
-                          alt={opt.label}
-                          width={400}
-                          height={300}
-                          loading="eager"
-                          className="h-full w-full object-cover transition-transform duration-200 sm:group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="h-full w-full grid place-items-center text-[10px] text-slate-500">
-                          {opt.label.slice(0, 2)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 pr-1 sm:w-full sm:px-2.5 sm:py-2 sm:text-center">
-                      <span className="block text-xs font-semibold text-white sm:text-slate-200 group-hover:text-accent line-clamp-2 sm:line-clamp-1 leading-tight">
-                        {opt.label}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3.5">
-                {q.question_options.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => handleSelectOption(opt)}
-                    className="min-h-13 sm:min-h-14 rounded-xl border border-white/15 bg-[#141a29] sm:bg-white/[0.03] hover:border-accent hover:bg-accent/10 active:scale-[0.97] active:border-accent active:bg-accent/20 px-3 py-2.5 text-center text-[13px] sm:text-sm font-semibold text-white leading-snug shadow-sm transition-all duration-100 select-none"
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="px-2.5 py-2 text-center">
+                    <span className="text-xs font-semibold text-slate-200 group-hover:text-accent line-clamp-1">
+                      {opt.label}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-auto pt-2 sm:mt-0 sm:pt-0 grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3.5 py-1">
+              {q.question_options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => handleSelectOption(opt)}
+                  className="min-h-13 rounded-xl border border-white/18 bg-white/[0.03] hover:border-accent hover:bg-accent/10 active:scale-[0.98] px-3 py-2.5 text-center text-xs sm:text-sm font-semibold text-white transition-all duration-150"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     );
@@ -801,7 +763,7 @@ export default function PlayPage() {
   if (phase === "completed") {
     const isEnded = isSessionEnded;
     return (
-      <div className="mx-auto max-w-xl min-h-[calc(100dvh-8.75rem)] md:min-h-0 flex flex-col justify-end md:justify-center py-2 sm:py-10 animate-fade-in">
+      <div className="mx-auto max-w-xl py-4 sm:py-10 animate-fade-in">
         <section className="rounded-2xl border border-emerald-500/20 bg-[#0d111c] p-5 sm:p-9 text-center space-y-5 shadow-[0_16px_50px_rgba(0,0,0,0.45)]">
           <div
             className={`inline-flex flex-wrap items-center justify-center gap-2 rounded-full border px-3.5 py-1 text-xs font-semibold ${
