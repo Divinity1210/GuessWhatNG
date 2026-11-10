@@ -121,7 +121,7 @@ export default function LandingPage() {
               href="/leaderboard"
               className="inline-flex min-h-13 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.04] px-7 py-3.5 text-base font-semibold text-slate-200 transition-colors hover:bg-white/10 hover:text-white"
             >
-              Live Standings
+              Live Leaderboard
             </Link>
           </div>
         </div>

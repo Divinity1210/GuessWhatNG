@@ -485,7 +485,7 @@ export default function PlayPage() {
                 </strong>{" "}
                 ·{" "}
                 {isSessionEnded
-                  ? "Final Standings Unlocked"
+                  ? "Final Leaderboard Unlocked"
                   : "Unlimited Replays for Best Score"}
               </p>
               <p className="text-[11px] text-slate-500">
@@ -858,7 +858,7 @@ export default function PlayPage() {
                 className="inline-flex items-center justify-center gap-2 w-full"
               >
                 <TrophyIcon className="size-4" />
-                <span>{isEnded ? "Final Winners" : "Live Standings"}</span>
+                <span>{isEnded ? "Final Winners" : "Live Leaderboard"}</span>
               </Button>
             </span>
             {!isEnded && (

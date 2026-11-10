@@ -13,7 +13,7 @@ import {
 
 const tabs = [
   { label: "Home", href: "/dashboard", Icon: HomeIcon },
-  { label: "Ranks", href: "/leaderboard", Icon: TrophyIcon },
+  { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon },
   { label: "Play", href: "/play", Icon: PlayIcon, highlight: true },
   { label: "Arena", href: "/community", Icon: MessageSquareIcon },
   { label: "Profile", href: "/profile", Icon: UserIcon },

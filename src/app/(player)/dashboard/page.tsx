@@ -475,7 +475,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-display text-lg font-bold text-white">
-              {isSessionEnded ? "Final Standings" : "Live Standings"}
+              {isSessionEnded ? "Final Leaderboard" : "Live Leaderboard"}
             </h2>
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${

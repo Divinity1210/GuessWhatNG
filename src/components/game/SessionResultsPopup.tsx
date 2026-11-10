@@ -534,7 +534,7 @@ export function SessionResultsPopup() {
                 {sessionMeta?.name ?? "Session Results"}
               </h2>
               <p className="hidden sm:block text-xs text-slate-400 mt-0.5">
-                Crowd vote shares, option points (10 to 1), response speeds, and session standings.
+                Crowd vote shares, option points (10 to 1), response speeds, and session leaderboard.
               </p>
             </div>
 
@@ -638,7 +638,7 @@ export function SessionResultsPopup() {
               >
                 <TrophyIcon className="size-3.5 shrink-0" />
                 <span>
-                  {isSessionEnded ? "Winners" : "Ranks"} ({leaderboard.length})
+                  {isSessionEnded ? "Winners" : "Leaderboard"} ({leaderboard.length})
                 </span>
               </button>
 
@@ -1204,7 +1204,7 @@ export function SessionResultsPopup() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h3 className="font-display text-base sm:text-lg font-bold text-white">
-                        {isSessionEnded ? "Final Session Standings" : "Provisional Standings"}
+                        {isSessionEnded ? "Final Session Leaderboard" : "Live Session Leaderboard"}
                       </h3>
                       <p className="text-xs text-slate-400">
                         Ranked by crowd points, then shortest completion time.

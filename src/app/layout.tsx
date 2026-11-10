@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     template: "%s | GuessWhat",
   },
   description:
-    "Live social prediction rounds across Nigeria. Pick what most players choose, climb the standings, and win cash prizes.",
+    "Live social prediction rounds across Nigeria. Pick what most players choose, climb the leaderboard, and win cash prizes.",
   applicationName: "GuessWhat",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

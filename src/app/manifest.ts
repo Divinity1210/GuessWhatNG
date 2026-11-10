@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "GuessWhat | Predict the Crowd & Win",
     short_name: "GuessWhat",
     description:
-      "Live social prediction rounds across Nigeria. Pick what most players choose, climb the standings, and win cash prizes.",
+      "Live social prediction rounds across Nigeria. Pick what most players choose, climb the leaderboard, and win cash prizes.",
     start_url: "/",
     display: "standalone",
     background_color: "#0f1117",

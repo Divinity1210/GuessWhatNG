@@ -349,7 +349,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                 >
                   <span className="flex items-center gap-2.5">
                     <BarChartIcon className="size-4 text-accent" />
-                    <span>Session Results & Standings</span>
+                    <span>Session Results &amp; Leaderboard</span>
                   </span>
                   <ChevronRightIcon className="size-4 text-slate-400" />
                 </button>

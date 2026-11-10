@@ -13,7 +13,7 @@ import {
 export const metadata: Metadata = {
   title: "How to Play",
   description:
-    "See how GuessWhat works: predict what the crowd picks across 10 questions, climb the live standings, and win cash prizes.",
+    "See how GuessWhat works: predict what the crowd picks across 10 questions, climb the live leaderboard, and win cash prizes.",
 };
 
 const rules = [
@@ -124,7 +124,7 @@ export default function HowToPlayPage() {
               href="/leaderboard"
               className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm font-semibold text-slate-200 hover:bg-white/10"
             >
-              View Live Standings
+              View Live Leaderboard
             </Link>
           </div>
         </div>
