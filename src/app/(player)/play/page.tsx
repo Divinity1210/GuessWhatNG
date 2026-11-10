@@ -571,26 +571,43 @@ export default function PlayPage() {
     const qType = q.type || "text";
     const isTextQuestion =
       qType !== "color" && qType !== "number" && qType !== "image";
+    const isCompactViewportFill = qType !== "image";
     const progressPct = Math.round(((currentIndex + 1) / questions.length) * 100);
+    const titleSizeClass = isTextQuestion
+      ? q.title.length > 95
+        ? "text-xl sm:text-3xl md:text-4xl"
+        : "text-[1.65rem] sm:text-3xl md:text-4xl"
+      : "text-xl sm:text-2xl md:text-3xl";
 
     return (
-      <div className="mx-auto max-w-4xl py-1 sm:py-3 animate-fade-in">
+      <div className="mx-auto max-w-4xl py-0.5 sm:py-3 animate-fade-in">
         <section
-          className={`rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-8 space-y-5 sm:space-y-8 ${
-            isTextQuestion
-              ? "min-h-[calc(100dvh-10.25rem)] sm:min-h-0 flex flex-col sm:block"
-              : ""
+          className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#121829] to-[#0c101b] p-4 sm:p-8 ${
+            isCompactViewportFill
+              ? "min-h-[calc(100dvh-9.25rem-env(safe-area-inset-bottom))] sm:min-h-0 flex flex-col gap-4 sm:gap-7"
+              : "space-y-5 sm:space-y-8"
           }`}
         >
+          {/* Subtle Ambient Stage Glow (Eliminates Flat Dead Space) */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-16 -right-16 size-52 rounded-full bg-accent/[0.11] blur-2xl"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-20 -left-16 size-56 rounded-full bg-[#ff5a1f]/[0.08] blur-3xl"
+          />
+
           {/* Compact Mobile-Safe Top Bar */}
-          <div className="space-y-3">
+          <div className="relative z-10 shrink-0 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-display text-sm sm:text-base font-bold text-slate-200">
-                Question {currentIndex + 1} <span className="text-slate-500 font-normal">/ {questions.length}</span>
+              <span className="font-display text-xs sm:text-sm font-semibold tracking-wide text-slate-300">
+                Question {currentIndex + 1}{" "}
+                <span className="text-slate-500 font-normal">out of {questions.length}</span>
               </span>
 
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-1.5 font-mono text-sm sm:text-base font-bold text-accent tabular-nums">
+                <span className="rounded-lg bg-white/[0.05] border border-white/10 px-2.5 py-1 font-mono text-sm sm:text-base font-bold text-accent tabular-nums">
                   {formatStopwatch(liveQuestionMs)}
                 </span>
 
@@ -602,7 +619,7 @@ export default function PlayPage() {
                   className={`grid size-9 place-items-center rounded-lg border transition-colors ${
                     musicPlaying
                       ? "border-accent/40 bg-accent/15 text-accent"
-                      : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
+                      : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
                   }`}
                 >
                   <MusicIcon className="size-4" />
@@ -613,7 +630,7 @@ export default function PlayPage() {
                   onClick={toggleSound}
                   aria-pressed={!soundMuted}
                   aria-label={soundMuted ? "Unmute sound effects" : "Mute sound effects"}
-                  className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-300 hover:text-white transition-colors"
+                  className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300 hover:text-white transition-colors"
                 >
                   {soundMuted ? (
                     <VolumeMuteIcon className="size-4 text-slate-500" />
@@ -625,14 +642,14 @@ export default function PlayPage() {
                 <button
                   type="button"
                   onClick={isFullscreen ? exitBrowserFullscreen : requestBrowserFullscreen}
-                  className="hidden sm:inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-slate-400 hover:text-white"
+                  className="hidden sm:inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-slate-400 hover:text-white"
                 >
                   {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 </button>
               </div>
             </div>
 
-            <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
               <div
                 className="h-full gradient-brand transition-all duration-300"
                 style={{ width: `${progressPct}%` }}
@@ -640,13 +657,17 @@ export default function PlayPage() {
             </div>
           </div>
 
-          {/* Question Title */}
+          {/* Hero Question Stage */}
           <div
-            className={`text-center space-y-3 ${
-              isTextQuestion ? "my-auto py-4 sm:my-0 sm:py-0" : ""
+            className={`relative z-10 text-center space-y-3 ${
+              isTextQuestion
+                ? "px-1 py-2 sm:py-3 flex flex-col items-center justify-center min-h-[6.5rem] sm:min-h-0"
+                : ""
             }`}
           >
-            <h2 className="font-display text-lg sm:text-2xl md:text-3xl font-bold text-white leading-snug">
+            <h2
+              className={`font-display ${titleSizeClass} font-extrabold text-white leading-[1.18] tracking-tight max-w-2xl mx-auto`}
+            >
               {q.title}
             </h2>
             {q.notes &&
@@ -657,15 +678,15 @@ export default function PlayPage() {
                     alt={q.title}
                     width={480}
                     height={300}
-                    className="max-h-44 sm:max-h-56 rounded-xl object-cover border border-white/15 shadow-lg"
+                    className="max-h-40 sm:max-h-56 rounded-xl object-cover border border-white/15 shadow-lg"
                   />
                 </div>
               )}
           </div>
 
-          {/* 10 Options Optimized for Zero-Scroll Mobile Tapping */}
+          {/* 10 Options Filling Space Cleanly Without Dead Gaps */}
           {qType === "color" ? (
-            <div className="grid grid-cols-5 gap-2.5 sm:gap-6 justify-items-center py-2">
+            <div className="relative z-10 my-auto grid grid-cols-5 gap-3 sm:gap-6 justify-items-center py-2">
               {q.question_options.map((opt, idx) => {
                 const hex =
                   opt.media_url && opt.media_url.startsWith("#")
@@ -678,13 +699,13 @@ export default function PlayPage() {
                     disabled={submitting}
                     onClick={() => handleSelectOption(opt)}
                     aria-label={opt.label}
-                    className="group flex flex-col items-center gap-1.5 py-1 focus:outline-none active:scale-95 transition-transform"
+                    className="group flex flex-col items-center gap-2 py-1.5 focus:outline-none active:scale-95 transition-transform"
                   >
                     <span
-                      className="size-12 sm:size-18 rounded-full border-2 border-white/80 shadow-md transition-transform duration-150 sm:group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-accent"
+                      className="size-13 sm:size-18 rounded-full border-2 border-white/85 shadow-md transition-transform duration-150 sm:group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-accent"
                       style={{ backgroundColor: hex }}
                     />
-                    <span className="text-[11px] sm:text-xs font-medium text-slate-300 text-center leading-tight line-clamp-1 max-w-16 sm:max-w-24">
+                    <span className="text-xs font-semibold text-slate-200 text-center leading-tight line-clamp-1 max-w-16 sm:max-w-24">
                       {opt.label}
                     </span>
                   </button>
@@ -692,28 +713,28 @@ export default function PlayPage() {
               })}
             </div>
           ) : qType === "number" ? (
-            <div className="grid grid-cols-5 gap-2.5 sm:gap-4 max-w-2xl mx-auto py-2">
+            <div className="relative z-10 flex-1 sm:flex-initial grid grid-cols-5 auto-rows-fr gap-2.5 sm:gap-4 max-w-2xl w-full mx-auto py-1">
               {q.question_options.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   disabled={submitting}
                   onClick={() => handleSelectOption(opt)}
-                  className="h-14 sm:h-20 rounded-xl border border-white/20 bg-white/[0.04] hover:border-accent hover:bg-accent/10 active:scale-95 font-display text-xl sm:text-2xl font-bold text-white transition-all duration-150"
+                  className="min-h-16 sm:h-20 rounded-2xl border border-white/15 bg-[#192236] hover:bg-[#222d47] hover:border-accent active:scale-95 active:border-accent active:bg-accent/20 font-display text-2xl sm:text-3xl font-bold text-white shadow-[0_4px_14px_rgba(0,0,0,0.25)] transition-all duration-150"
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
           ) : qType === "image" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
+            <div className="relative z-10 grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
               {q.question_options.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   disabled={submitting}
                   onClick={() => handleSelectOption(opt)}
-                  className="group overflow-hidden rounded-xl border border-white/15 bg-white/[0.03] hover:border-accent active:scale-[0.98] transition-all duration-150 text-left flex flex-col"
+                  className="group overflow-hidden rounded-xl border border-white/15 bg-[#192236] hover:border-accent active:scale-[0.98] transition-all duration-150 text-left flex flex-col"
                 >
                   <div className="aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden bg-slate-900">
                     {opt.media_url ? (
@@ -732,7 +753,7 @@ export default function PlayPage() {
                     )}
                   </div>
                   <div className="px-2.5 py-2 text-center">
-                    <span className="text-xs font-semibold text-slate-200 group-hover:text-accent line-clamp-1">
+                    <span className="text-xs font-semibold text-slate-100 group-hover:text-accent line-clamp-1">
                       {opt.label}
                     </span>
                   </div>
@@ -740,14 +761,14 @@ export default function PlayPage() {
               ))}
             </div>
           ) : (
-            <div className="mt-auto pt-2 sm:mt-0 sm:pt-0 grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3.5 py-1">
+            <div className="relative z-10 flex-1 sm:flex-initial grid grid-cols-2 sm:grid-cols-5 auto-rows-fr gap-2.5 sm:gap-3.5">
               {q.question_options.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   disabled={submitting}
                   onClick={() => handleSelectOption(opt)}
-                  className="min-h-13 rounded-xl border border-white/18 bg-white/[0.03] hover:border-accent hover:bg-accent/10 active:scale-[0.98] px-3 py-2.5 text-center text-xs sm:text-sm font-semibold text-white transition-all duration-150"
+                  className="min-h-14 sm:min-h-15 flex items-center justify-center rounded-2xl border border-white/15 bg-[#192236] hover:bg-[#222d47] hover:border-accent active:scale-[0.98] active:border-accent active:bg-accent/20 px-3.5 py-2.5 text-center text-sm sm:text-[15px] font-bold text-white leading-snug shadow-[0_4px_14px_rgba(0,0,0,0.26)] transition-all duration-150"
                 >
                   {opt.label}
                 </button>
