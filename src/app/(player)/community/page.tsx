@@ -2147,12 +2147,12 @@ export default function CommunityPage() {
                     />
                     <TrophyIcon className="size-3.5 shrink-0 text-amber-400" />
                     <div className="min-w-0 flex-1 truncate text-[11px] sm:text-xs text-slate-300">
-                      <span className="font-bold text-white">
-                        {activeNotice.username}
-                      </span>{" "}
-                      <span className="text-slate-400">({activeNotice.state})</span>{" "}
                       {metrics ? (
                         <>
+                          <span className="font-bold text-white">
+                            {activeNotice.username}
+                          </span>{" "}
+                          <span className="text-slate-400">({activeNotice.state})</span>{" "}
                           <span>claimed </span>
                           <span className="font-bold text-amber-300">
                             #{activeNotice.rank ?? 1}

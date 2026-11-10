@@ -360,6 +360,7 @@ export async function GET(req: NextRequest) {
       if (!cleanBody) continue;
       const parsedMatch = /^([a-zA-Z0-9_]+)\s*\(([^)]+)\)/.exec(cleanBody);
       const parsedRank = /#(\d+)/.exec(cleanBody);
+      if (sm.author_rank === null && !parsedRank) continue;
 
       const candidateName =
         (sm.user_id ? profileLookup.get(sm.user_id)?.username : null) ||
