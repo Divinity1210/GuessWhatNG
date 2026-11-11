@@ -1,4 +1,4 @@
-import { createSupabaseBrowserClient } from "./client";
+import { createSupabaseBrowserClient, getAuthHeaders } from "./client";
 import { VIRAL_DEMO_QUESTIONS } from "@/lib/game/viral-engine";
 
 // Types
@@ -566,6 +566,7 @@ export async function getMyTickets(userId: string) {
   try {
     const res = await fetch(`/api/support?userId=${encodeURIComponent(userId)}`, {
       cache: "no-store",
+      headers: await getAuthHeaders(),
     });
     const data = await res.json();
     if (res.ok && Array.isArray(data.tickets)) {
@@ -581,6 +582,7 @@ export async function getTicketMessages(ticketId: string) {
   try {
     const res = await fetch(`/api/support?ticketId=${encodeURIComponent(ticketId)}`, {
       cache: "no-store",
+      headers: await getAuthHeaders(),
     });
     const data = await res.json();
     if (res.ok && Array.isArray(data.messages)) {
@@ -595,7 +597,7 @@ export async function getTicketMessages(ticketId: string) {
 export async function createTicket(userId: string, subject: string, body: string) {
   const res = await fetch("/api/support", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ userId, subject, message: body }),
   });
   const data = await res.json();
@@ -606,7 +608,7 @@ export async function createTicket(userId: string, subject: string, body: string
 export async function sendTicketMessage(ticketId: string, senderId: string, body: string) {
   const res = await fetch("/api/support", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       action: "reply",
       ticketId,

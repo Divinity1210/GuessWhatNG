@@ -15,6 +15,7 @@ import {
   MessageSquareIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import {
   getActiveSessions,
   getSessionLeaderboard,
@@ -199,12 +200,15 @@ export default function DashboardPage() {
           setPreviousWinners(prevLb.slice(0, 3));
         }
 
+        const authHeaders = await getAuthHeaders();
         const [inboxRes, commRes] = await Promise.all([
           fetch(`/api/inbox?userId=${encodeURIComponent(user?.id ?? "")}`, {
             cache: "no-store",
+            headers: authHeaders,
           }).catch(() => null),
           fetch(`/api/community?userId=${encodeURIComponent(user?.id ?? "")}`, {
             cache: "no-store",
+            headers: authHeaders,
           }).catch(() => null),
         ]);
         if (inboxRes && inboxRes.ok) {

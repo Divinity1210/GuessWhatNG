@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { requireAuthUser } from "@/lib/supabase/api-auth";
 
 export interface PaystackPack {
   id: string;
@@ -10,9 +11,10 @@ export interface PaystackPack {
 
 const PAYSTACK_PACKS: Record<string, PaystackPack> = {
   starter: { id: "starter", name: "Starter Pack", coins: 100, priceNgn: 100 },
-  daily: { id: "daily", name: "Daily 100 Coins", coins: 100, priceNgn: 100 },
+  daily: { id: "daily", name: "Daily Pass", coins: 100, priceNgn: 50 },
   weekend: { id: "weekend", name: "Weekend Bundle", coins: 350, priceNgn: 300 },
-  weekly: { id: "weekly", name: "Weekly 350 Coins", coins: 350, priceNgn: 300 },
+  weekly: { id: "weekly", name: "Weekly Pack", coins: 800, priceNgn: 300 },
+  monthly: { id: "monthly", name: "Monthly Pass", coins: 4000, priceNgn: 1000 },
   ballers: { id: "ballers", name: "Baller Vault", coins: 1000, priceNgn: 750 },
   mega: { id: "mega", name: "Mega 750 Coins", coins: 750, priceNgn: 500 },
 };
@@ -20,71 +22,55 @@ const PAYSTACK_PACKS: Record<string, PaystackPack> = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const packKey = String(body.packId ?? body.plan ?? "weekly");
-    const basePack = PAYSTACK_PACKS[packKey] ?? PAYSTACK_PACKS.weekly;
-    const coins = Number(body.coins ?? basePack.coins);
-    const priceNgn = Number(body.priceNgn ?? basePack.priceNgn);
-    const gateway = String(body.gateway ?? body.channel ?? "paystack");
-    const userId = String(body.userId ?? "");
-    const email = String(body.email ?? "player@guesswhat.ng");
+    const auth = await requireAuthUser(request, body.userId);
+    if (!auth.user) {
+      return auth.response;
+    }
+    const userId = auth.user.id;
+    const email = auth.user.email || "player@guesswhat.ng";
 
-    const pack: PaystackPack = {
-      id: packKey,
-      name: `${coins} Coins Pack`,
-      coins,
-      priceNgn,
-    };
+    const packKey = String(body.packId ?? body.plan ?? "weekly").toLowerCase();
+    const pack = PAYSTACK_PACKS[packKey] ?? PAYSTACK_PACKS.weekly;
+    const gateway = String(body.gateway ?? body.channel ?? "paystack").toLowerCase();
+
+    const rawIdem =
+      request.headers.get("idempotency-key") ||
+      (typeof body.idempotencyKey === "string" ? body.idempotencyKey : "");
+    const cleanIdem = rawIdem.trim().slice(0, 120);
+    const idempotencyKey =
+      cleanIdem.length >= 8
+        ? `topup:${userId}:${cleanIdem}`
+        : `topup:${userId}:${pack.id}:${gateway}:${Math.floor(Date.now() / 15000)}`;
+
     const reference = `${gateway.toUpperCase().slice(0, 3)}-${Date.now().toString(36).toUpperCase()}`;
 
-    let dbSynced = false;
+    const sb = createSupabaseServiceClient();
+    const { data, error } = await sb.rpc("credit_wallet_topup", {
+      p_user_id: userId,
+      p_coins: pack.coins,
+      p_reference: reference,
+      p_idempotency_key: idempotencyKey,
+      p_note: `${gateway.toUpperCase()} Instant Top-Up (+${pack.coins} Coins · ₦${pack.priceNgn})`,
+    });
 
-    if (userId && /^[0-9a-f-]{36}$/i.test(userId)) {
-      try {
-        const sb = createSupabaseServiceClient();
-        const { data: wallet } = await sb
-          .from("wallets")
-          .select("coin_balance, reward_balance")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (wallet) {
-          const newCoinBalance = Number(wallet.coin_balance ?? 0) + coins;
-          const { error: wErr } = await sb
-            .from("wallets")
-            .update({
-              coin_balance: newCoinBalance,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("user_id", userId);
-
-          if (!wErr) {
-            await sb.from("wallet_transactions").insert({
-              user_id: userId,
-              type: "topup",
-              coin_delta: coins,
-              reward_delta: 0,
-              coin_balance_after: newCoinBalance,
-              reward_balance_after: Number(wallet.reward_balance ?? 0),
-              reference,
-              note: `${gateway.toUpperCase()} Instant Top-Up (+${coins} Coins · ₦${priceNgn})`,
-            });
-            dbSynced = true;
-          }
-        }
-      } catch {
-        // Hybrid client ledger handles offline fallback
-      }
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: error.message || "Could not credit wallet" },
+        { status: 400 },
+      );
     }
+
+    const resObj = (data ?? {}) as { reference?: string };
 
     return NextResponse.json({
       ok: true,
-      dbSynced,
-      reference,
+      dbSynced: true,
+      reference: resObj.reference ?? reference,
       channel: gateway,
       email,
       pack,
-      coinsCredited: coins,
-      amountNgn: priceNgn,
+      coinsCredited: pack.coins,
+      amountNgn: pack.priceNgn,
       paidAt: new Date().toISOString(),
     });
   } catch (err: unknown) {

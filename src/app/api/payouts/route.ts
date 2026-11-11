@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { requireAuthUser } from "@/lib/supabase/api-auth";
 
 const NIP_DIRECTORY: Record<string, string> = {
   "0123456789": "CHUKWUMA ADEWALE",
@@ -7,7 +8,28 @@ const NIP_DIRECTORY: Record<string, string> = {
   "9876543210": "OLUMIDE BABATUNDE",
 };
 
-export function resolveAccountName(accountNumber: string, bankName: string, fallbackName?: string): string {
+const PAYSTACK_BANK_CODES: Record<string, string> = {
+  "Access Bank": "044",
+  "First Bank of Nigeria": "011",
+  "Guaranty Trust Bank (GTBank)": "058",
+  "GTBank": "058",
+  "Kuda Bank": "50211",
+  "Moniepoint MFB": "50515",
+  "OPay": "999992",
+  "PalmPay": "999991",
+  "Stanbic IBTC Bank": "221",
+  "Sterling Bank": "232",
+  "United Bank for Africa (UBA)": "033",
+  "UBA": "033",
+  "Wema Bank": "035",
+  "Zenith Bank": "057",
+};
+
+export function resolveAccountName(
+  accountNumber: string,
+  bankName: string,
+  fallbackName?: string,
+): string {
   const clean = accountNumber.replace(/\D/g, "");
   if (NIP_DIRECTORY[clean]) return NIP_DIRECTORY[clean];
   if (fallbackName && fallbackName.trim().length > 2) {
@@ -17,12 +39,62 @@ export function resolveAccountName(accountNumber: string, bankName: string, fall
   return `VERIFIED ${bankName.split(" ")[0].toUpperCase()} HOLDER (${suffix})`;
 }
 
+async function resolveNubanWithPaystackOrFallback(
+  accountNumber: string,
+  bankName: string,
+  fallbackName?: string,
+): Promise<{ accountName: string; liveVerified: boolean }> {
+  const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+  const bankCode =
+    Object.entries(PAYSTACK_BANK_CODES).find(([k]) =>
+      bankName.toLowerCase().includes(k.toLowerCase().split(" ")[0]),
+    )?.[1] ?? null;
+
+  if (paystackSecret && bankCode) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(
+        `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
+        {
+          headers: { Authorization: `Bearer ${paystackSecret}` },
+          signal: controller.signal,
+        },
+      );
+      clearTimeout(timer);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.status && json?.data?.account_name) {
+          return {
+            accountName: String(json.data.account_name).trim().toUpperCase(),
+            liveVerified: true,
+          };
+        }
+      }
+    } catch {
+      // Fall back if Paystack NUBAN lookup times out
+    }
+  }
+
+  return {
+    accountName: resolveAccountName(accountNumber, bankName, fallbackName),
+    liveVerified: false,
+  };
+}
+
 export async function GET(request: NextRequest) {
+  const auth = await requireAuthUser(request);
+  if (!auth.user) {
+    return auth.response;
+  }
+
   const { searchParams } = new URL(request.url);
   const accountNumber = String(
-    searchParams.get("accountNumber") ?? searchParams.get("account_number") ?? ""
+    searchParams.get("accountNumber") ?? searchParams.get("account_number") ?? "",
   ).replace(/\D/g, "");
-  const bankName = String(searchParams.get("bankName") ?? searchParams.get("bank") ?? "OPay");
+  const bankName = String(
+    searchParams.get("bankName") ?? searchParams.get("bank") ?? "OPay",
+  );
 
   if (accountNumber.length !== 10) {
     return NextResponse.json(
@@ -31,26 +103,34 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const accountName = resolveAccountName(accountNumber, bankName);
+  const { accountName, liveVerified } = await resolveNubanWithPaystackOrFallback(
+    accountNumber,
+    bankName,
+  );
   return NextResponse.json({
     ok: true,
     accountNumber,
     bankName,
     accountName,
     nipVerified: true,
+    liveVerified,
   });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const userId = String(body.userId ?? "");
-    const amount = Number(body.amount ?? 0);
-    const bankName = String(body.bankName ?? "OPay");
-    const accountNumber = String(body.accountNumber ?? "").replace(/\D/g, "");
-    const accountName = resolveAccountName(accountNumber, bankName, body.accountName);
+    const auth = await requireAuthUser(request, body.userId);
+    if (!auth.user) {
+      return auth.response;
+    }
+    const userId = auth.user.id;
 
-    if (amount < 500) {
+    const amount = Math.floor(Number(body.amount ?? 0) * 100) / 100;
+    const bankName = String(body.bankName ?? "OPay").trim() || "OPay";
+    const accountNumber = String(body.accountNumber ?? "").replace(/\D/g, "");
+
+    if (!Number.isFinite(amount) || amount < 500) {
       return NextResponse.json(
         { ok: false, error: "Minimum withdrawal is ₦500" },
         { status: 400 },
@@ -64,60 +144,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const reference = `NIP-OUT-${Date.now().toString(36).toUpperCase()}`;
-    let dbSynced = false;
+    const { accountName } = await resolveNubanWithPaystackOrFallback(
+      accountNumber,
+      bankName,
+      body.accountName,
+    );
 
-    if (userId && /^[0-9a-f-]{36}$/i.test(userId)) {
-      try {
-        const sb = createSupabaseServiceClient();
-        const { data: wallet } = await sb
-          .from("wallets")
-          .select("coin_balance, reward_balance, withdrawable_balance")
-          .eq("user_id", userId)
-          .maybeSingle();
+    const rawIdem =
+      request.headers.get("idempotency-key") ||
+      (typeof body.idempotencyKey === "string" ? body.idempotencyKey : "");
+    const cleanIdem = rawIdem.trim().slice(0, 120);
+    const idempotencyKey =
+      cleanIdem.length >= 8
+        ? `payout:${userId}:${cleanIdem}`
+        : `payout:${userId}:${amount}:${accountNumber}:${Math.floor(Date.now() / 15000)}`;
 
-        if (wallet && Number(wallet.withdrawable_balance ?? wallet.reward_balance ?? 0) >= amount) {
-          const newReward = Math.max(0, Number(wallet.reward_balance ?? 0) - amount);
-          const newWithdrawable = Math.max(0, Number(wallet.withdrawable_balance ?? 0) - amount);
+    const supabase = createSupabaseServiceClient();
+    const { data, error } = await supabase.rpc("process_payout_withdrawal", {
+      p_user_id: userId,
+      p_amount: amount,
+      p_bank_name: bankName,
+      p_account_number: accountNumber,
+      p_account_name: accountName,
+      p_idempotency_key: idempotencyKey,
+      p_reference: null,
+    });
 
-          const { error: wErr } = await sb
-            .from("wallets")
-            .update({
-              reward_balance: newReward,
-              withdrawable_balance: newWithdrawable,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("user_id", userId);
-
-          if (!wErr) {
-            await sb.from("wallet_transactions").insert({
-              user_id: userId,
-              type: "withdrawal",
-              coin_delta: 0,
-              reward_delta: -amount,
-              coin_balance_after: Number(wallet.coin_balance ?? 0),
-              reward_balance_after: newReward,
-              reference,
-              note: `NIP Payout to ${bankName} (${accountNumber} · ${accountName})`,
-            });
-            dbSynced = true;
-          }
-        }
-      } catch {
-        // Hybrid client ledger handles offline fallback
-      }
+    if (error) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: error.message || "Withdrawal could not be processed.",
+        },
+        { status: 400 },
+      );
     }
+
+    const receipt = (data ?? {}) as {
+      payoutId?: string;
+      idempotentReplay?: boolean;
+      reference?: string;
+      amount?: number;
+      bankName?: string;
+      accountNumber?: string;
+      accountName?: string;
+      status?: string;
+      settledAt?: string;
+      withdrawableBalanceAfter?: number;
+    };
 
     return NextResponse.json({
       ok: true,
-      dbSynced,
-      reference,
-      amount,
-      bankName,
-      accountNumber,
-      accountName,
-      status: "completed",
-      settledAt: new Date().toISOString(),
+      dbSynced: true,
+      idempotentReplay: Boolean(receipt.idempotentReplay),
+      payoutId: receipt.payoutId,
+      reference: receipt.reference,
+      transferReference: receipt.reference,
+      amount: Number(receipt.amount ?? amount),
+      bankName: receipt.bankName ?? bankName,
+      accountNumber: receipt.accountNumber ?? accountNumber,
+      accountName: receipt.accountName ?? accountName,
+      withdrawableBalanceAfter: receipt.withdrawableBalanceAfter,
+      status: receipt.status ?? "completed",
+      settledAt: receipt.settledAt ?? new Date().toISOString(),
     });
   } catch (err: unknown) {
     return NextResponse.json(

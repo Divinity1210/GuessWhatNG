@@ -9,6 +9,7 @@ import {
   CloseIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import {
   getMyTickets,
   getTicketMessages,
@@ -32,6 +33,7 @@ export default function SupportPage() {
   const [body, setBody] = useState("");
   const [creating, setCreating] = useState(false);
   const [submitBanner, setSubmitBanner] = useState<string | null>(null);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
   // Reply form
   const [reply, setReply] = useState("");
@@ -68,14 +70,19 @@ export default function SupportPage() {
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subject.trim() || !body.trim()) return;
+    if (!user?.id || user.id === "demo-naija-player") {
+      setErrorBanner("Please sign in to submit a support ticket or gameplay feedback.");
+      return;
+    }
     setCreating(true);
     setSubmitBanner(null);
+    setErrorBanner(null);
     try {
       const res = await fetch("/api/support", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          userId: user?.id ?? "",
+          userId: user.id,
           category,
           rating: category === "feedback" ? rating : undefined,
           subject: subject.trim(),
@@ -94,14 +101,14 @@ export default function SupportPage() {
           ? "Thank you. Your gameplay feedback has been submitted."
           : "Your customer support ticket has been created.",
       );
-      const t = await getMyTickets(user?.id ?? "");
+      const t = await getMyTickets(user.id);
       setTickets(t);
       if (newId) setSelectedTicket(newId);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("gw-inbox-updated"));
       }
     } catch (err) {
-      console.error("Create ticket error:", err);
+      setErrorBanner(err instanceof Error ? err.message : "Could not submit ticket.");
     } finally {
       setCreating(false);
     }
@@ -179,6 +186,23 @@ export default function SupportPage() {
           </Button>
         </div>
       </div>
+
+      {errorBanner && (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300 flex items-center justify-between gap-3"
+        >
+          <span>{errorBanner}</span>
+          <button
+            type="button"
+            aria-label="Dismiss error"
+            onClick={() => setErrorBanner(null)}
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-rose-200 hover:bg-white/10 hover:text-white"
+          >
+            <CloseIcon className="size-4" />
+          </button>
+        </div>
+      )}
 
       {submitBanner && (
         <div

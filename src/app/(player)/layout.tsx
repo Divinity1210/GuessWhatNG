@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { Avatar, MobileNav, Logo } from "@/components/ui";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import { playMenuClick } from "@/lib/audio/sound-effects";
 import {
   SessionResultsPopup,
@@ -70,6 +71,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
       const uid = user?.id ?? "";
       const res = await fetch(`/api/inbox?userId=${encodeURIComponent(uid)}`, {
         cache: "no-store",
+        headers: await getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();

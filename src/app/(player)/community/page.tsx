@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getAuthHeaders } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import {
   ShieldCheckIcon,
@@ -454,6 +454,7 @@ export default function CommunityPage() {
 
         const res = await fetch(`/api/community?${qs.toString()}`, {
           cache: "no-store",
+          headers: await getAuthHeaders(),
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -690,7 +691,7 @@ export default function CommunityPage() {
 
   const handleSendChat = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) {
+    if (!user?.id || user.id === "demo-naija-player") {
       setChatError("Sign in to post in the Live Banter Room.");
       return;
     }
@@ -702,7 +703,7 @@ export default function CommunityPage() {
     try {
       const res = await fetch("/api/community", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "send_chat",
           userId: user.id,
@@ -727,7 +728,7 @@ export default function CommunityPage() {
   };
 
   const handleVotePoll = async (postId: string, optionId: string) => {
-    if (!user?.id) {
+    if (!user?.id || user.id === "demo-naija-player") {
       setChatError("Sign in to vote on polls.");
       return;
     }
@@ -738,7 +739,7 @@ export default function CommunityPage() {
     try {
       const res = await fetch("/api/community", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "vote_poll",
           userId: user.id,
@@ -768,7 +769,10 @@ export default function CommunityPage() {
   };
 
   const handleSendReply = async (postId: string) => {
-    if (!user?.id) return;
+    if (!user?.id || user.id === "demo-naija-player") {
+      setChatError("Sign in to reply to topics.");
+      return;
+    }
     const draft = (replyDrafts[postId] || "").trim();
     if (!draft || sendingReplyId) return;
 
@@ -776,7 +780,7 @@ export default function CommunityPage() {
     try {
       const res = await fetch("/api/community", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "reply_post",
           userId: user.id,
@@ -807,6 +811,10 @@ export default function CommunityPage() {
   };
 
   const handleReactMessage = async (messageId: number, emoji: ReactionKey) => {
+    if (!user?.id || user.id === "demo-naija-player") {
+      setChatError("Sign in to react and join the banter.");
+      return;
+    }
     const reactKey = `${messageId}:${emoji}`;
     const alreadyReacted = Boolean(myReactions[reactKey]);
     const delta = alreadyReacted ? -1 : 1;
@@ -857,16 +865,26 @@ export default function CommunityPage() {
       })),
     );
 
+    const headers = await getAuthHeaders({ "Content-Type": "application/json" });
     await fetch("/api/community", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "react_message", messageId, emoji, delta }),
+      headers,
+      body: JSON.stringify({
+        action: "react_message",
+        userId: user.id,
+        messageId,
+        emoji,
+        delta,
+      }),
     }).catch(() => null);
   };
 
   const handleCreateTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) return;
+    if (!user?.id || user.id === "demo-naija-player") {
+      setTopicError("Sign in to start a topic or poll.");
+      return;
+    }
     setCreatingTopic(true);
     setTopicError(null);
 
@@ -882,7 +900,7 @@ export default function CommunityPage() {
 
       const res = await fetch("/api/community", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "create_topic",
           userId: user.id,
@@ -932,12 +950,12 @@ export default function CommunityPage() {
 
   const handleSaveQuickDemographics = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) return;
+    if (!user?.id || user.id === "demo-naija-player") return;
     setSavingDemo(true);
     try {
       const res = await fetch("/api/community", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "quick_demographics",
           userId: user.id,

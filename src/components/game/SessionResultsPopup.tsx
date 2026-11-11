@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useId } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import {
   playSessionComplete,
@@ -243,7 +244,9 @@ export function SessionResultsPopup() {
         if (user?.id) params.set("userId", user.id);
         if (entryIdOverride) params.set("entryId", entryIdOverride);
 
+        const headers = await getAuthHeaders();
         const res = await fetch(`/api/game/session?${params.toString()}`, {
+          headers,
           cache: "no-store",
         });
         if (!res.ok) return;

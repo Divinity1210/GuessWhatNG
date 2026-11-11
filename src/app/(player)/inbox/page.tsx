@@ -11,6 +11,7 @@ import {
   ChevronRightIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { getAuthHeaders } from "@/lib/supabase/client";
 
 type NotificationItem = {
   id: number;
@@ -32,6 +33,7 @@ export default function InboxPage() {
       const uid = user?.id ?? "";
       const res = await fetch(`/api/inbox?userId=${encodeURIComponent(uid)}`, {
         cache: "no-store",
+        headers: await getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
@@ -60,12 +62,13 @@ export default function InboxPage() {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
     );
+    if (!user?.id || user.id === "demo-naija-player") return;
     try {
       await fetch("/api/inbox", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          userId: user?.id ?? "",
+          userId: user.id,
           notificationId: id,
         }),
       });
@@ -79,15 +82,17 @@ export default function InboxPage() {
     setMarkingAll(true);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await fetch("/api/inbox", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user?.id ?? "",
-          markAll: true,
-        }),
-      });
-      notifyInboxBadge();
+      if (user?.id && user.id !== "demo-naija-player") {
+        await fetch("/api/inbox", {
+          method: "PATCH",
+          headers: await getAuthHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            userId: user.id,
+            markAll: true,
+          }),
+        });
+        notifyInboxBadge();
+      }
     } catch {
       // Ignore
     } finally {

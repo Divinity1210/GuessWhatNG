@@ -4,9 +4,9 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 /**
  * VAS aggregator webhook. Hardening rules:
- *  - refuse-by-default: invalid signature → 401, unknown event → logged + 202
- *  - idempotent on (provider, provider_event_id)
- *  - coins credited only through the wallet_transactions ledger
+ *  - refuse-by-default: invalid signature -> 401, unknown event -> logged + 202
+ *  - idempotent on (provider, provider_event_id) and wallet_transactions.idempotency_key
+ *  - coins credited atomically with row-level lock via credit_wallet_topup RPC
  */
 export async function POST(req: Request) {
   const provider = getBillingProvider();
@@ -48,7 +48,6 @@ export async function POST(req: Request) {
   }
 
   if (!sub || event.type === "unknown") {
-    // Logged for investigation, acknowledged so the aggregator stops retrying.
     return NextResponse.json({ status: "logged, not processed" }, { status: 202 });
   }
 
@@ -61,31 +60,17 @@ export async function POST(req: Request) {
       break;
     }
     case "charge_success": {
-      // Credit cycle coins through the ledger via RPC-free transactional path.
-      const { data: wallet } = await db
-        .from("wallets")
-        .select("coin_balance, reward_balance")
-        .eq("user_id", sub.user_id)
-        .single();
-      if (wallet) {
-        const newBalance = Number(wallet.coin_balance) + Number(sub.coins_per_cycle);
-        await db.from("wallet_transactions").insert({
-          user_id: sub.user_id,
-          type: "subscription_grant",
-          coin_delta: sub.coins_per_cycle,
-          coin_balance_after: newBalance,
-          reward_balance_after: wallet.reward_balance,
-          reference: `billing:${event.providerEventId}`,
-        });
-        await db
-          .from("wallets")
-          .update({ coin_balance: newBalance, updated_at: new Date().toISOString() })
-          .eq("user_id", sub.user_id);
-        await db
-          .from("subscriptions")
-          .update({ status: "active", updated_at: new Date().toISOString() })
-          .eq("id", sub.id);
-      }
+      await db.rpc("credit_wallet_topup", {
+        p_user_id: sub.user_id,
+        p_coins: Number(sub.coins_per_cycle),
+        p_reference: `billing:${event.providerEventId}`,
+        p_idempotency_key: `billing:${provider.key}:${event.providerEventId}`,
+        p_note: `Recurring VAS cycle grant (${sub.plan})`,
+      });
+      await db
+        .from("subscriptions")
+        .update({ status: "active", updated_at: new Date().toISOString() })
+        .eq("id", sub.id);
       break;
     }
     case "charge_failed": {

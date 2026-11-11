@@ -6,13 +6,19 @@ import {
 } from "@/lib/billing/mock-adapter";
 import type { SubscriptionPlan } from "@/lib/billing/provider";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { requireAuthUser } from "@/lib/supabase/api-auth";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const auth = await requireAuthUser(request, body.userId);
+    if (!auth.user) {
+      return auth.response;
+    }
+    const userId = auth.user.id;
+
     const rawMsisdn = String(body.msisdn ?? "").trim();
     const plan = (body.plan ?? "weekly") as SubscriptionPlan;
-    const userId = String(body.userId ?? "demo-naija-player");
 
     if (!rawMsisdn || rawMsisdn.replace(/\D/g, "").length < 10) {
       return NextResponse.json(
@@ -32,23 +38,20 @@ export async function POST(request: NextRequest) {
       userId,
     });
 
-    // Record pending_consent subscription in Supabase when reachable and userId is a UUID
-    if (/^[0-9a-f-]{36}$/i.test(userId)) {
-      try {
-        const sb = createSupabaseServiceClient();
-        await sb.from("subscriptions").insert({
-          user_id: userId,
-          msisdn,
-          carrier,
-          plan,
-          status: "pending_consent",
-          coins_per_cycle: planSpec.coins,
-          provider: provider.key,
-          provider_ref: initiation.providerRef,
-        });
-      } catch {
-        // Non-fatal if DB is paused or msisdn already has an active sub
-      }
+    try {
+      const sb = createSupabaseServiceClient();
+      await sb.from("subscriptions").insert({
+        user_id: userId,
+        msisdn,
+        carrier,
+        plan,
+        status: "pending_consent",
+        coins_per_cycle: planSpec.coins,
+        provider: provider.key,
+        provider_ref: initiation.providerRef,
+      });
+    } catch {
+      // Non-fatal if msisdn already has an active sub
     }
 
     return NextResponse.json({

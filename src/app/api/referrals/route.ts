@@ -1,66 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-
-const UUID_RE = /^[0-9a-f-]{36}$/i;
-
-async function resolveUserId(
-  supabase: ReturnType<typeof createSupabaseServiceClient>,
-  userId?: string | null,
-): Promise<string | null> {
-  if (userId && UUID_RE.test(userId)) return userId;
-  const { data: demoProfile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("username", "naija_striker")
-    .maybeSingle();
-  if (demoProfile?.id) return demoProfile.id;
-  const { data: anyProfile } = await supabase
-    .from("profiles")
-    .select("id")
-    .limit(1)
-    .maybeSingle();
-  return anyProfile?.id ?? null;
-}
+import { getOptionalAuthUser } from "@/lib/supabase/api-auth";
 
 export async function GET(req: NextRequest) {
   try {
+    const authUser = await getOptionalAuthUser(req);
+    const resolvedUserId = authUser?.id ?? null;
     const supabase = createSupabaseServiceClient();
-    const rawUserId = req.nextUrl.searchParams.get("userId");
-    const resolvedUserId = await resolveUserId(supabase, rawUserId);
 
-    const { data: allProfiles } = await supabase
-      .from("profiles")
-      .select("id, username, referral_code, referred_by, created_at, turf")
-      .order("created_at", { ascending: false });
-
-    const profiles = allProfiles ?? [];
-    const myProfile = resolvedUserId
-      ? profiles.find((p) => p.id === resolvedUserId)
-      : null;
+    const [
+      { data: myProfile },
+      { data: myReferredRows },
+      { data: allReferredEdges },
+    ] = await Promise.all([
+      resolvedUserId
+        ? supabase
+            .from("profiles")
+            .select("id, username, referral_code, turf")
+            .eq("id", resolvedUserId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      resolvedUserId
+        ? supabase
+            .from("profiles")
+            .select("id, username, created_at")
+            .eq("referred_by", resolvedUserId)
+            .order("created_at", { ascending: false })
+            .limit(200)
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("profiles")
+        .select("referred_by")
+        .not("referred_by", "is", null)
+        .limit(10000),
+    ]);
 
     const referralCode = myProfile?.referral_code ?? "NAIJA26";
+    const myReferrals = (myReferredRows ?? []).map((p) => ({
+      id: p.id,
+      username: p.username,
+      created_at: p.created_at,
+    }));
 
-    // Players referred by this user
-    const myReferrals = resolvedUserId
-      ? profiles
-          .filter((p) => p.referred_by === resolvedUserId)
-          .map((p) => ({
-            id: p.id,
-            username: p.username,
-            created_at: p.created_at,
-          }))
-      : [];
-
-    // Compute Monthly Referral Leaderboard across all profiles
+    // Aggregate referral counts per referrer UUID
     const countsByReferrer = new Map<string, number>();
-    for (const p of profiles) {
-      if (p.referred_by) {
+    for (const row of allReferredEdges ?? []) {
+      if (row.referred_by) {
         countsByReferrer.set(
-          p.referred_by,
-          (countsByReferrer.get(p.referred_by) ?? 0) + 1,
+          row.referred_by,
+          (countsByReferrer.get(row.referred_by) ?? 0) + 1,
         );
       }
     }
+
+    const topReferrerIds = Array.from(countsByReferrer.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 25)
+      .map(([uid]) => uid);
+
+    if (resolvedUserId && !topReferrerIds.includes(resolvedUserId)) {
+      topReferrerIds.push(resolvedUserId);
+    }
+
+    const { data: referrerProfiles } =
+      topReferrerIds.length > 0
+        ? await supabase
+            .from("profiles")
+            .select("id, username, referral_code, turf")
+            .in("id", topReferrerIds)
+        : { data: [] };
 
     const leaderboardCandidates: {
       userId: string;
@@ -70,7 +78,7 @@ export async function GET(req: NextRequest) {
       turf: string;
     }[] = [];
 
-    for (const p of profiles) {
+    for (const p of referrerProfiles ?? []) {
       const count = countsByReferrer.get(p.id) ?? 0;
       if (count > 0 || p.id === resolvedUserId) {
         leaderboardCandidates.push({
@@ -83,7 +91,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Ensure rich Top 10 Monthly Referral Leaderboard (Pages 22, 23, 42)
     const seededReferrers = [
       { userId: "seed-ref-1", username: "eko_king", referralCode: "EKOKING1", referralsCount: 19, turf: "Lagos (Eko)" },
       { userId: "seed-ref-2", username: "ada_unilag", referralCode: "ADAUNILG", referralsCount: 15, turf: "UNILAG" },

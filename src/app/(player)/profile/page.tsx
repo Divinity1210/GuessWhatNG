@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Avatar, Button } from "@/components/ui";
 import { CopyIcon, CheckIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { getAuthHeaders } from "@/lib/supabase/client";
 
 const NIGERIAN_BANKS = [
   "Access Bank",
@@ -47,7 +48,9 @@ export default function ProfilePage() {
     if (!user) return;
     async function load() {
       try {
-        const res = await fetch(`/api/profile?userId=${encodeURIComponent(user!.id)}`, {
+        const headers = await getAuthHeaders();
+        const res = await fetch("/api/profile", {
+          headers,
           cache: "no-store",
         });
         if (res.ok) {
@@ -93,14 +96,14 @@ export default function ProfilePage() {
     setSavedMsg(null);
 
     try {
-      const compressedDataUrl = await new Promise<string>((resolve, reject) => {
+      const avatarBlob = await new Promise<Blob>((resolve, reject) => {
         const reader = new FileReader();
         reader.onerror = () => reject(new Error("Could not read image"));
         reader.onload = () => {
           const img = new Image();
           img.onerror = () => reject(new Error("Invalid image format"));
           img.onload = () => {
-            const size = 160;
+            const size = 256;
             const canvas = document.createElement("canvas");
             canvas.width = size;
             canvas.height = size;
@@ -113,25 +116,49 @@ export default function ProfilePage() {
             const sx = (img.width - minSide) / 2;
             const sy = (img.height - minSide) / 2;
             ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-            resolve(canvas.toDataURL("image/jpeg", 0.82));
+            canvas.toBlob(
+              (webpBlob) => {
+                if (webpBlob && webpBlob.type === "image/webp") {
+                  resolve(webpBlob);
+                  return;
+                }
+                canvas.toBlob(
+                  (jpegBlob) => {
+                    if (jpegBlob) resolve(jpegBlob);
+                    else reject(new Error("Could not compress image"));
+                  },
+                  "image/jpeg",
+                  0.85,
+                );
+              },
+              "image/webp",
+              0.85,
+            );
           };
           img.src = String(reader.result);
         };
         reader.readAsDataURL(file);
       });
 
-      setAvatarUrl(compressedDataUrl);
+      const ext = avatarBlob.type === "image/webp" ? "webp" : "jpg";
+      const formData = new FormData();
+      formData.append(
+        "avatar",
+        new File([avatarBlob], `avatar.${ext}`, { type: avatarBlob.type }),
+      );
+
+      const headers = await getAuthHeaders();
       const res = await fetch("/api/profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.id,
-          avatarUrl: compressedDataUrl,
-        }),
+        headers,
+        body: formData,
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to update avatar");
+      }
+      if (data.avatarUrl) {
+        setAvatarUrl(data.avatarUrl);
       }
       await refreshProfile();
       setSavedMsg("Profile photo updated.");
@@ -153,9 +180,12 @@ export default function ProfilePage() {
     setSavedMsg(null);
 
     try {
+      const headers = await getAuthHeaders({
+        "Content-Type": "application/json",
+      });
       const res = await fetch("/api/profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           userId: user.id,
           username,

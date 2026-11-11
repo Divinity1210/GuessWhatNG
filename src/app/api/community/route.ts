@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { getOptionalAuthUser, requireAuthUser } from "@/lib/supabase/api-auth";
 
 const URL_REGEX =
   /(https?:\/\/\S+|www\.\S+|\b[a-z0-9-]+\.(com|ng|net|org|io|me|ly|co|gg|xyz)\b|wa\.me|t\.me)/i;
@@ -54,7 +55,6 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = createSupabaseServiceClient();
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId") || "";
     const postId = searchParams.get("postId") || "";
     const category = searchParams.get("category") || "all";
     const searchUsers = (searchParams.get("searchUsers") || "").trim();
@@ -97,6 +97,9 @@ export async function GET(req: NextRequest) {
         })),
       });
     }
+
+    const authUser = await getOptionalAuthUser(req);
+    const userId = authUser?.id ?? "";
 
     // 1. Find current active session & latest completed session
     const { data: sessions } = await supabase
@@ -654,6 +657,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // All remaining actions require a verified server-side Supabase session
+    const auth = await requireAuthUser(req, body.userId);
+    if (auth.response) {
+      return auth.response;
+    }
+    const userId = auth.user.id;
+
+    // Check mute status
+    const { data: muteRow } = await supabase
+      .from("community_mutes")
+      .select("reason, muted_until")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (
+      muteRow &&
+      (!muteRow.muted_until || new Date(muteRow.muted_until).getTime() > Date.now())
+    ) {
+      return NextResponse.json(
+        {
+          error: muteRow.reason
+            ? `Posting restricted: ${muteRow.reason}`
+            : "Your posting access is currently paused by moderation.",
+        },
+        { status: 403 },
+      );
+    }
+
     if (action === "react_message") {
       const { messageId, emoji, delta } = body;
       const allowed = ["love", "laugh", "fire", "like", "clap", "target", "skull"];
@@ -682,36 +713,6 @@ export async function POST(req: NextRequest) {
         .eq("id", messageId);
 
       return NextResponse.json({ ok: true, reactions });
-    }
-
-    // All remaining actions require a signed-in userId
-    const { userId } = body;
-    if (!userId) {
-      return NextResponse.json(
-        { error: "Sign in to join the conversation and vote." },
-        { status: 401 },
-      );
-    }
-
-    // Check mute status
-    const { data: muteRow } = await supabase
-      .from("community_mutes")
-      .select("reason, muted_until")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (
-      muteRow &&
-      (!muteRow.muted_until || new Date(muteRow.muted_until).getTime() > Date.now())
-    ) {
-      return NextResponse.json(
-        {
-          error: muteRow.reason
-            ? `Posting restricted: ${muteRow.reason}`
-            : "Your posting access is currently paused by moderation.",
-        },
-        { status: 403 },
-      );
     }
 
     const { data: profile } = await supabase

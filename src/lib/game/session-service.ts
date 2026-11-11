@@ -1,5 +1,11 @@
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  createSupabaseBrowserClient,
+  getAuthHeaders,
+} from "@/lib/supabase/client";
 import { VIRAL_DEMO_QUESTIONS } from "@/lib/game/viral-engine";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Types
 
@@ -63,10 +69,13 @@ export async function joinSession(
       ]);
       userId = authResult?.data?.user?.id;
     }
-    if (userId) {
+    if (userId && UUID_RE.test(userId)) {
+      const headers = await getAuthHeaders({
+        "Content-Type": "application/json",
+      });
       const res = await fetch("/api/game/session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           action: "join",
           sessionId,
@@ -234,9 +243,12 @@ export async function submitAnswer(
     }
 
     if (targetSessionId) {
+      const headers = await getAuthHeaders({
+        "Content-Type": "application/json",
+      });
       const res = await fetch("/api/game/session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           action: "answer",
           entryId,

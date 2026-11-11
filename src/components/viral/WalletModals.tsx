@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { topupCoinsVas, requestRewardWithdrawal } from "@/lib/supabase/queries";
+import { useState, useRef } from "react";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import { NIGERIAN_BANKS } from "@/lib/game/viral-engine";
 import {
   CoinsIcon,
@@ -98,6 +98,9 @@ export function VasTopupModal({
   const [receiptRef, setReceiptRef] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const topupIdempotencyRef = useRef<string>(
+    `topup_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+  );
 
   const carrier = detectNigerianCarrier(phone);
 
@@ -108,15 +111,20 @@ export function VasTopupModal({
     if (rail === "paystack") {
       setLoading(true);
       try {
+        const headers = await getAuthHeaders({
+          "Content-Type": "application/json",
+          "Idempotency-Key": topupIdempotencyRef.current,
+        });
         const res = await fetch("/api/payments/paystack", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             userId,
             plan: selectedPlan.id,
             coins: selectedPlan.coins,
             priceNgn: selectedPlan.priceNgn,
             gateway,
+            idempotencyKey: topupIdempotencyRef.current,
             callbackUrl: typeof window !== "undefined" ? window.location.href : undefined,
           }),
         });
@@ -130,16 +138,6 @@ export function VasTopupModal({
           return;
         }
 
-        if (!data.dbSynced) {
-          await topupCoinsVas({
-            userId,
-            coins: selectedPlan.coins,
-            plan: selectedPlan.id,
-            msisdn: gateway.toUpperCase(),
-            carrier: gateway,
-            priceNgn: selectedPlan.priceNgn,
-          });
-        }
         setReceiptRef(data.reference || `${gateway.toUpperCase()}_${Date.now()}`);
         setStep("done");
         onSuccess();
@@ -158,9 +156,12 @@ export function VasTopupModal({
 
     setLoading(true);
     try {
+      const headers = await getAuthHeaders({
+        "Content-Type": "application/json",
+      });
       const res = await fetch("/api/vas/initiate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           msisdn: phone,
           plan: selectedPlan.id,
@@ -186,9 +187,12 @@ export function VasTopupModal({
     setLoading(true);
     setError(null);
     try {
+      const headers = await getAuthHeaders({
+        "Content-Type": "application/json",
+      });
       const res = await fetch("/api/vas/confirm", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           providerRef,
           otp: otp.trim(),
@@ -202,16 +206,6 @@ export function VasTopupModal({
         throw new Error(data.error || "Invalid OTP code. Enter 0000 in sandbox mode.");
       }
 
-      if (!data.dbSynced) {
-        await topupCoinsVas({
-          userId,
-          coins: selectedPlan.coins,
-          plan: selectedPlan.id,
-          msisdn: phone,
-          carrier: carrier.key,
-          priceNgn: selectedPlan.priceNgn,
-        });
-      }
       setReceiptRef(data.providerRef || providerRef);
       setStep("done");
       onSuccess();
@@ -510,12 +504,21 @@ export function WithdrawalModal({
   const [done, setDone] = useState(false);
   const [transferRef, setTransferRef] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const payoutIdempotencyRef = useRef<string>(
+    `wd_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+  );
+
+  const resetIdempotencyKey = () => {
+    payoutIdempotencyRef.current = `wd_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  };
 
   const resolveAccountViaApi = async (digits: string, bank: string) => {
     setResolvingAccount(true);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(
         `/api/payouts?account_number=${encodeURIComponent(digits)}&bank=${encodeURIComponent(bank)}`,
+        { headers },
       );
       const data = await res.json();
       if (res.ok && data.ok && data.accountName) {
@@ -531,6 +534,7 @@ export function WithdrawalModal({
   };
 
   const handleAccountChange = (val: string) => {
+    resetIdempotencyKey();
     const digits = val.replace(/\D/g, "").slice(0, 10);
     setAccountNumber(digits);
     if (digits.length === 10) {
@@ -541,6 +545,7 @@ export function WithdrawalModal({
   };
 
   const handleBankChange = (newBank: string) => {
+    resetIdempotencyKey();
     setBankName(newBank);
     if (accountNumber.length === 10) {
       resolveAccountViaApi(accountNumber, newBank);
@@ -561,30 +566,26 @@ export function WithdrawalModal({
     setLoading(true);
     setError(null);
     try {
+      const idemKey = payoutIdempotencyRef.current;
+      const headers = await getAuthHeaders({
+        "Content-Type": "application/json",
+        "Idempotency-Key": idemKey,
+      });
       const res = await fetch("/api/payouts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           userId,
           amount: numAmount,
           bankName,
           accountNumber,
           accountName: accountName || "VERIFIED PLAYER",
+          idempotencyKey: idemKey,
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
         throw new Error(data.error || "Failed to initiate bank transfer");
-      }
-
-      if (!data.dbSynced) {
-        await requestRewardWithdrawal({
-          userId,
-          amount: numAmount,
-          bankName,
-          accountNumber,
-          accountName: accountName || "VERIFIED PLAYER",
-        });
       }
 
       setTransferRef(data.transferReference || data.reference || "");

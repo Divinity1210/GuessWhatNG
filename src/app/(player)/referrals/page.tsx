@@ -12,6 +12,7 @@ import {
   CheckIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import { getReferredUsers, type ReferralRow } from "@/lib/supabase/queries";
 import {
   buildWhatsAppShareUrl,
@@ -45,6 +46,7 @@ export default function ReferralsPage() {
         const uid = user?.id ?? "";
         const res = await fetch(`/api/referrals?userId=${encodeURIComponent(uid)}`, {
           cache: "no-store",
+          headers: await getAuthHeaders(),
         });
         if (res.ok) {
           const data = await res.json();
