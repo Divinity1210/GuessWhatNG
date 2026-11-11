@@ -901,6 +901,12 @@ export function SessionResultsPopup() {
                             (a, b) => a.position - b.position,
                           )
                       ).map((opt, idx) => {
+                        const hasImage =
+                          opt.mediaUrl &&
+                          (opt.mediaUrl.startsWith("http") ||
+                            opt.mediaUrl.startsWith("data:image/"));
+                        const hasColor =
+                          opt.mediaUrl && opt.mediaUrl.startsWith("#");
                         const barColor = opt.isMostSelected
                           ? "bg-emerald-400"
                           : opt.isLeastSelected
@@ -918,10 +924,25 @@ export function SessionResultsPopup() {
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0">
+                              <div className="flex items-center gap-2.5 min-w-0">
                                 <span className="font-mono text-xs text-slate-400 shrink-0">
                                   #{isSessionEnded ? opt.rank : idx + 1}
                                 </span>
+                                {hasImage && opt.mediaUrl ? (
+                                  <img
+                                    src={opt.mediaUrl}
+                                    alt={opt.label}
+                                    width={80}
+                                    height={80}
+                                    loading="lazy"
+                                    className="size-10 aspect-square rounded-lg object-cover object-center border border-white/15 bg-[#0e1320] shrink-0"
+                                  />
+                                ) : hasColor && opt.mediaUrl ? (
+                                  <span
+                                    className="size-6 rounded-full border-2 border-white/80 shrink-0"
+                                    style={{ backgroundColor: opt.mediaUrl }}
+                                  />
+                                ) : null}
                                 <span className="text-sm font-bold text-white truncate">
                                   {opt.label}
                                 </span>
@@ -1043,9 +1064,10 @@ export function SessionResultsPopup() {
                                       <img
                                         src={opt.mediaUrl}
                                         alt={opt.label}
-                                        width={56}
-                                        height={40}
-                                        className="h-10 w-14 rounded-lg object-cover border border-white/15 bg-slate-900 shrink-0"
+                                        width={88}
+                                        height={88}
+                                        loading="lazy"
+                                        className="size-11 aspect-square rounded-lg object-cover object-center border border-white/15 bg-[#0e1320] shrink-0"
                                       />
                                     ) : hasColor && opt.mediaUrl ? (
                                       <span

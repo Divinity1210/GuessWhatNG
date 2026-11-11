@@ -529,13 +529,13 @@ export default function PlayPage() {
                         lastPick.option.media_url.startsWith("data:image/")))) &&
                   lastPick.option.media_url ? (
                   <div className="flex flex-col items-center gap-2.5">
-                    <div className="w-40 aspect-[4/3] overflow-hidden rounded-xl border-2 border-accent shadow-lg bg-slate-900">
+                    <div className="size-36 sm:size-40 aspect-square overflow-hidden rounded-2xl border-2 border-accent shadow-lg bg-[#0e1320]">
                       <img
                         src={lastPick.option.media_url}
                         alt={lastPick.option.label}
-                        width={320}
-                        height={240}
-                        className="h-full w-full object-cover"
+                        width={800}
+                        height={800}
+                        className="h-full w-full object-cover object-center"
                       />
                     </div>
                     <span className="text-sm font-semibold text-white">
@@ -728,23 +728,25 @@ export default function PlayPage() {
             </div>
           ) : qType === "image" ? (
             <div className="relative z-10 grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
-              {q.question_options.map((opt) => (
+              {q.question_options.map((opt, idx) => (
                 <button
                   key={opt.id}
                   type="button"
                   disabled={submitting}
                   onClick={() => handleSelectOption(opt)}
-                  className="group overflow-hidden rounded-xl border border-white/15 bg-[#192236] hover:border-accent active:scale-[0.98] transition-all duration-150 text-left flex flex-col"
+                  className="group overflow-hidden rounded-2xl border border-white/15 bg-[#151c2e] hover:border-accent active:scale-[0.98] transition-all duration-150 text-left flex flex-col shadow-[0_6px_18px_rgba(0,0,0,0.28)]"
                 >
-                  <div className="aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden bg-slate-900">
+                  <div className="aspect-square w-full overflow-hidden bg-[#0e1320]">
                     {opt.media_url ? (
                       <img
                         src={opt.media_url}
                         alt={opt.label}
-                        width={400}
-                        height={300}
+                        width={800}
+                        height={800}
                         loading="eager"
-                        className="h-full w-full object-cover transition-transform duration-200 sm:group-hover:scale-105"
+                        fetchPriority={idx < 4 ? "high" : "auto"}
+                        decoding="async"
+                        className="h-full w-full object-cover object-center transition-transform duration-200 sm:group-hover:scale-105"
                       />
                     ) : (
                       <div className="h-full w-full grid place-items-center text-xs text-slate-500">
@@ -752,8 +754,8 @@ export default function PlayPage() {
                       </div>
                     )}
                   </div>
-                  <div className="px-2.5 py-2 text-center">
-                    <span className="text-xs font-semibold text-slate-100 group-hover:text-accent line-clamp-1">
+                  <div className="border-t border-white/[0.06] bg-[#151c2e] px-2.5 py-2 text-center">
+                    <span className="text-xs sm:text-[13px] font-semibold text-slate-100 group-hover:text-accent line-clamp-1">
                       {opt.label}
                     </span>
                   </div>
