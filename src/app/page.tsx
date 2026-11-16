@@ -172,6 +172,16 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
+          <div className="mt-8 text-center">
+            <Link
+              href="/how-to-play"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-slate-200 hover:border-[#F7911B]/50 hover:text-white transition-colors"
+            >
+              <span>Read Full How to Play Guide</span>
+              <ArrowRightIcon className="size-4 text-[#F7911B]" />
+            </Link>
+          </div>
         </div>
       </section>
 

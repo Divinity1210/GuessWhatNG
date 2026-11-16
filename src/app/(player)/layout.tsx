@@ -37,6 +37,7 @@ const navGroups = [
       { label: "Play", href: "/play", Icon: PlayIcon },
       { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon },
       { label: "Community", href: "/community", Icon: MessageSquareIcon, isLive: true },
+      { label: "How to Play", href: "/how-to-play", Icon: HelpCircleIcon },
       { label: "Inbox", href: "/inbox", Icon: InboxIcon, showBadge: true },
     ],
   },
@@ -45,7 +46,6 @@ const navGroups = [
     items: [
       { label: "Profile", href: "/profile", Icon: UserIcon },
       { label: "Referrals", href: "/referrals", Icon: UsersIcon },
-      { label: "How to Play", href: "/how-to-play", Icon: HelpCircleIcon },
       { label: "Support", href: "/support", Icon: HeadsetIcon },
       { label: "Settings", href: "/settings", Icon: SettingsIcon },
     ],

@@ -9,10 +9,13 @@ import {
   PlayIcon,
   ArrowRightIcon,
   BarChartIcon,
-  LockIcon,
   VolumeIcon,
   VolumeMuteIcon,
   MessageSquareIcon,
+  UsersIcon,
+  HelpCircleIcon,
+  ChevronRightIcon,
+  InboxIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getAuthHeaders } from "@/lib/supabase/client";
@@ -30,18 +33,29 @@ import {
 } from "@/lib/audio/sound-effects";
 import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
 
-function formatCountdown(endsAt: string, nowMs: number = Date.now()): string {
+function formatHeroSessionTitle(name?: string | null): string {
+  if (!name) return "Live Session";
+  return name.replace(/^guess\s*what\s+(?=session\b)/i, "").trim() || name;
+}
+
+function formatHeroCountdown(endsAt: string, nowMs: number = Date.now()): string {
   const diff = new Date(endsAt).getTime() - nowMs;
-  if (diff <= 0) return "Ended";
+  if (diff <= 0) return "Closed";
   const days = Math.floor(diff / 86_400_000);
   const hours = Math.floor((diff % 86_400_000) / 3_600_000);
   const mins = Math.floor((diff % 3_600_000) / 60_000);
   const secs = Math.floor((diff % 60_000) / 1_000);
   if (days > 0) {
-    return `${days}d ${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s`;
+    return `${days}d ${hours}h ${mins}m`;
   }
   return `${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s`;
 }
+
+const HERO_SLIDE_LABELS = [
+  "Live session spotlight",
+  "Your standing and past results",
+  "How GuessWhat works",
+] as const;
 
 function formatDuration(ms: number): string {
   const totalSec = Math.max(1, Math.round(ms / 1000));
@@ -87,7 +101,13 @@ export default function DashboardPage() {
   const [guessPulse, setGuessPulse] = useState(false);
   const [livePaused, setLivePaused] = useState(false);
   const [soundMuted, setSoundMutedState] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [heroAnnouncement, setHeroAnnouncement] = useState("");
   const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const heroTrackRef = useRef<HTMLDivElement | null>(null);
+  const activeSlideRef = useRef(0);
+  const settledSlideRef = useRef(0);
+  const pendingSlideRef = useRef<number | null>(null);
 
   useEffect(() => {
     setSoundMutedState(isSoundMuted());
@@ -275,6 +295,97 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [activeSession, livePaused, applyLeaderboardUpdate]);
 
+  const scrollToHeroSlide = useCallback((targetIndex: number) => {
+    const track = heroTrackRef.current;
+    if (!track) return;
+    const total = HERO_SLIDE_LABELS.length;
+    const nextIdx = ((targetIndex % total) + total) % total;
+    pendingSlideRef.current = nextIdx;
+    activeSlideRef.current = nextIdx;
+    setActiveSlide(nextIdx);
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    track.scrollTo({
+      left: nextIdx * track.clientWidth,
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
+
+    if (prefersReducedMotion) {
+      pendingSlideRef.current = null;
+      if (settledSlideRef.current !== nextIdx) {
+        settledSlideRef.current = nextIdx;
+        setHeroAnnouncement(`Slide ${nextIdx + 1} of ${total}: ${HERO_SLIDE_LABELS[nextIdx]}`);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const track = heroTrackRef.current;
+    if (!track) return;
+
+    let rafId: number | null = null;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    const supportsScrollEnd = "onscrollend" in window;
+
+    const handleSettled = () => {
+      const width = Math.max(track.clientWidth, 1);
+      const nearest = Math.min(
+        HERO_SLIDE_LABELS.length - 1,
+        Math.max(0, Math.round(track.scrollLeft / width)),
+      );
+      pendingSlideRef.current = null;
+      if (activeSlideRef.current !== nearest) {
+        activeSlideRef.current = nearest;
+        setActiveSlide(nearest);
+      }
+      if (settledSlideRef.current !== nearest) {
+        settledSlideRef.current = nearest;
+        setHeroAnnouncement(
+          `Slide ${nearest + 1} of ${HERO_SLIDE_LABELS.length}: ${HERO_SLIDE_LABELS[nearest]}`,
+        );
+      }
+    };
+
+    const handleScroll = () => {
+      if (pendingSlideRef.current === null && rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const width = Math.max(track.clientWidth, 1);
+          const nearest = Math.min(
+            HERO_SLIDE_LABELS.length - 1,
+            Math.max(0, Math.round(track.scrollLeft / width)),
+          );
+          if (activeSlideRef.current !== nearest) {
+            activeSlideRef.current = nearest;
+            setActiveSlide(nearest);
+          }
+        });
+      }
+
+      if (!supportsScrollEnd) {
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+        fallbackTimer = setTimeout(handleSettled, 140);
+      }
+    };
+
+    track.addEventListener("scroll", handleScroll, { passive: true });
+    if (supportsScrollEnd) {
+      track.addEventListener("scrollend", handleSettled);
+    }
+
+    return () => {
+      track.removeEventListener("scroll", handleScroll);
+      if (supportsScrollEnd) {
+        track.removeEventListener("scrollend", handleSettled);
+      }
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    };
+  }, [loading]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -300,140 +411,136 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5 sm:space-y-7 animate-fade-in">
-      {/* Primary Session Hero Card */}
+      {/* Decluttered 3-Slide Hero Carousel */}
       <section
-        className={`rounded-2xl border bg-gradient-to-br from-[#0d141c] via-[#0d111c] to-[#111524] p-4 sm:p-7 space-y-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] ${
-          isSessionEnded ? "border-amber-500/25" : "border-emerald-500/20"
+        aria-roledescription="carousel"
+        aria-label="Session highlights"
+        className={`relative overflow-hidden rounded-3xl border bg-gradient-to-b from-[#141a29] via-[#0e121e] to-[#0a0d16] shadow-[0_16px_48px_rgba(0,0,0,0.42)] ${
+          isSessionEnded ? "border-amber-500/25" : "border-white/10"
         }`}
       >
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3 max-w-xl">
-            <div className="flex flex-wrap items-center gap-2">
-              {!isSessionEnded ? (
-                <Badge variant="active" dot>
-                  Live Session · Free Entry
-                </Badge>
-              ) : (
-                <Badge variant="warning" dot>
-                  Session Ended · Results Ready
-                </Badge>
-              )}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 -left-24 size-72 rounded-full bg-[#F7911B]/[0.1] blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-24 -right-24 size-72 rounded-full bg-[#ec5812]/[0.08] blur-3xl"
+        />
 
-              {unreadInboxCount > 0 && (
-                <Link
-                  href="/inbox"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/35 px-3 py-0.5 text-xs font-semibold text-accent hover:bg-accent/25 transition-colors"
-                >
-                  <span className="size-1.5 rounded-full bg-accent" />
-                  <span>{unreadInboxCount} new in Inbox</span>
-                </Link>
-              )}
+        {/* Desktop Prev / Next Controls (DOM order before track per guidance) */}
+        <div className="pointer-events-none absolute inset-y-0 inset-x-3 z-20 hidden sm:flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => scrollToHeroSlide(activeSlide - 1)}
+            aria-label="Previous slide"
+            className="pointer-events-auto grid size-9 place-items-center rounded-full border border-white/15 bg-[#0a0d16]/85 text-slate-300 hover:border-accent/50 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffb95b] [touch-action:manipulation] transition-colors"
+          >
+            <ChevronRightIcon className="size-4 rotate-180" />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToHeroSlide(activeSlide + 1)}
+            aria-label="Next slide"
+            className="pointer-events-auto grid size-9 place-items-center rounded-full border border-white/15 bg-[#0a0d16]/85 text-slate-300 hover:border-accent/50 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffb95b] [touch-action:manipulation] transition-colors"
+          >
+            <ChevronRightIcon className="size-4" />
+          </button>
+        </div>
+
+        {/* Horizontal Scroll-Snap Track */}
+        <div
+          ref={heroTrackRef}
+          tabIndex={0}
+          role="group"
+          aria-label="Slides"
+          className="relative z-10 flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain no-scrollbar [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#ffb95b]"
+        >
+          {/* Slide 1: Focused Live Session Card */}
+          <div
+            role="group"
+            aria-roledescription="slide"
+            aria-label="1 of 3"
+            className="min-w-full shrink-0 snap-center px-5 pt-7 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
+          >
+            {!isSessionEnded ? (
+              <Badge variant="active" dot className="px-3.5 py-1">
+                Live Now · Free Entry
+              </Badge>
+            ) : (
+              <Badge variant="warning" dot className="px-3.5 py-1">
+                Session Ended · Results Ready
+              </Badge>
+            )}
+
+            <div className="space-y-1.5">
+              <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                {formatHeroSessionTitle(activeSession?.name)}
+              </h1>
+              <p className="text-sm text-slate-300">
+                {isSessionEnded
+                  ? "Official crowd results and winners are ready."
+                  : "Pick what most players will choose."}
+              </p>
             </div>
 
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
-              {activeSession?.name ?? "GuessWhat Live Session"}
-            </h1>
-
-            <p className="text-sm text-slate-300 leading-relaxed">
-              {isSessionEnded ? (
-                <>
-                  Entries are closed. Top 36 players share{" "}
-                  <strong className="text-white">
-                    {formatNaira(activeSession?.prize_pool ?? 500_000)}
-                  </strong>
-                  . Check the crowd vote breakdown and verified winners.
-                </>
-              ) : (
-                <>
-                  Pick what most players will choose across 10 fast questions. Top 36 players share{" "}
-                  <strong className="text-white">
-                    {formatNaira(activeSession?.prize_pool ?? 500_000)}
-                  </strong>{" "}
-                  when the clock hits zero.
-                </>
-              )}
-            </p>
-
-            {/* Read-Only Session Metric Strip (No Background Fill, No Button Look) */}
-            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-y-3 border-y border-white/[0.08] py-3">
-              <div className="pr-3 sm:pr-4 border-r border-white/[0.08]">
-                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                  Prize Pool
-                </dt>
-                <dd className="mt-0.5 font-display text-base sm:text-lg font-bold text-accent tabular-nums">
-                  {formatNaira(activeSession?.prize_pool ?? 500_000)}
-                </dd>
+            <div className="mx-auto w-full max-w-md rounded-2xl bg-gradient-to-b from-[#f5841f] via-[#ec5812] to-[#d9330a] px-6 py-5 sm:py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_12px_30px_rgba(236,88,18,0.28)]">
+              <div className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-white/95">
+                <TrophyIcon className="size-4" />
+                <span>Prize Pool</span>
               </div>
+              <p className="mt-1 font-display text-4xl sm:text-5xl font-black text-white tracking-tight tabular-nums leading-none">
+                {formatNaira(activeSession?.prize_pool ?? 500_000)}
+              </p>
+            </div>
 
-              <div className="pl-3 sm:px-4 sm:border-r sm:border-white/[0.08]">
-                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                  {isSessionEnded ? "Total Guesses" : "Live Guesses"}
-                </dt>
-                <dd
-                  className={`mt-0.5 font-display text-base sm:text-lg font-bold tabular-nums transition-colors duration-300 ${
-                    guessPulse ? "text-emerald-400" : "text-white"
-                  }`}
-                >
-                  {totalGuesses.toLocaleString()}
-                </dd>
-              </div>
-
-              {activeSession && (
-                <div className="pr-3 sm:px-4 border-r border-white/[0.08] pt-2.5 sm:pt-0 border-t sm:border-t-0">
-                  <dt
-                    className={`text-[10px] font-medium uppercase tracking-wider ${
-                      isSessionEnded ? "text-amber-300" : "text-emerald-400"
+            <dl className="mx-auto grid w-full max-w-md grid-cols-2 items-center divide-x divide-white/[0.12] py-1">
+              <div className="flex items-center justify-center gap-2.5 pr-3">
+                <UsersIcon className="size-4.5 text-slate-300 shrink-0" />
+                <div className="text-left">
+                  <dt className="text-[11px] font-medium text-slate-400 leading-tight">
+                    {isSessionEnded ? "Total Guesses" : "Live Guesses"}
+                  </dt>
+                  <dd
+                    className={`font-display text-base sm:text-lg font-bold tabular-nums leading-tight mt-0.5 transition-colors duration-300 ${
+                      guessPulse ? "text-emerald-400" : "text-white"
                     }`}
                   >
-                    {isSessionEnded ? "Status" : "Closes In"}
-                  </dt>
-                  <dd className="mt-0.5 font-mono text-sm sm:text-base font-bold text-white flex items-center gap-1.5 tabular-nums">
-                    <TimerIcon
-                      className={`size-3.5 shrink-0 ${
-                        isSessionEnded ? "text-amber-400" : "text-emerald-400"
-                      }`}
-                    />
-                    <span className="truncate">
-                      {isSessionEnded
-                        ? "Closed"
-                        : formatCountdown(activeSession.ends_at, nowMs)}
-                    </span>
+                    {totalGuesses.toLocaleString()}
                   </dd>
                 </div>
-              )}
+              </div>
 
-              <div className="pl-3 sm:pl-4 pt-2.5 sm:pt-0 border-t border-white/[0.08] sm:border-t-0">
-                <dt className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                  {isSessionEnded ? "Your Rank" : "Your Best"}
-                </dt>
-                <dd className="mt-0.5 font-display text-base sm:text-lg font-bold text-emerald-400 tabular-nums truncate">
-                  {myRow ? `${formatOrdinal(myRow.rank)} · ${myRow.points}p` : "Not played"}
-                </dd>
+              <div className="flex items-center justify-center gap-2.5 pl-3">
+                <TimerIcon className="size-4.5 text-slate-300 shrink-0" />
+                <div className="text-left">
+                  <dt className="text-[11px] font-medium text-slate-400 leading-tight">
+                    {isSessionEnded ? "Status" : "Ends In"}
+                  </dt>
+                  <dd className="font-display text-base sm:text-lg font-bold text-white tabular-nums leading-tight mt-0.5">
+                    {activeSession
+                      ? isSessionEnded
+                        ? "Closed"
+                        : formatHeroCountdown(activeSession.ends_at, nowMs)
+                      : "Open"}
+                  </dd>
+                </div>
               </div>
             </dl>
-          </div>
 
-          <div className="shrink-0 flex flex-col items-stretch lg:items-end gap-2.5">
-            {!isSessionEnded ? (
-              <>
+            <div className="w-full max-w-md mx-auto pt-1">
+              {!isSessionEnded ? (
                 <Button
                   size="lg"
                   href="/play"
-                  className="w-full lg:w-auto px-9 py-3.5 text-base font-bold inline-flex items-center justify-center gap-2.5 shadow-[0_0_30px_rgba(255,107,0,0.25)]"
+                  className="w-full min-h-12 rounded-2xl text-base font-bold inline-flex items-center justify-center gap-2.5 shadow-[0_8px_28px_rgba(247,145,27,0.28)]"
                 >
-                  <PlayIcon className="size-5 fill-current" />
+                  <PlayIcon className="size-4.5 fill-current" />
                   <span>
-                    {myRow ? `Play Again (Beat ${myRow.points} pts)` : "Play Free Now"}
+                    {myRow ? `Play Again · Beat ${myRow.points}p` : "Play Free Now"}
                   </span>
                 </Button>
-                <p className="text-center lg:text-right text-xs text-slate-400">
-                  {myRow
-                    ? `Your ${myRow.points} pts best score stays safe unless you beat it`
-                    : "Unlimited free replays while the session is open"}
-                </p>
-              </>
-            ) : (
-              <>
+              ) : (
                 <button
                   type="button"
                   onClick={() =>
@@ -442,53 +549,174 @@ export default function DashboardPage() {
                       initialTab: "feedback",
                     })
                   }
-                  className="min-h-12 w-full lg:w-auto rounded-2xl border border-amber-400/45 bg-amber-500/15 hover:bg-amber-500/25 px-6 py-3.5 text-sm sm:text-base font-bold text-amber-200 transition-colors inline-flex items-center justify-center gap-2"
+                  className="min-h-12 w-full rounded-2xl border border-amber-400/45 bg-amber-500/15 hover:bg-amber-500/25 px-6 py-3 text-base font-bold text-amber-200 transition-colors inline-flex items-center justify-center gap-2"
                 >
                   <BarChartIcon className="size-4.5 text-amber-300" />
                   <span>View Results &amp; Winners</span>
                 </button>
-                <span className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400">
-                  <LockIcon className="size-3.5" />
-                  <span>Closed for new entries</span>
-                </span>
-              </>
-            )}
+              )}
+            </div>
+          </div>
+
+          {/* Slide 2: Personal Standing & Past Results */}
+          <div
+            role="group"
+            aria-roledescription="slide"
+            aria-label="2 of 3"
+            className="min-w-full shrink-0 snap-center px-5 pt-7 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
+          >
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Badge variant="gold">Your Standing</Badge>
+              {unreadInboxCount > 0 && (
+                <Link
+                  href="/inbox"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/35 px-3 py-0.5 text-xs font-semibold text-accent hover:bg-accent/25 transition-colors"
+                >
+                  <InboxIcon className="size-3.5" />
+                  <span>{unreadInboxCount} new in Inbox</span>
+                </Link>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                {formatHeroSessionTitle(activeSession?.name)} Summary
+              </h2>
+              <p className="text-sm text-slate-300">
+                Your highest round stays safe on the board even when you replay.
+              </p>
+            </div>
+
+            <dl className="mx-auto w-full max-w-md grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+                <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                  {isSessionEnded ? "Your Rank" : "Your Best"}
+                </dt>
+                <dd className="mt-1 font-display text-lg sm:text-xl font-bold text-emerald-400 tabular-nums truncate">
+                  {myRow ? `${formatOrdinal(myRow.rank)} · ${myRow.points}p` : "Not played"}
+                </dd>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+                <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                  {isSessionEnded ? "Prize Won" : "Projected Prize"}
+                </dt>
+                <dd className="mt-1 font-display text-lg sm:text-xl font-bold text-amber-300 tabular-nums truncate">
+                  {myRow && myRow.prize > 0 ? formatNaira(myRow.prize) : "Top 36 Win"}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="w-full max-w-md mx-auto flex flex-col sm:flex-row gap-2.5 pt-1">
+              {(previousWinners.length > 0 || previousSessionId) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    openSessionResultsPopup({
+                      sessionId: isSessionEnded
+                        ? activeSession?.id
+                        : previousSessionId ?? undefined,
+                      initialTab: "feedback",
+                    })
+                  }
+                  className="flex-1 min-h-12 rounded-2xl border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] px-4 py-3 text-sm font-bold text-white transition-colors inline-flex items-center justify-center gap-2"
+                >
+                  <BarChartIcon className="size-4 text-accent" />
+                  <span className="truncate">
+                    {isSessionEnded ? "Full Breakdown" : `Last Results (${previousSessionName})`}
+                  </span>
+                </button>
+              )}
+              <Link
+                href="/leaderboard"
+                className="flex-1 min-h-12 rounded-2xl gradient-brand px-5 py-3 text-sm font-bold text-white inline-flex items-center justify-center gap-2 hover:brightness-110 transition-all"
+              >
+                <TrophyIcon className="size-4" />
+                <span>View Leaderboard</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Slide 3: How GuessWhat Works Quick Link */}
+          <div
+            role="group"
+            aria-roledescription="slide"
+            aria-label="3 of 3"
+            className="min-w-full shrink-0 snap-center px-5 pt-7 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
+          >
+            <Badge variant="info">Quick Guide</Badge>
+
+            <div className="space-y-1.5 max-w-md">
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                How GuessWhat Works
+              </h2>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Pick what the majority chooses across 10 fast questions. Dynamic 10 to 1 crowd scoring plus speed tiebreakers decide the winners.
+              </p>
+            </div>
+
+            <div className="mx-auto w-full max-w-md grid grid-cols-3 gap-2">
+              {[
+                { label: "10 Questions", sub: "4 Formats" },
+                { label: "10 to 1 Pts", sub: "Live Crowd" },
+                { label: "Top 36 Win", sub: "Real Cash" },
+              ].map((chip) => (
+                <div
+                  key={chip.label}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-2.5 py-3"
+                >
+                  <p className="font-display text-xs sm:text-sm font-bold text-white">
+                    {chip.label}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{chip.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="w-full max-w-md mx-auto pt-1">
+              <Link
+                href="/how-to-play"
+                className="min-h-12 w-full rounded-2xl border border-accent/40 bg-accent/15 hover:bg-accent/25 px-6 py-3 text-sm sm:text-base font-bold text-accent inline-flex items-center justify-center gap-2 transition-colors"
+              >
+                <HelpCircleIcon className="size-4.5" />
+                <span>Read Full How to Play Guide</span>
+                <ArrowRightIcon className="size-4" />
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Footer Info Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-white/[0.08] bg-black/25 px-3.5 py-2.5 text-xs text-slate-300">
-          <p className="leading-relaxed">
-            {isSessionEnded ? (
-              <>
-                <strong className="text-amber-300">Session closed:</strong> Crowd vote percentages (10 to 1 pts) and final winners are now available.
-              </>
-            ) : (
-              <>
-                <strong className="text-white">Dynamic scoring:</strong> Option points adjust live as more players play. Crowd vote shares unlock at 00:00.
-              </>
-            )}
-          </p>
-          {previousWinners.length > 0 && (
-            <button
-              type="button"
-              onClick={() =>
-                openSessionResultsPopup({
-                  sessionId: isSessionEnded
-                    ? activeSession?.id
-                    : previousSessionId ?? undefined,
-                  initialTab: "feedback",
-                })
-              }
-              className="min-h-9 self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-accent transition-colors"
-            >
-              <BarChartIcon className="size-3.5" />
-              <span>
-                {isSessionEnded ? "Full Breakdown" : `Last Results (${previousSessionName})`}
-              </span>
-            </button>
-          )}
-        </div>
+        {/* Accessible Polite Slide Status Region */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {heroAnnouncement}
+        </p>
+
+        {/* Bottom Slide Dots (Shape + Colour distinction per WCAG 1.4.1 & >=24px target per WCAG 2.5.8) */}
+        <nav
+          aria-label="Choose a slide"
+          className="relative z-10 flex items-center justify-center gap-1 pb-5 pt-1"
+        >
+          {HERO_SLIDE_LABELS.map((label, idx) => {
+            const isCurrent = activeSlide === idx;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => scrollToHeroSlide(idx)}
+                aria-label={`Slide ${idx + 1}: ${label}`}
+                aria-current={isCurrent ? "true" : undefined}
+                className="min-h-6 min-w-6 grid place-items-center cursor-pointer [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffb95b]"
+              >
+                <span
+                  className={`block h-2 rounded-full transition-all duration-200 ${
+                    isCurrent
+                      ? "w-5 bg-[#F7911B]"
+                      : "w-2 bg-white/25 hover:bg-white/45"
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </nav>
       </section>
 
       {/* Live / Final Leaderboard */}

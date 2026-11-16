@@ -352,3 +352,29 @@ dialog.gw-session-results-dialog::backdrop {
     animation: none !important;
   }
 }
+
+/* Offset in-page anchor targets for sticky mobile top bars */
+[id] {
+  scroll-margin-top: 5rem;
+}
+
+/* Native <details> FAQ accordion slide animation */
+.gw-faq details::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+
+.gw-faq details:not([open])::details-content {
+  block-size: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gw-faq details::details-content {
+    transition:
+      block-size 0.24s ease-in-out,
+      content-visibility 0.24s ease-in-out,
+      display 0.24s ease-in-out;
+    transition-behavior: allow-discrete;
+  }
+}

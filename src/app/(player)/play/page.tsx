@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui";
 import {
   BarChartIcon,
   CheckIcon,
+  HelpCircleIcon,
   LockIcon,
   MusicIcon,
   PlayIcon,
@@ -413,16 +415,13 @@ export default function PlayPage() {
           )}
 
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-accent">
-              {isSessionEnded ? "Official Results Ready" : "Free Entry · 10 Questions"}
-            </p>
             <h1 className="font-display text-2xl sm:text-4xl font-bold text-white tracking-tight">
               {activeSession?.name ?? "GuessWhat"}
             </h1>
             <p className="text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
               {isSessionEnded
-                ? "This session is closed for new rounds. View the 10 to 1 crowd vote breakdown and verified winners below."
-                : "10 questions with 10 options each. Pick what you think most players will choose in the shortest total time."}
+                ? "This session is closed. View the official crowd vote breakdown and winners."
+                : "10 quick questions. Pick what most players will choose."}
             </p>
           </div>
 
@@ -433,7 +432,7 @@ export default function PlayPage() {
           )}
 
           {!isSessionEnded ? (
-            <div className="pt-1">
+            <div className="pt-1 space-y-3">
               <Button
                 size="lg"
                 onClick={handleStartPlay}
@@ -477,22 +476,20 @@ export default function PlayPage() {
           )}
 
           {activeSession && (
-            <div className="space-y-1 text-xs text-slate-400 pt-1">
-              <p>
-                Prize Pool:{" "}
-                <strong className="text-amber-300">
-                  {formatNaira(activeSession.prize_pool)}
-                </strong>{" "}
-                ·{" "}
-                {isSessionEnded
-                  ? "Final Leaderboard Unlocked"
-                  : "Unlimited Replays for Best Score"}
-              </p>
-              <p className="text-[11px] text-slate-500">
-                {isSessionEnded
-                  ? "Inspect every question's vote share and top 36 winners."
-                  : "Crowd vote shares stay sealed until the session countdown hits 00:00."}
-              </p>
+            <div className="flex flex-wrap items-center justify-center gap-2.5 text-xs text-slate-400 pt-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+                <span>Prize Pool:</span>
+                <strong className="text-amber-300">{formatNaira(activeSession.prize_pool)}</strong>
+                <span>·</span>
+                <span>{isSessionEnded ? "Final Results Ready" : "Free Entry"}</span>
+              </span>
+              <Link
+                href="/how-to-play"
+                className="inline-flex items-center gap-1 font-semibold text-slate-300 hover:text-accent transition-colors"
+              >
+                <HelpCircleIcon className="size-3.5" />
+                <span>New here? How to Play</span>
+              </Link>
             </div>
           )}
         </section>
@@ -860,13 +857,15 @@ export default function PlayPage() {
           </div>
 
           {!isEnded && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3.5 py-3 text-left text-xs text-amber-200 leading-relaxed">
-              <LockIcon className="size-4 shrink-0 text-amber-300 mt-0.5" />
-              <span>
-                Crowd vote shares stay sealed until the countdown hits{" "}
-                <strong className="font-mono">00:00:00</strong>. Replay anytime to push for a higher score or faster tiebreak time.
-              </span>
-            </div>
+            <p className="text-xs text-slate-400">
+              Votes unlock at <span className="font-mono text-slate-200">00:00</span>. Replay free anytime.{" "}
+              <Link
+                href="/how-to-play#scoring"
+                className="font-semibold text-accent hover:underline"
+              >
+                Scoring rules
+              </Link>
+            </p>
           )}
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 pt-1">
