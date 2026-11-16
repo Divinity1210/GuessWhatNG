@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   getActiveSessions,
@@ -18,10 +19,38 @@ import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
 import { Avatar } from "@/components/ui/Avatar";
 import {
   BarChartIcon,
+  ShareIcon,
   TrophyIcon,
   VolumeIcon,
   VolumeMuteIcon,
 } from "@/components/ui/Icons";
+
+type ReferralPrizeTier = {
+  rank_from: number;
+  rank_to: number;
+  amount: number;
+};
+
+type ReferralConfig = {
+  title: string;
+  enabled: boolean;
+  cycleNumber: number;
+  endsNote: string;
+  prizeTiers: ReferralPrizeTier[];
+  totalPool: number;
+  totalWinnerSpots: number;
+};
+
+type ReferralCashRow = {
+  rank: number;
+  userId: string;
+  username: string;
+  avatarUrl?: string | null;
+  referralCode: string;
+  verifiedReferrals: number;
+  prizeAmount: number;
+  state?: string;
+};
 
 function formatCountdownLong(endsAt: string): string {
   const diff = new Date(endsAt).getTime() - Date.now();
@@ -49,9 +78,15 @@ function formatOrdinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+function formatTierRange(t: ReferralPrizeTier): string {
+  return t.rank_from === t.rank_to
+    ? formatOrdinal(t.rank_from)
+    : `${formatOrdinal(t.rank_from)} to ${formatOrdinal(t.rank_to)}`;
+}
+
 export default function LeaderboardPage() {
   const { user, profile } = useAuth();
-  const [tab, setTab] = useState<"live" | "winners" | "prizes">("live");
+  const [tab, setTab] = useState<"live" | "winners" | "prizes" | "referrals">("live");
   const [allSessions, setAllSessions] = useState<SessionRow[]>([]);
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
@@ -59,6 +94,22 @@ export default function LeaderboardPage() {
   const [totalGuesses, setTotalGuesses] = useState(0);
   const [countdownStr, setCountdownStr] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [refConfig, setRefConfig] = useState<ReferralConfig>({
+    title: "Referral Cash Challenge #1",
+    enabled: true,
+    cycleNumber: 1,
+    endsNote: "Top verified referrers win cash prizes",
+    prizeTiers: [
+      { rank_from: 1, rank_to: 1, amount: 50000 },
+      { rank_from: 2, rank_to: 2, amount: 30000 },
+      { rank_from: 3, rank_to: 3, amount: 20000 },
+      { rank_from: 4, rank_to: 10, amount: 5000 },
+    ],
+    totalPool: 135000,
+    totalWinnerSpots: 10,
+  });
+  const [refRows, setRefRows] = useState<ReferralCashRow[]>([]);
 
   const [climbedMap, setClimbedMap] = useState<Record<string, number>>({});
   const [guessPulse, setGuessPulse] = useState(false);
@@ -77,7 +128,7 @@ export default function LeaderboardPage() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
-      if (tabParam === "winners" || tabParam === "prizes") {
+      if (tabParam === "winners" || tabParam === "prizes" || tabParam === "referrals") {
         setTab(tabParam);
       }
     }
@@ -178,10 +229,19 @@ export default function LeaderboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [activeList, completedList] = await Promise.all([
+        const [activeList, completedList, refRes] = await Promise.all([
           getActiveSessions(),
           getCompletedSessions(10),
+          fetch("/api/referrals", { cache: "no-store" }).catch(() => null),
         ]);
+
+        if (refRes && refRes.ok) {
+          const refData = await refRes.json();
+          if (refData.config) setRefConfig(refData.config as ReferralConfig);
+          if (Array.isArray(refData.leaderboard)) {
+            setRefRows(refData.leaderboard as ReferralCashRow[]);
+          }
+        }
 
         const active = activeList[0] ?? null;
         setActiveSession(active);
@@ -415,46 +475,51 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {/* Mobile-First 3-Tab Segmented Bar */}
-        <div className="grid grid-cols-3 sm:inline-flex sm:w-fit rounded-xl border border-white/10 bg-[#0d111c] p-1 gap-1">
-          <button
-            type="button"
-            onClick={() => setTab("live")}
-            className={`min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
-              tab === "live"
-                ? "bg-accent text-white"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Leaderboard
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("winners")}
-            className={`min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
-              tab === "winners"
-                ? "bg-accent text-white"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Winners
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("prizes")}
-            className={`min-h-10 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
-              tab === "prizes"
-                ? "bg-accent text-white"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Prizes ({dynamicTotalWinners})
-          </button>
+        {/* Single-Row Scrollable 4-Tab Bar */}
+        <div
+          role="tablist"
+          aria-label="Leaderboard categories"
+          className="flex w-full sm:w-fit overflow-x-auto no-scrollbar rounded-xl border border-white/10 bg-[#0d111c] p-1 gap-1"
+        >
+          {(
+            [
+              { id: "live", label: "Leaderboard" },
+              { id: "winners", label: "Winners" },
+              { id: "prizes", label: `Prizes (${dynamicTotalWinners})` },
+              { id: "referrals", label: "Referrals" },
+            ] as const
+          ).map((item) => {
+            const isSelected = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                id={`lb-tab-${item.id}`}
+                aria-selected={isSelected}
+                onClick={(e) => {
+                  setTab(item.id);
+                  e.currentTarget.scrollIntoView({
+                    block: "nearest",
+                    inline: "nearest",
+                    behavior: "smooth",
+                  });
+                }}
+                className={`relative shrink-0 min-h-10 rounded-lg px-4 py-2 text-xs font-semibold transition-colors whitespace-nowrap ${
+                  isSelected
+                    ? "bg-accent text-white after:absolute after:inset-x-2.5 after:bottom-0.5 after:border-b-2 after:border-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Session Switcher */}
-      {(tab === "winners" ? completedSessions : allSessions).length > 0 && (
+      {tab !== "referrals" && (tab === "winners" ? completedSessions : allSessions).length > 0 && (
         <div className="rounded-2xl border border-white/10 bg-[#0d111c] p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="hidden sm:flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">
@@ -998,6 +1063,240 @@ export default function LeaderboardPage() {
               </tbody>
             </table>
           </div>
+        </section>
+      )}
+
+      {/* Tab 4: Referral Cash Leaderboard */}
+      {tab === "referrals" && (
+        <section
+          role="tabpanel"
+          aria-labelledby="lb-tab-referrals"
+          className="rounded-2xl border border-white/10 bg-[#0d111c] p-4 sm:p-6 space-y-4"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-display text-lg font-bold text-white">
+                  {refConfig.title}
+                </h2>
+                {refConfig.enabled && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
+                    <TrophyIcon className="size-3.5" />
+                    <span>₦{refConfig.totalPool.toLocaleString()} Pool</span>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">
+                {refConfig.endsNote}. Qualified friends must sign up and play at least 1 round.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 sm:w-56">
+                <label htmlFor="ref-lb-search" className="sr-only">
+                  Search referrers
+                </label>
+                <input
+                  id="ref-lb-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search player..."
+                  className="min-h-10 w-full rounded-xl border border-white/15 bg-white/[0.03] px-3 py-1.5 text-base sm:text-xs text-white placeholder:text-slate-500 focus:border-accent focus:outline-none"
+                />
+              </div>
+              <Link
+                href="/referrals"
+                className="min-h-10 shrink-0 inline-flex items-center gap-1.5 rounded-xl gradient-brand px-3.5 py-2 text-xs font-bold text-white hover:brightness-110 transition-all"
+              >
+                <ShareIcon className="size-3.5" />
+                <span>Invite Friends</span>
+              </Link>
+            </div>
+          </div>
+
+          {refConfig.enabled && refConfig.prizeTiers.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-white/[0.07]">
+              {refConfig.prizeTiers.map((tier, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px]"
+                >
+                  <span className="text-slate-300 font-semibold">{formatTierRange(tier)}:</span>
+                  <span className="font-mono font-bold text-emerald-400">
+                    ₦{tier.amount.toLocaleString()}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {(() => {
+            const q = searchQuery.trim().toLowerCase();
+            const filteredRefRows = refRows.filter((r) =>
+              q ? r.username.toLowerCase().includes(q) : true
+            );
+
+            if (filteredRefRows.length === 0) {
+              return (
+                <div className="py-10 text-center space-y-2">
+                  <p className="text-sm font-semibold text-white">
+                    {q
+                      ? `No referrer matching "${searchQuery}"`
+                      : `No verified referrals yet in Cycle #${refConfig.cycleNumber}`}
+                  </p>
+                  {!q && (
+                    <p className="text-xs text-slate-400">
+                      Share your referral link and win{" "}
+                      {refConfig.enabled && refConfig.prizeTiers[0]?.amount
+                        ? `₦${refConfig.prizeTiers[0].amount.toLocaleString()} for 1st Place`
+                        : "cash rewards"}
+                      .
+                    </p>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <>
+                {/* Mobile Referral Cash Rows */}
+                <div className="space-y-2 sm:hidden">
+                  {filteredRefRows.map((row) => {
+                    const isMe = Boolean(
+                      (user?.id && row.userId === user.id) ||
+                        row.username.toLowerCase() === (profile?.username ?? "").toLowerCase()
+                    );
+                    return (
+                      <div
+                        key={row.userId}
+                        className={`flex items-center justify-between gap-2.5 rounded-xl border px-3 py-3 ${
+                          isMe
+                            ? "border-accent/35 bg-accent/10"
+                            : "border-white/[0.06] bg-white/[0.02]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`w-7 shrink-0 font-display text-xs font-bold tabular-nums ${
+                              row.rank === 1
+                                ? "text-amber-300"
+                                : row.rank === 2
+                                ? "text-slate-200"
+                                : row.rank === 3
+                                ? "text-amber-400"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {formatOrdinal(row.rank)}
+                          </span>
+                          <Avatar
+                            name={row.username}
+                            src={row.avatarUrl}
+                            size="sm"
+                            rank={row.rank}
+                            showRankBadge={false}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="truncate text-sm font-semibold text-white">
+                                {row.username}
+                              </p>
+                              {isMe && (
+                                <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-1.5 py-0.5 text-[10px] font-bold text-accent leading-none">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-mono text-xs text-slate-400 tabular-nums">
+                              {row.verifiedReferrals} verified ref{row.verifiedReferrals === 1 ? "" : "s"}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="font-mono text-xs font-bold text-emerald-400 tabular-nums shrink-0">
+                          {row.prizeAmount > 0 ? `₦${row.prizeAmount.toLocaleString()}` : "-"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Referral Cash Table */}
+                <div
+                  tabIndex={0}
+                  role="region"
+                  aria-labelledby="ref-cash-lb-caption"
+                  className="hidden sm:block overflow-x-auto"
+                >
+                  <table className="w-full text-sm">
+                    <caption id="ref-cash-lb-caption" className="sr-only">
+                      Referral cash prize leaderboard
+                    </caption>
+                    <thead>
+                      <tr className="border-b border-white/15 text-left text-xs font-semibold text-slate-400">
+                        <th className="py-3 pr-4">Rank</th>
+                        <th className="py-3 pr-4">Projected Prize (₦)</th>
+                        <th className="py-3 pr-4">Player</th>
+                        <th className="py-3 text-right">Verified Referrals</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRefRows.map((row) => {
+                        const isMe = Boolean(
+                          (user?.id && row.userId === user.id) ||
+                            row.username.toLowerCase() === (profile?.username ?? "").toLowerCase()
+                        );
+                        return (
+                          <tr
+                            key={row.userId}
+                            className={`border-b border-white/10 last:border-0 ${
+                              isMe
+                                ? "text-accent font-semibold"
+                                : row.rank === 1
+                                ? "text-amber-300 font-medium"
+                                : "text-slate-200"
+                            }`}
+                          >
+                            <th
+                              scope="row"
+                              className="py-3.5 pr-4 font-display font-bold text-left whitespace-nowrap tabular-nums"
+                            >
+                              {formatOrdinal(row.rank)}
+                            </th>
+                            <td className="py-3.5 pr-4 font-mono font-bold text-emerald-400 tabular-nums">
+                              {row.prizeAmount > 0 ? `₦${row.prizeAmount.toLocaleString()}` : "-"}
+                            </td>
+                            <td className="py-3.5 pr-4">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Avatar
+                                  name={row.username}
+                                  src={row.avatarUrl}
+                                  size="sm"
+                                  rank={row.rank}
+                                  showRankBadge={false}
+                                />
+                                <span className="truncate font-semibold text-white">
+                                  {row.username}
+                                </span>
+                                {isMe && (
+                                  <span className="shrink-0 rounded-full bg-accent/20 border border-accent/40 px-2 py-0.5 text-[10px] font-bold text-accent">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3.5 text-right font-mono font-bold tabular-nums text-white">
+                              {row.verifiedReferrals}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
         </section>
       )}
     </div>

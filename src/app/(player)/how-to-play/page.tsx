@@ -572,10 +572,10 @@ export default function HowToPlayPage() {
             </span>
             <div>
               <h3 className="font-display text-base font-bold text-white">
-                Referrals &amp; Turf Brag Cards
+                Referrals &amp; Cash Leaderboard
               </h3>
               <p className="mt-1 text-xs text-slate-400 leading-relaxed">
-                Copy your referral code, share direct WhatsApp or X invites, and download your custom GuessWhat Brag Card to challenge friends.
+                Share your code or WhatsApp link. Friends who join and play at least 1 round count toward active Referral Leaderboard cash prizes.
               </p>
             </div>
           </Link>
