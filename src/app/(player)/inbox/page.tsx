@@ -9,9 +9,20 @@ import {
   TrophyIcon,
   HelpCircleIcon,
   ChevronRightIcon,
+  ShieldCheckIcon,
 } from "@/components/ui/Icons";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getAuthHeaders } from "@/lib/supabase/client";
+
+type InboxReceipt = {
+  id: string;
+  amount: number;
+  sessionName: string;
+  bankName: string;
+  accountNumberMasked: string;
+  imageUrl?: string;
+  paidAt: string;
+};
 
 type NotificationItem = {
   id: number;
@@ -19,6 +30,7 @@ type NotificationItem = {
   body: string;
   read: boolean;
   created_at: string;
+  receipt?: InboxReceipt | null;
 };
 
 export default function InboxPage() {
@@ -229,6 +241,31 @@ export default function InboxPage() {
                       <p className="text-xs sm:text-sm text-slate-300 leading-relaxed break-words">
                         {item.body}
                       </p>
+                      {item.receipt && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex flex-wrap items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <ShieldCheckIcon className="size-5 text-emerald-400 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-emerald-200 truncate">
+                                Verified Receipt · ₦{item.receipt.amount.toLocaleString()} Paid
+                              </p>
+                              <p className="text-[11px] font-mono text-emerald-300/80 truncate">
+                                {item.receipt.id} · {item.receipt.bankName} ({item.receipt.accountNumberMasked})
+                              </p>
+                            </div>
+                          </div>
+                          <Link
+                            href={`/receipt/${encodeURIComponent(item.receipt.id)}`}
+                            className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 px-3 py-1 text-xs font-extrabold text-slate-950 transition-colors shrink-0"
+                          >
+                            <span>View &amp; Download Receipt</span>
+                            <ChevronRightIcon className="size-3.5" />
+                          </Link>
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-3 pt-1.5 text-xs text-slate-500">
                         <span className="tabular-nums">
                           {new Date(item.created_at).toLocaleString("en-NG", {

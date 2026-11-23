@@ -41,18 +41,48 @@ export async function GET(req: NextRequest) {
     const supabase = createSupabaseServiceClient();
     const resolvedUserId = authUser.id;
 
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("id, user_id, title, body, read, created_at")
-      .eq("user_id", resolvedUserId)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const [{ data, error }, { data: receiptsRow }] = await Promise.all([
+      supabase
+        .from("notifications")
+        .select("id, user_id, title, body, read, created_at")
+        .eq("user_id", resolvedUserId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "payout_receipts")
+        .maybeSingle(),
+    ]);
 
     if (error) {
       return NextResponse.json(
         { ok: false, error: error.message, notifications: [], unreadCount: 0 },
         { status: 500 },
       );
+    }
+
+    type ReceiptSummary = {
+      id: string;
+      amount: number;
+      sessionName: string;
+      bankName: string;
+      accountNumberMasked: string;
+      imageUrl?: string;
+      paidAt: string;
+    };
+    const rawReceiptsVal = receiptsRow?.value as
+      | { receipts?: ReceiptSummary[] }
+      | ReceiptSummary[]
+      | null;
+    const receiptsList = Array.isArray(rawReceiptsVal)
+      ? rawReceiptsVal
+      : rawReceiptsVal && Array.isArray(rawReceiptsVal.receipts)
+        ? rawReceiptsVal.receipts
+        : [];
+    const receiptById = new Map<string, ReceiptSummary>();
+    for (const r of receiptsList) {
+      if (r?.id) receiptById.set(r.id.toUpperCase(), r);
     }
 
     let notifications = data ?? [];
@@ -90,11 +120,31 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const unreadCount = notifications.filter((n) => !n.read).length;
+    const enrichedNotifications = notifications.map((n) => {
+      const combined = `${n.title || ""} ${n.body || ""}`;
+      const match = combined.match(/GW-PAY-[A-Z0-9-]+/i);
+      const matchedReceipt = match ? receiptById.get(match[0].toUpperCase()) ?? null : null;
+      return {
+        ...n,
+        receipt: matchedReceipt
+          ? {
+              id: matchedReceipt.id,
+              amount: matchedReceipt.amount,
+              sessionName: matchedReceipt.sessionName,
+              bankName: matchedReceipt.bankName,
+              accountNumberMasked: matchedReceipt.accountNumberMasked,
+              imageUrl: matchedReceipt.imageUrl,
+              paidAt: matchedReceipt.paidAt,
+            }
+          : null,
+      };
+    });
+
+    const unreadCount = enrichedNotifications.filter((n) => !n.read).length;
 
     return NextResponse.json({
       ok: true,
-      notifications,
+      notifications: enrichedNotifications,
       unreadCount,
     });
   } catch (err) {

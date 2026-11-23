@@ -18,6 +18,7 @@ import {
   ZapIcon,
 } from "@/components/ui/Icons";
 import { LaunchTourButton } from "@/components/game/OnboardingTour";
+import { AskAiFaqButton } from "@/components/game/FaqAssistantWidget";
 
 export const metadata: Metadata = {
   title: "How to Play",
@@ -145,6 +146,7 @@ export default function HowToPlayPage() {
             <span>View Live Leaderboard</span>
           </Link>
           <LaunchTourButton />
+          <AskAiFaqButton />
         </div>
 
         <nav

@@ -13,7 +13,11 @@ export async function middleware(request: NextRequest) {
 
   // Fast-path public, static & API routes without any network call
   const publicPaths = ["/", "/how-to-play", "/leaderboard", "/auth/callback"];
-  if (publicPaths.includes(pathname) || pathname.startsWith("/api/")) {
+  if (
+    publicPaths.includes(pathname) ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/receipt/")
+  ) {
     return supabaseResponse;
   }
 

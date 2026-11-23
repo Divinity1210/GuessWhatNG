@@ -154,6 +154,7 @@ export async function GET(req: NextRequest) {
       { data: ads },
       { data: myProfile },
       { data: recentMyPost },
+      { data: receiptsSetting },
     ] = await Promise.all([
       rankSessionId
         ? supabase
@@ -229,6 +230,11 @@ export async function GET(req: NextRequest) {
         .gte("created_at", oneHourAgoIso)
         .order("created_at", { ascending: false })
         .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "payout_receipts")
         .maybeSingle(),
     ]);
 
@@ -471,6 +477,32 @@ export async function GET(req: NextRequest) {
       repliesByPost.set(tm.post_id, list);
     }
 
+    type StoredReceiptSummary = {
+      id: string;
+      amount: number;
+      username: string;
+      state: string;
+      position?: number;
+      sessionName: string;
+      bankName: string;
+      accountNumberMasked: string;
+      paidAt: string;
+      imageUrl?: string;
+    };
+    const rawReceiptsVal = receiptsSetting?.value as
+      | { receipts?: StoredReceiptSummary[] }
+      | StoredReceiptSummary[]
+      | null;
+    const storedReceipts = Array.isArray(rawReceiptsVal)
+      ? rawReceiptsVal
+      : rawReceiptsVal && Array.isArray(rawReceiptsVal.receipts)
+        ? rawReceiptsVal.receipts
+        : [];
+    const receiptById = new Map<string, StoredReceiptSummary>();
+    for (const r of storedReceipts) {
+      if (r?.id) receiptById.set(r.id.toUpperCase(), r);
+    }
+
     const filteredPosts = (posts ?? [])
       .filter((p) => (category === "all" ? true : p.category === category))
       .map((p) => {
@@ -497,6 +529,15 @@ export async function GET(req: NextRequest) {
         const authorProf = p.author_id ? profileLookup.get(p.author_id) : null;
         const authorLb = p.author_id ? rankByUser.get(p.author_id) : null;
 
+        let matchedReceipt: StoredReceiptSummary | null = null;
+        if (typeof p.sponsor_cta_url === "string" && p.sponsor_cta_url.startsWith("/receipt/")) {
+          const rid = p.sponsor_cta_url.replace("/receipt/", "").trim().toUpperCase();
+          matchedReceipt = receiptById.get(rid) ?? null;
+        } else if (typeof p.body === "string") {
+          const m = p.body.match(/GW-PAY-[A-Z0-9-]+/i);
+          if (m) matchedReceipt = receiptById.get(m[0].toUpperCase()) ?? null;
+        }
+
         return {
           id: p.id,
           kind: p.kind as "poll" | "topic" | "verdict" | "sponsored_poll",
@@ -508,6 +549,20 @@ export async function GET(req: NextRequest) {
           sponsorName: p.sponsor_name || null,
           sponsorCtaLabel: p.sponsor_cta_label || null,
           sponsorCtaUrl: p.sponsor_cta_url || null,
+          receipt: matchedReceipt
+            ? {
+                id: matchedReceipt.id,
+                amount: matchedReceipt.amount,
+                username: matchedReceipt.username,
+                state: matchedReceipt.state,
+                position: matchedReceipt.position,
+                sessionName: matchedReceipt.sessionName,
+                bankName: matchedReceipt.bankName,
+                accountNumberMasked: matchedReceipt.accountNumberMasked,
+                paidAt: matchedReceipt.paidAt,
+                imageUrl: matchedReceipt.imageUrl,
+              }
+            : null,
           authorUsername: authorProf?.username || (p.sponsor_name ? p.sponsor_name : "GuessWhat"),
           authorAvatarUrl: authorProf?.avatarUrl ?? null,
           authorState: authorProf?.state || null,

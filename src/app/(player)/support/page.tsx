@@ -7,7 +7,10 @@ import {
   StarIcon,
   PlusIcon,
   CloseIcon,
+  BrainIcon,
 } from "@/components/ui/Icons";
+import { openFaqAssistant } from "@/components/game/FaqAssistantWidget";
+import { openFeedbackPopup } from "@/components/game/FeedbackPopup";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { getAuthHeaders } from "@/lib/supabase/client";
 import {
@@ -162,7 +165,15 @@ export default function SupportPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => openFaqAssistant()}
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/12 px-3.5 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+          >
+            <BrainIcon className="size-3.5 shrink-0" />
+            <span>Ask AI FAQ</span>
+          </button>
           <Button
             size="sm"
             onClick={() => {
@@ -176,13 +187,10 @@ export default function SupportPage() {
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => {
-              setCategory("feedback");
-              setShowNew(true);
-            }}
+            onClick={() => openFeedbackPopup()}
           >
             <StarIcon className="size-3.5 mr-1.5 text-amber-400" />
-            Feedback
+            Quick Feedback
           </Button>
         </div>
       </div>

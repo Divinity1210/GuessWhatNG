@@ -12,6 +12,8 @@ import {
   openSessionResultsPopup,
 } from "@/components/game/SessionResultsPopup";
 import { OnboardingTour } from "@/components/game/OnboardingTour";
+import { FeedbackPopup } from "@/components/game/FeedbackPopup";
+import { FaqAssistantWidget } from "@/components/game/FaqAssistantWidget";
 import {
   HomeIcon,
   PlayIcon,
@@ -412,6 +414,8 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
 
       <SessionResultsPopup />
       <OnboardingTour />
+      <FeedbackPopup />
+      <FaqAssistantWidget />
       <MobileNav />
     </div>
   );

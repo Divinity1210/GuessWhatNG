@@ -58,6 +58,18 @@ type CommunityPost = {
   sponsorName: string | null;
   sponsorCtaLabel: string | null;
   sponsorCtaUrl: string | null;
+  receipt?: {
+    id: string;
+    amount: number;
+    username: string;
+    state: string;
+    position?: number;
+    sessionName: string;
+    bankName: string;
+    accountNumberMasked: string;
+    paidAt: string;
+    imageUrl?: string;
+  } | null;
   authorUsername: string;
   authorAvatarUrl?: string | null;
   authorState: string | null;
@@ -111,6 +123,7 @@ type ActiveMentionContext = {
 
 const CATEGORIES = [
   "all",
+  "Verified Payouts",
   "Banking & Fintech",
   "Telecoms & Data",
   "Economy & Policy",
@@ -1723,6 +1736,13 @@ export default function CommunityPage() {
                             Session Results
                           </span>
                         )}
+
+                        {post.receipt && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/18 border border-emerald-400/40 px-2 py-0.5 text-[11px] font-bold text-emerald-300">
+                            <ShieldCheckIcon className="size-3" />
+                            <span>Verified Payout Proof</span>
+                          </span>
+                        )}
                       </div>
 
                       <span className="text-[11px] tabular-nums text-slate-500">
@@ -1861,8 +1881,46 @@ export default function CommunityPage() {
                       </div>
                     )}
 
+                    {/* Verified Payout Receipt Card */}
+                    {post.receipt && (
+                      <div className="mt-3.5 rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.09] to-[#080c16] p-3.5 space-y-3">
+                        {post.receipt.imageUrl && (
+                          <Link
+                            href={`/receipt/${encodeURIComponent(post.receipt.id)}`}
+                            className="block overflow-hidden rounded-xl border border-white/10 bg-[#07090e]"
+                          >
+                            <img
+                              src={post.receipt.imageUrl}
+                              alt={`Verified payout receipt ${post.receipt.id}`}
+                              className="w-full max-h-96 object-contain mx-auto"
+                            />
+                          </Link>
+                        )}
+                        <div className="flex flex-wrap items-center justify-between gap-2.5">
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-extrabold text-emerald-300">
+                              ₦{post.receipt.amount.toLocaleString()} Paid to @{post.receipt.username}
+                            </p>
+                            <p className="text-[11px] text-slate-300 truncate">
+                              {post.receipt.bankName} ({post.receipt.accountNumberMasked}) ·{" "}
+                              <span className="font-mono text-emerald-300/90">
+                                {post.receipt.id}
+                              </span>
+                            </p>
+                          </div>
+                          <Link
+                            href={`/receipt/${encodeURIComponent(post.receipt.id)}`}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-1.5 text-xs font-extrabold text-slate-950 transition-colors shrink-0"
+                          >
+                            <ShieldCheckIcon className="size-3.5" />
+                            <span>View &amp; Share Receipt</span>
+                          </Link>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Optional Sponsored Poll CTA */}
-                    {post.sponsorCtaUrl && (
+                    {post.sponsorCtaUrl && !post.receipt && (
                       <div className="mt-3">
                         <a
                           href={post.sponsorCtaUrl}
