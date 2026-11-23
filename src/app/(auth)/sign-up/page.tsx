@@ -76,7 +76,12 @@ export default function SignUpPage() {
       });
 
       if (result.session) {
-        router.push("/dashboard");
+        try {
+          localStorage.setItem("gw_pending_onboarding", "1");
+        } catch {
+          // Ignore storage failures
+        }
+        router.push("/dashboard?welcome=1");
       } else {
         setSuccess(true);
       }

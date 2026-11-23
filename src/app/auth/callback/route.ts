@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
+      let isNewUser = false;
       try {
         const admin = createSupabaseServiceClient();
         const user = data.user;
@@ -69,6 +70,8 @@ export async function GET(request: Request) {
         const isAutoPlaceholder =
           !existingProfile ||
           existingProfile.username === `player_${user.id.slice(0, 8)}`;
+
+        isNewUser = isAutoPlaceholder;
 
         let candidateUsername = existingProfile?.username ?? "";
         if (isAutoPlaceholder) {
@@ -121,6 +124,11 @@ export async function GET(request: Request) {
         console.error("Google profile sync warning:", syncErr);
       }
 
+      if (isNewUser) {
+        const dest = new URL(next, origin);
+        dest.searchParams.set("welcome", "1");
+        return NextResponse.redirect(dest.toString());
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

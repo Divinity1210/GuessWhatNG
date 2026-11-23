@@ -11,6 +11,7 @@ import {
   SessionResultsPopup,
   openSessionResultsPopup,
 } from "@/components/game/SessionResultsPopup";
+import { OnboardingTour } from "@/components/game/OnboardingTour";
 import {
   HomeIcon,
   PlayIcon,
@@ -34,9 +35,9 @@ const navGroups = [
     label: "Game",
     items: [
       { label: "Home", href: "/dashboard", Icon: HomeIcon },
-      { label: "Play", href: "/play", Icon: PlayIcon },
-      { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon },
-      { label: "Community", href: "/community", Icon: MessageSquareIcon, isLive: true },
+      { label: "Play", href: "/play", Icon: PlayIcon, tourId: "nav-play" },
+      { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon, tourId: "nav-leaderboard" },
+      { label: "Community", href: "/community", Icon: MessageSquareIcon, isLive: true, tourId: "nav-community" },
       { label: "How to Play", href: "/how-to-play", Icon: HelpCircleIcon },
       { label: "Inbox", href: "/inbox", Icon: InboxIcon, showBadge: true },
     ],
@@ -44,7 +45,7 @@ const navGroups = [
   {
     label: "Account",
     items: [
-      { label: "Profile", href: "/profile", Icon: UserIcon },
+      { label: "Profile", href: "/profile", Icon: UserIcon, tourId: "nav-profile" },
       { label: "Referrals", href: "/referrals", Icon: UsersIcon },
       { label: "Support", href: "/support", Icon: HeadsetIcon },
       { label: "Settings", href: "/settings", Icon: SettingsIcon },
@@ -138,6 +139,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                     <li key={item.href}>
                       <Link
                         href={item.href}
+                        data-tour={"tourId" in item ? item.tourId : undefined}
                         onClick={() => playMenuClick()}
                         className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors duration-150 ${
                           active
@@ -409,6 +411,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
       </main>
 
       <SessionResultsPopup />
+      <OnboardingTour />
       <MobileNav />
     </div>
   );

@@ -32,6 +32,7 @@ import {
   playRankClimb,
 } from "@/lib/audio/sound-effects";
 import { openSessionResultsPopup } from "@/components/game/SessionResultsPopup";
+import { openOnboardingTour } from "@/components/game/OnboardingTour";
 
 function formatHeroSessionTitle(name?: string | null): string {
   if (!name) return "Live Session";
@@ -413,6 +414,7 @@ export default function DashboardPage() {
     <div className="space-y-5 sm:space-y-7 animate-fade-in">
       {/* Decluttered 3-Slide Hero Carousel */}
       <section
+        data-tour="live-session"
         aria-roledescription="carousel"
         aria-label="Session highlights"
         className={`relative overflow-hidden rounded-3xl border bg-gradient-to-b from-[#141a29] via-[#0e121e] to-[#0a0d16] shadow-[0_16px_48px_rgba(0,0,0,0.42)] ${
@@ -672,14 +674,21 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <div className="w-full max-w-md mx-auto pt-1">
+            <div className="w-full max-w-lg mx-auto pt-1 flex flex-col sm:flex-row gap-2.5">
+              <button
+                type="button"
+                onClick={() => openOnboardingTour()}
+                className="min-h-12 sm:flex-1 rounded-2xl border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] px-5 py-3 text-sm font-bold text-white inline-flex items-center justify-center gap-2 transition-colors"
+              >
+                <HelpCircleIcon className="size-4.5 text-accent shrink-0" />
+                <span>Take App Tour</span>
+              </button>
               <Link
                 href="/how-to-play"
-                className="min-h-12 w-full rounded-2xl border border-accent/40 bg-accent/15 hover:bg-accent/25 px-6 py-3 text-sm sm:text-base font-bold text-accent inline-flex items-center justify-center gap-2 transition-colors"
+                className="min-h-12 sm:flex-[1.3] rounded-2xl border border-accent/40 bg-accent/15 hover:bg-accent/25 px-5 py-3 text-sm sm:text-base font-bold text-accent inline-flex items-center justify-center gap-2 transition-colors"
               >
-                <HelpCircleIcon className="size-4.5" />
                 <span>Read Full How to Play Guide</span>
-                <ArrowRightIcon className="size-4" />
+                <ArrowRightIcon className="size-4 shrink-0" />
               </Link>
             </div>
           </div>

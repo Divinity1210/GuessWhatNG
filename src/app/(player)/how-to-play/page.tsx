@@ -17,6 +17,7 @@ import {
   UsersIcon,
   ZapIcon,
 } from "@/components/ui/Icons";
+import { LaunchTourButton } from "@/components/game/OnboardingTour";
 
 export const metadata: Metadata = {
   title: "How to Play",
@@ -128,7 +129,7 @@ export default function HowToPlayPage() {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5">
           <Link
             href="/play"
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl gradient-brand px-6 py-2.5 text-sm font-bold text-white shadow-glow hover:brightness-110 transition-all"
@@ -143,6 +144,7 @@ export default function HowToPlayPage() {
             <TrophyIcon className="size-4 text-amber-400" />
             <span>View Live Leaderboard</span>
           </Link>
+          <LaunchTourButton />
         </div>
 
         <nav

@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/Icons";
 
 const tabs = [
-  { label: "Home", href: "/dashboard", Icon: HomeIcon },
-  { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon },
-  { label: "Play", href: "/play", Icon: PlayIcon, highlight: true },
-  { label: "Arena", href: "/community", Icon: MessageSquareIcon },
-  { label: "Profile", href: "/profile", Icon: UserIcon },
+  { label: "Home", href: "/dashboard", Icon: HomeIcon, tourId: "nav-home" },
+  { label: "Leaderboard", href: "/leaderboard", Icon: TrophyIcon, tourId: "nav-leaderboard" },
+  { label: "Play", href: "/play", Icon: PlayIcon, highlight: true, tourId: "nav-play" },
+  { label: "Arena", href: "/community", Icon: MessageSquareIcon, tourId: "nav-community" },
+  { label: "Profile", href: "/profile", Icon: UserIcon, tourId: "nav-profile" },
 ];
 
 export function MobileNav() {
@@ -38,6 +38,7 @@ export function MobileNav() {
               <Link
                 key={tab.href}
                 href={tab.href}
+                data-tour={tab.tourId}
                 onClick={() => playMenuClick()}
                 className="flex min-h-[58px] flex-col items-center justify-center gap-0.5 py-1.5"
               >
@@ -65,6 +66,7 @@ export function MobileNav() {
             <Link
               key={tab.href}
               href={tab.href}
+              data-tour={tab.tourId}
               onClick={() => playMenuClick()}
               className={`relative flex min-h-[58px] flex-col items-center justify-center gap-1 py-1.5 text-[10px] transition-colors duration-150 ${
                 active
