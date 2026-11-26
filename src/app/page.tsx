@@ -13,7 +13,7 @@ const steps = [
   {
     num: "01",
     title: "Enter Free",
-    desc: "Join the live 3-day session at zero cost. No entry fee or coin purchase needed.",
+    desc: "Join the live 14-day session at zero cost. No entry fee or coin purchase needed.",
     img: "/human-thinking.png",
     tag: "Free Entry",
   },
@@ -26,18 +26,18 @@ const steps = [
   },
   {
     num: "03",
-    title: "Top 36 Win Cash",
-    desc: "Options score from 10 pts down to 1 pt by popularity. Faster completion breaks ties. Top 36 share ₦500,000.",
+    title: "Top 10 Win Cash",
+    desc: "Options score from 10 pts down to 1 pt by popularity. Faster completion breaks ties. Top 10 share ₦100,000.",
     img: "/human-group-winner.png",
-    tag: "₦500,000 Pool",
+    tag: "₦100,000 Pool",
   },
 ];
 
 const prizeHighlights = [
-  { place: "1st Place", prize: "₦100,000" },
-  { place: "2nd Place", prize: "₦50,000" },
-  { place: "3rd Place", prize: "₦20,000" },
-  { place: "4th to 36th Place", prize: "₦10,000 each" },
+  { place: "1st Place", prize: "₦35,000" },
+  { place: "2nd Place", prize: "₦20,000" },
+  { place: "3rd Place", prize: "₦10,000" },
+  { place: "4th to 10th Place", prize: "₦5,000 each" },
 ];
 
 export default function LandingPage() {
@@ -94,7 +94,7 @@ export default function LandingPage() {
         <div className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-300">
             <span className="size-2 rounded-full bg-emerald-400" />
-            <span>Free Entry · ₦500,000 Session Pool</span>
+            <span>Free Entry · ₦100,000 Session Pool</span>
           </div>
 
           <h1 className="mt-5 font-display text-4xl font-extrabold tracking-tight text-white sm:text-6xl leading-[1.08]">
@@ -233,7 +233,7 @@ export default function LandingPage() {
                     Session Prize Pool
                   </span>
                   <h3 className="font-display text-xl sm:text-2xl font-black text-white mt-0.5">
-                    36 Winners Share ₦500,000
+                    10 Winners Share ₦100,000
                   </h3>
                 </div>
                 <div className="size-11 shrink-0 rounded-2xl bg-[#F7911B]/15 border border-[#F7911B]/30 grid place-items-center text-[#F7911B]">
@@ -260,7 +260,7 @@ export default function LandingPage() {
               </div>
 
               <p className="text-xs leading-relaxed text-slate-400">
-                Payouts go straight to the bank account saved in your profile once the 3-day session closes. Replay anytime before closing to beat your best score.
+                Payouts go straight to the bank account saved in your profile once the 14-day session closes. Replay anytime before closing to beat your best score.
               </p>
             </div>
           </div>
