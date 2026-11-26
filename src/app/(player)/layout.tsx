@@ -31,6 +31,7 @@ import {
   CloseIcon,
   MenuIcon,
 } from "@/components/ui/Icons";
+import { Download } from "lucide-react";
 
 const navGroups = [
   {
@@ -61,6 +62,15 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   const { user, profile, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isStandalonePwa, setIsStandalonePwa] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+    setIsStandalonePwa(Boolean(standalone));
+  }, []);
 
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Player";
   const isAdmin =
@@ -171,7 +181,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             </div>
           ))}
 
-          <div className="pt-3 border-t border-white/[0.06]">
+          <div className="pt-3 border-t border-white/[0.06] space-y-2">
             <button
               type="button"
               onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
@@ -183,6 +193,23 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
               </span>
               <ChevronRightIcon className="size-3.5 text-slate-400" />
             </button>
+
+            {!isStandalonePwa && (
+              <button
+                type="button"
+                onClick={() => {
+                  playMenuClick();
+                  window.dispatchEvent(new Event("gw-open-install"));
+                }}
+                className="w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold bg-accent/10 text-accent border border-accent/25 hover:bg-accent/15 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Download className="size-4" />
+                  <span>Install App</span>
+                </span>
+                <ChevronRightIcon className="size-3.5" />
+              </button>
+            )}
           </div>
 
           {isAdmin && (
@@ -369,6 +396,24 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                   </span>
                   <ChevronRightIcon className="size-4 text-slate-400" />
                 </button>
+
+                {!isStandalonePwa && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMenuClick();
+                      setMenuOpen(false);
+                      window.dispatchEvent(new Event("gw-open-install"));
+                    }}
+                    className="w-full flex min-h-12 items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold bg-accent/12 text-accent border border-accent/25 active:bg-accent/20"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Download className="size-4" />
+                      <span>Install App</span>
+                    </span>
+                    <ChevronRightIcon className="size-4" />
+                  </button>
+                )}
 
                 {isAdmin && (
                   <a

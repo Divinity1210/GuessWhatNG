@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Baloo_2, Inter, Poppins } from "next/font/google";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { PwaInstallManager } from "@/components/pwa/PwaInstallManager";
 import "./globals.css";
 
 const baloo = Baloo_2({
@@ -63,7 +64,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f1117",
+  themeColor: "#0b0e17",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -80,7 +81,10 @@ export default function RootLayout({
       className={`${baloo.variable} ${poppins.variable} ${body.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <PwaInstallManager />
+        </AuthProvider>
       </body>
     </html>
   );

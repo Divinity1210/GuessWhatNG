@@ -12,7 +12,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Fast-path public, static & API routes without any network call
-  const publicPaths = ["/", "/how-to-play", "/leaderboard", "/auth/callback"];
+  const publicPaths = ["/", "/how-to-play", "/leaderboard", "/auth/callback", "/offline"];
   if (
     publicPaths.includes(pathname) ||
     pathname.startsWith("/api/") ||
@@ -82,6 +82,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)",
   ],
 };
