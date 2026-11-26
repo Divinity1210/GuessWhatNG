@@ -105,8 +105,8 @@ export default function LandingPage() {
           </h1>
 
           <p className="mt-4 text-base text-slate-300 sm:text-lg max-w-xl mx-auto leading-relaxed">
-            Pick what most players will choose across 10 quick questions. Skip
-            textbook trivia. In GuessWhat, the majority sets the winning answer.
+            Pick what most players will choose across 10 quick questions. In
+            GuessWhat, the majority sets the winning answer.
           </p>
 
           <div className="mt-7 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
