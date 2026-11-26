@@ -23,6 +23,7 @@ const body = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://guesswhat9ja.com"),
   title: {
     default: "GuessWhat | Predict the Crowd & Win",
     template: "%s | GuessWhat",
@@ -30,6 +31,14 @@ export const metadata: Metadata = {
   description:
     "Live social prediction rounds across Nigeria. Pick what most players choose, climb the leaderboard, and win cash prizes.",
   applicationName: "GuessWhat",
+  openGraph: {
+    type: "website",
+    url: "https://guesswhat9ja.com",
+    siteName: "GuessWhat",
+    title: "GuessWhat | Predict the Crowd & Win",
+    description:
+      "Live social prediction rounds across Nigeria. Pick what most players choose, climb the leaderboard, and win cash prizes.",
+  },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

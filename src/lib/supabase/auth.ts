@@ -136,7 +136,7 @@ export async function signInWithGoogle(options?: {
   const origin =
     typeof window !== "undefined"
       ? window.location.origin
-      : "https://guesswhat-tan.vercel.app";
+      : (process.env.NEXT_PUBLIC_SITE_URL || "https://guesswhat9ja.com");
 
   const callbackUrl = new URL("/auth/callback", origin);
   if (options?.next) {

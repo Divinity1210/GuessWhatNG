@@ -173,7 +173,7 @@ export default function ReferralsPage() {
 
   const refCode = apiRefCode || profile?.referral_code || "NAIJA26";
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://guesswhat-tan.vercel.app";
+    typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || "https://guesswhat9ja.com");
   const inviteLink = `${origin}/sign-up?ref=${encodeURIComponent(refCode)}`;
   const turfInfo =
     TURF_SQUADS.find((t) => t.id === (profile?.turf || "lagos")) ?? TURF_SQUADS[0];

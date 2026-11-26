@@ -19,6 +19,11 @@ function sanitizeBaseUsername(raw: string, fallbackId: string): string {
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";
+  const publicOrigin = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : process.env.NEXT_PUBLIC_SITE_URL || origin;
   const code = searchParams.get("code");
   const oauthError = searchParams.get("error");
   const rawNext = searchParams.get("next") ?? "/dashboard";
@@ -27,7 +32,7 @@ export async function GET(request: Request) {
   const refCode = (searchParams.get("ref") ?? "").trim().toUpperCase();
 
   if (oauthError) {
-    return NextResponse.redirect(`${origin}/login?error=oauth_cancelled`);
+    return NextResponse.redirect(`${publicOrigin}/login?error=oauth_cancelled`);
   }
 
   if (code) {
@@ -125,13 +130,13 @@ export async function GET(request: Request) {
       }
 
       if (isNewUser) {
-        const dest = new URL(next, origin);
+        const dest = new URL(next, publicOrigin);
         dest.searchParams.set("welcome", "1");
         return NextResponse.redirect(dest.toString());
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${publicOrigin}${next}`);
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+  return NextResponse.redirect(`${publicOrigin}/login?error=auth_callback_failed`);
 }

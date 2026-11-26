@@ -443,7 +443,7 @@ export function buildWhatsAppShareUrl(params: {
   const origin =
     typeof window !== "undefined"
       ? window.location.origin
-      : "https://guesswhat-tan.vercel.app";
+      : (process.env.NEXT_PUBLIC_SITE_URL || "https://guesswhat9ja.com");
   const ref = params.referralCode ? `?ref=${encodeURIComponent(params.referralCode)}` : "";
   const url = `${origin}/sign-up${ref}`;
 
@@ -496,7 +496,7 @@ export function buildTwitterShareUrl(params: {
   const origin =
     typeof window !== "undefined"
       ? window.location.origin
-      : "https://guesswhat-tan.vercel.app";
+      : (process.env.NEXT_PUBLIC_SITE_URL || "https://guesswhat9ja.com");
   const ref = params.referralCode ? `?ref=${encodeURIComponent(params.referralCode)}` : "";
   const url = `${origin}/sign-up${ref}`;
 
@@ -638,7 +638,7 @@ export function generateBragCardDataUrl(opts: {
     1128,
   );
   ctx.font = "bold 26px system-ui, sans-serif";
-  ctx.fillText("Play free at guesswhat-tan.vercel.app", 540, 1180);
+  ctx.fillText("Play free at guesswhat9ja.com", 540, 1180);
 
   return canvas.toDataURL("image/png");
 }

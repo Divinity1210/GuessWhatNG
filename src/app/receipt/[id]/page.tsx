@@ -81,7 +81,7 @@ export default function PublicReceiptPage() {
   const currentUrl =
     typeof window !== "undefined"
       ? window.location.href
-      : `https://guesswhat-tan.vercel.app/receipt/${receiptId}`;
+      : `${process.env.NEXT_PUBLIC_SITE_URL || "https://guesswhat9ja.com"}/receipt/${receiptId}`;
 
   const shareText = receipt
     ? `Verified Payout on GuessWhat! @${receipt.username} (${receipt.state}) just got paid ₦${receipt.amount.toLocaleString()} for ${receipt.sessionName} (${receipt.bankName} ${receipt.accountNumberMasked}). Receipt #${receipt.id}`

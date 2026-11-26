@@ -191,7 +191,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                 Admin
               </p>
               <a
-                href="https://guesswhat-admin.vercel.app/admin"
+                href={`${process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.guesswhat9ja.com"}/admin`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => playMenuClick()}
@@ -372,7 +372,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
 
                 {isAdmin && (
                   <a
-                    href="https://guesswhat-admin.vercel.app/admin"
+                    href={`${process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.guesswhat9ja.com"}/admin`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => playMenuClick()}

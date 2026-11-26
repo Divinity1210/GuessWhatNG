@@ -63,7 +63,7 @@ export function ViralBragCard({
     const origin =
       typeof window !== "undefined"
         ? window.location.origin
-        : "https://guesswhat-tan.vercel.app";
+        : (process.env.NEXT_PUBLIC_SITE_URL || "https://guesswhat9ja.com");
     const link = `${origin}/sign-up${referralCode ? `?ref=${referralCode}` : ""}`;
     navigator.clipboard.writeText(link);
     setCopied(true);
