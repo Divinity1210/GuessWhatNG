@@ -38,6 +38,21 @@ export const metadata: Metadata = {
     title: "GuessWhat | Predict the Crowd & Win",
     description:
       "Live social prediction rounds across Nigeria. Pick what most players choose, climb the leaderboard, and win cash prizes.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "GuessWhat | Predict the Crowd & Win",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GuessWhat | Predict the Crowd & Win",
+    description:
+      "Live social prediction rounds across Nigeria. Pick what most players choose, climb the leaderboard, and win cash prizes.",
+    images: ["/og-image.png"],
   },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
