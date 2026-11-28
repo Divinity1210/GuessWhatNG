@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Button,
   Logo,
-  ZapIcon,
   EyeIcon,
   EyeOffIcon,
   GoogleIcon,
@@ -14,7 +12,6 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function LoginPage() {
-  const router = useRouter();
   const { signIn, signInWithGoogle } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -57,26 +54,13 @@ export default function LoginPage() {
 
     try {
       await signIn({ email: email.trim(), password });
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     } catch (err: unknown) {
       if (err && typeof err === "object" && "message" in err) {
         setError((err as { message: string }).message);
       } else {
         setError("Invalid email/username or password");
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      await signIn({ email: "demo@guesswhat.ng", password: "Password123!" });
-      router.push("/dashboard");
-    } catch {
-      router.push("/dashboard");
     } finally {
       setLoading(false);
     }
@@ -186,18 +170,6 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Log In"}
           </Button>
         </form>
-
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={handleDemoLogin}
-            disabled={isBusy}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[#F7911B]/30 bg-[#F7911B]/[0.08] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#F7911B] transition-colors hover:bg-[#F7911B]/18 disabled:opacity-60"
-          >
-            <ZapIcon className="size-4" />
-            <span>Try Instant Demo Account</span>
-          </button>
-        </div>
 
         <div className="mt-5 text-center text-sm text-ink-muted">
           New to GuessWhat?{" "}

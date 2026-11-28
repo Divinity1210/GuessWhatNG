@@ -56,13 +56,19 @@ const navGroups = [
   },
 ];
 
+const PUBLIC_PLAYER_ROUTES = ["/how-to-play", "/leaderboard", "/support"];
+
 export default function PlayerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isStandalonePwa, setIsStandalonePwa] = useState(true);
+
+  const isPublicRoute = PUBLIC_PLAYER_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -72,6 +78,12 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
     setIsStandalonePwa(Boolean(standalone));
   }, []);
 
+  useEffect(() => {
+    if (!loading && !user && !isPublicRoute) {
+      router.replace("/sign-up");
+    }
+  }, [loading, user, isPublicRoute, router]);
+
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Player";
   const isAdmin =
     profile?.role === "super_admin" ||
@@ -80,8 +92,12 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
     user?.email === "muyiwa.a@gramefdigitalagency.com";
 
   const fetchUnread = useCallback(async () => {
+    if (!user?.id) {
+      setUnreadCount(0);
+      return;
+    }
     try {
-      const uid = user?.id ?? "";
+      const uid = user.id;
       const res = await fetch(`/api/inbox?userId=${encodeURIComponent(uid)}`, {
         cache: "no-store",
         headers: await getAuthHeaders(),
@@ -110,8 +126,17 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
   const handleSignOut = async () => {
     playMenuClick();
     await signOut();
-    router.push("/");
+    window.location.href = "/login";
   };
+
+  if (!isPublicRoute && (loading || !user)) {
+    return (
+      <div className="min-h-dvh w-full bg-[#07090e] text-slate-200 flex flex-col items-center justify-center gap-3">
+        <div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        <p className="text-xs font-medium text-slate-400">Loading GuessWhat...</p>
+      </div>
+    );
+  }
 
   const handleDelegatedClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
@@ -232,31 +257,50 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         </nav>
 
         <div className="border-t border-white/[0.06] px-4 py-3.5">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/profile"
-              onClick={() => playMenuClick()}
-              aria-label="Profile"
-              className="shrink-0 rounded-full"
-            >
-              <Avatar
-                name={displayName}
-                src={profile?.avatar_url}
-                size="sm"
-                showRankBadge={false}
-              />
-            </Link>
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-semibold text-white">{displayName}</p>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
+          {user ? (
+            <div className="flex items-center gap-3">
+              <Link
+                href="/profile"
+                onClick={() => playMenuClick()}
+                aria-label="Profile"
+                className="shrink-0 rounded-full"
               >
-                Sign out
-              </button>
+                <Avatar
+                  name={displayName}
+                  src={profile?.avatar_url}
+                  size="sm"
+                  showRankBadge={false}
+                />
+              </Link>
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-semibold text-white">{displayName}</p>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                onClick={() => playMenuClick()}
+                className="flex-1 rounded-xl border border-white/15 bg-white/[0.04] py-2 text-center text-xs font-semibold text-slate-200 hover:bg-white/[0.08]"
+              >
+                Log In
+              </Link>
+              <Link
+                href="/sign-up"
+                onClick={() => playMenuClick()}
+                className="flex-1 rounded-xl gradient-brand py-2 text-center text-xs font-bold text-white"
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -431,17 +475,44 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             </div>
 
             <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{displayName}</p>
-                <p className="truncate text-xs text-slate-400">{user?.email}</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="min-h-11 shrink-0 px-4 py-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs font-semibold active:bg-rose-500/20"
-              >
-                Sign out
-              </button>
+              {user ? (
+                <>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">{displayName}</p>
+                    <p className="truncate text-xs text-slate-400">{user.email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="min-h-11 shrink-0 px-4 py-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs font-semibold active:bg-rose-500/20"
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <div className="flex w-full items-center gap-2.5">
+                  <Link
+                    href="/login"
+                    onClick={() => {
+                      playMenuClick();
+                      setMenuOpen(false);
+                    }}
+                    className="flex-1 min-h-11 flex items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] text-sm font-semibold text-slate-100"
+                  >
+                    Log In
+                  </Link>
+                  <Link
+                    href="/sign-up"
+                    onClick={() => {
+                      playMenuClick();
+                      setMenuOpen(false);
+                    }}
+                    className="flex-1 min-h-11 flex items-center justify-center rounded-xl gradient-brand text-sm font-bold text-white"
+                  >
+                    Sign Up Free
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         )}

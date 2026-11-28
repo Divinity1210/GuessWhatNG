@@ -49,55 +49,46 @@ type AuthContextValue = AuthState & AuthActions;
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const DEFAULT_DEMO_USER: User = {
-  id: "demo-naija-player",
-  aud: "authenticated",
-  role: "authenticated",
-  email: "striker@guesswhat.ng",
-  user_metadata: {
-    username: "naija_striker",
-    turf: "lagos",
-    referral_code: "NAIJA26",
-  },
-  app_metadata: {},
-  created_at: new Date().toISOString(),
-} as unknown as User;
-
-const DEFAULT_DEMO_PROFILE: Profile = {
-  id: "demo-naija-player",
-  username: "naija_striker",
-  full_name: "Naija Striker",
-  avatar_url: null,
-  role: "player",
-  referral_code: "NAIJA26",
-  turf: "lagos",
-  streak_days: 3,
-};
-
-function getLocalFallbackAuth(): { user: User; profile: Profile } {
-  if (typeof window === "undefined") {
-    return { user: DEFAULT_DEMO_USER, profile: DEFAULT_DEMO_PROFILE };
-  }
-
+function clearLegacyDemoStorage() {
+  if (typeof window === "undefined") return;
   try {
-    const rawUser = localStorage.getItem("gw_demo_user");
-    const rawProfile = localStorage.getItem("gw_demo_profile");
-    const user: User = rawUser ? JSON.parse(rawUser) : DEFAULT_DEMO_USER;
-    const baseProfile: Profile = rawProfile ? JSON.parse(rawProfile) : DEFAULT_DEMO_PROFILE;
-    const localTurf = localStorage.getItem(`gw_turf_${user.id}`);
-    const localStreak = localStorage.getItem(`gw_streak_${user.id}`);
-
-    return {
-      user,
-      profile: {
-        ...baseProfile,
-        turf: localTurf || baseProfile.turf || "lagos",
-        streak_days: localStreak ? Number(localStreak) : baseProfile.streak_days || 3,
-      },
-    };
+    localStorage.removeItem("gw_demo_user");
+    localStorage.removeItem("gw_demo_profile");
+    document.cookie = "gw_demo_session=; path=/; max-age=0";
   } catch {
-    return { user: DEFAULT_DEMO_USER, profile: DEFAULT_DEMO_PROFILE };
+    // Ignore storage failures
   }
+}
+
+function buildProfileFromUser(user: User): Profile {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const username =
+    (typeof meta.username === "string" && meta.username.trim()) ||
+    user.email?.split("@")[0] ||
+    "player";
+  const fullName =
+    (typeof meta.full_name === "string" && meta.full_name.trim()) || username;
+  let localTurf: string | null = null;
+  let localStreak: string | null = null;
+  if (typeof window !== "undefined") {
+    try {
+      localTurf = localStorage.getItem(`gw_turf_${user.id}`);
+      localStreak = localStorage.getItem(`gw_streak_${user.id}`);
+    } catch {
+      // Ignore storage failures
+    }
+  }
+  return {
+    id: user.id,
+    username,
+    full_name: fullName,
+    avatar_url: typeof meta.avatar_url === "string" ? meta.avatar_url : null,
+    role: "player",
+    referral_code:
+      typeof meta.referral_code === "string" ? meta.referral_code : "",
+    turf: localTurf || (typeof meta.turf === "string" ? meta.turf : "lagos"),
+    streak_days: localStreak ? Number(localStreak) : 1,
+  };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -110,9 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  /** Fetch the profile row for a given user id */
+  /** Fetch the profile row for an authenticated user id */
   const fetchProfile = useCallback(
-    async (userId: string): Promise<Profile | null> => {
+    async (userId: string, fallbackUser?: User | null): Promise<Profile | null> => {
       try {
         const { data } = await supabase
           .from("profiles")
@@ -133,20 +124,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return p;
         }
       } catch {
-        // Fall through to local fallback
+        // Fall through to metadata-backed profile only for authenticated user
       }
-      return getLocalFallbackAuth().profile;
+      return fallbackUser ? buildProfileFromUser(fallbackUser) : null;
     },
     [supabase],
   );
 
-  /** Refresh the profile for the current user */
+  /** Refresh the profile for the currently signed-in user */
   const refreshProfile = useCallback(async () => {
-    const activeUserId = state.user?.id ?? DEFAULT_DEMO_USER.id;
-    const profile = await fetchProfile(activeUserId);
+    if (!state.user?.id) return;
+    const profile = await fetchProfile(state.user.id, state.user);
     setState((prev) => ({
       ...prev,
-      user: prev.user ?? getLocalFallbackAuth().user,
       profile,
     }));
   }, [state.user, fetchProfile]);
@@ -154,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Initialize: get current session + subscribe to changes */
   useEffect(() => {
     let mounted = true;
+    clearLegacyDemoStorage();
 
     async function initAuth() {
       try {
@@ -164,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
 
         if (session?.user) {
-          const profile = await fetchProfile(session.user.id);
+          const profile = await fetchProfile(session.user.id, session.user);
           if (!mounted) return;
           setState({
             user: session.user,
@@ -175,32 +166,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       } catch {
-        // Ignore network errors and use local fallback
+        // Fall through to unauthenticated state
       }
 
       if (!mounted) return;
-      const fallback = getLocalFallbackAuth();
       setState({
-        user: fallback.user,
+        user: null,
         session: null,
-        profile: fallback.profile,
+        profile: null,
         loading: false,
       });
     }
 
     initAuth();
-
-    const handleLocalAuthChange = () => {
-      const fallback = getLocalFallbackAuth();
-      setState((prev) => ({
-        ...prev,
-        user: fallback.user,
-        profile: fallback.profile,
-        loading: false,
-      }));
-    };
-
-    window.addEventListener("gw-auth-change", handleLocalAuthChange);
 
     // Listen for Supabase auth changes
     const {
@@ -208,7 +186,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
       if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
+        const profile = await fetchProfile(session.user.id, session.user);
+        if (!mounted) return;
         setState({
           user: session.user,
           session,
@@ -216,11 +195,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           loading: false,
         });
       } else {
-        const fallback = getLocalFallbackAuth();
         setState({
-          user: fallback.user,
+          user: null,
           session: null,
-          profile: fallback.profile,
+          profile: null,
           loading: false,
         });
       }
@@ -228,7 +206,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
-      window.removeEventListener("gw-auth-change", handleLocalAuthChange);
       subscription.unsubscribe();
     };
   }, [supabase, fetchProfile]);
@@ -251,6 +228,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await authSignOut();
+    setState({
+      user: null,
+      session: null,
+      profile: null,
+      loading: false,
+    });
   }, []);
 
   const value = useMemo<AuthContextValue>(

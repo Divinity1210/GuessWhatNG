@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Logo } from "@/components/ui";
 import {
@@ -13,7 +12,6 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function SignUpPage() {
-  const router = useRouter();
   const { signUp, signInWithGoogle } = useAuth();
 
   const [username, setUsername] = useState("");
@@ -81,7 +79,7 @@ export default function SignUpPage() {
         } catch {
           // Ignore storage failures
         }
-        router.push("/dashboard?welcome=1");
+        window.location.href = "/dashboard?welcome=1";
       } else {
         setSuccess(true);
       }
