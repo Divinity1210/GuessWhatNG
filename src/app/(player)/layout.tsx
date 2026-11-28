@@ -307,66 +307,68 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
       {/* Main content */}
       <main className="flex-1 md:ml-60 min-w-0 w-full max-w-full flex flex-col">
         {/* Compact Mobile Top Bar (fits cleanly on 360px+ screens) */}
-        <header className="sticky top-0 z-40 flex h-14 w-full max-w-full items-center justify-between border-b border-white/[0.06] bg-[#0b0e17]/95 px-3 sm:px-4 backdrop-blur-xl md:hidden">
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              type="button"
-              onClick={() => {
-                playMenuClick();
-                setMenuOpen(true);
-              }}
-              aria-label="Open menu"
-              className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-200 active:bg-white/[0.08]"
-            >
-              <MenuIcon className="size-5" />
-            </button>
-            <Logo size="xs" href="/dashboard" />
-          </div>
+        <header className="sticky top-0 z-40 w-full max-w-full border-b border-white/[0.06] bg-[#0b0e17]/95 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:hidden">
+          <div className="flex h-14 w-full items-center justify-between px-3 sm:px-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => {
+                  playMenuClick();
+                  setMenuOpen(true);
+                }}
+                aria-label="Open menu"
+                className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-200 active:bg-white/[0.08]"
+              >
+                <MenuIcon className="size-5" />
+              </button>
+              <Logo size="xs" href="/dashboard" />
+            </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
-              aria-label="Session results"
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 text-xs font-semibold text-slate-200 active:bg-white/[0.08]"
-            >
-              <BarChartIcon className="size-3.5 text-accent" />
-              <span>Results</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => openSessionResultsPopup({ initialTab: "feedback" })}
+                aria-label="Session results"
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/10 px-2.5 text-xs font-semibold text-slate-200 active:bg-white/[0.08]"
+              >
+                <BarChartIcon className="size-3.5 text-accent" />
+                <span>Results</span>
+              </button>
 
-            <Link
-              href="/inbox"
-              onClick={() => playMenuClick()}
-              aria-label="Inbox"
-              className="relative grid size-10 place-items-center rounded-xl bg-white/[0.04] border border-white/10 text-slate-200 active:bg-white/[0.08]"
-            >
-              <InboxIcon className="size-4.5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </Link>
+              <Link
+                href="/inbox"
+                onClick={() => playMenuClick()}
+                aria-label="Inbox"
+                className="relative grid size-10 place-items-center rounded-xl bg-white/[0.04] border border-white/10 text-slate-200 active:bg-white/[0.08]"
+              >
+                <InboxIcon className="size-4.5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </Link>
 
-            <Link
-              href="/profile"
-              onClick={() => playMenuClick()}
-              aria-label="Profile"
-              className="grid size-10 place-items-center rounded-full shrink-0"
-            >
-              <Avatar
-                name={displayName}
-                src={profile?.avatar_url}
-                size="sm"
-                showRankBadge={false}
-              />
-            </Link>
+              <Link
+                href="/profile"
+                onClick={() => playMenuClick()}
+                aria-label="Profile"
+                className="grid size-10 place-items-center rounded-full shrink-0"
+              >
+                <Avatar
+                  name={displayName}
+                  src={profile?.avatar_url}
+                  size="sm"
+                  showRankBadge={false}
+                />
+              </Link>
+            </div>
           </div>
         </header>
 
         {/* Mobile Full-Height Menu Sheet */}
         {menuOpen && (
-          <div className="fixed inset-0 z-50 bg-[#07090e]/96 backdrop-blur-xl md:hidden flex flex-col px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] animate-fade-in">
+          <div className="fixed inset-0 z-50 bg-[#07090e]/96 backdrop-blur-xl md:hidden flex flex-col px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] animate-fade-in">
             <div className="flex h-12 items-center justify-between border-b border-white/[0.06] pb-3">
               <Logo size="xs" href="/dashboard" />
               <button
@@ -521,7 +523,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
           className={`mx-auto min-w-0 w-full max-w-full flex-1 ${
             pathname.startsWith("/community")
               ? "md:max-w-7xl flex flex-col"
-              : "md:max-w-5xl px-3.5 py-4 sm:px-5 sm:py-6 md:px-8 md:py-8 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-10"
+              : "md:max-w-5xl px-3.5 py-4 sm:px-5 sm:py-6 md:px-8 md:py-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-10"
           }`}
         >
           {children}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "gw-pwa-v2";
+const CACHE_NAME = "gw-pwa-v3";
 const PRECACHE_URLS = [
   "/offline",
   "/gw-logo.png",

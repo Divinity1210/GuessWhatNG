@@ -196,7 +196,7 @@ export function FaqAssistantWidget() {
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Open GuessWhat AI FAQ Assistant"
-          className="fixed bottom-[4.75rem] right-3.5 md:bottom-6 md:right-6 z-40 inline-flex items-center gap-2 rounded-full border border-accent/45 bg-[#121829]/95 px-3.5 py-2.5 text-xs font-bold text-white shadow-[0_10px_30px_rgba(0,0,0,0.55),0_0_18px_rgba(247,145,27,0.22)] backdrop-blur-md hover:border-accent hover:bg-[#192238] active:scale-95 transition-all"
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3.5 md:bottom-6 md:right-6 z-40 inline-flex items-center gap-2 rounded-full border border-accent/45 bg-[#121829]/95 px-3.5 py-2.5 text-xs font-bold text-white shadow-[0_10px_30px_rgba(0,0,0,0.55),0_0_18px_rgba(247,145,27,0.22)] backdrop-blur-md hover:border-accent hover:bg-[#192238] active:scale-95 transition-all"
         >
           <span className="grid size-6 place-items-center rounded-full gradient-brand text-white">
             <BrainIcon className="size-3.5" />

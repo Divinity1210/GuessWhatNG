@@ -456,14 +456,14 @@ export default function DashboardPage() {
           tabIndex={0}
           role="group"
           aria-label="Slides"
-          className="relative z-10 flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain no-scrollbar [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#ffb95b]"
+          className="relative z-10 flex w-full max-w-full overflow-x-auto snap-x snap-mandatory overscroll-x-contain no-scrollbar [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#ffb95b]"
         >
           {/* Slide 1: Focused Live Session Card */}
           <div
             role="group"
             aria-roledescription="slide"
             aria-label="1 of 3"
-            className="min-w-full shrink-0 snap-center px-5 pt-7 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
+            className="w-full basis-full max-w-full min-w-0 shrink-0 grow-0 box-border overflow-hidden snap-center px-4 pt-6 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
           >
             {!isSessionEnded ? (
               <Badge variant="active" dot className="px-3.5 py-1">
@@ -475,7 +475,7 @@ export default function DashboardPage() {
               </Badge>
             )}
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 w-full max-w-md">
               <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
                 {formatHeroSessionTitle(activeSession?.name)}
               </h1>
@@ -486,18 +486,18 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="mx-auto w-full max-w-md rounded-2xl bg-gradient-to-b from-[#f5841f] via-[#ec5812] to-[#d9330a] px-6 py-5 sm:py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_12px_30px_rgba(236,88,18,0.28)]">
+            <div className="mx-auto w-full max-w-md rounded-2xl bg-gradient-to-b from-[#f5841f] via-[#ec5812] to-[#d9330a] px-4 py-4 sm:px-6 sm:py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_12px_30px_rgba(236,88,18,0.28)]">
               <div className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-white/95">
                 <TrophyIcon className="size-4" />
                 <span>Prize Pool</span>
               </div>
-              <p className="mt-1 font-display text-4xl sm:text-5xl font-black text-white tracking-tight tabular-nums leading-none">
-                {formatNaira(activeSession?.prize_pool ?? 500_000)}
+              <p className="mt-1 font-display text-[2.15rem] sm:text-5xl font-black text-white tracking-tight tabular-nums leading-none">
+                {formatNaira(activeSession?.prize_pool ?? 100_000)}
               </p>
             </div>
 
             <dl className="mx-auto grid w-full max-w-md grid-cols-2 items-center divide-x divide-white/[0.12] py-1">
-              <div className="flex items-center justify-center gap-2.5 pr-3">
+              <div className="flex items-center justify-center gap-2.5 pr-3 min-w-0">
                 <UsersIcon className="size-4.5 text-slate-300 shrink-0" />
                 <div className="text-left">
                   <dt className="text-[11px] font-medium text-slate-400 leading-tight">
@@ -513,7 +513,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-2.5 pl-3">
+              <div className="flex items-center justify-center gap-2.5 pl-3 min-w-0">
                 <TimerIcon className="size-4.5 text-slate-300 shrink-0" />
                 <div className="text-left">
                   <dt className="text-[11px] font-medium text-slate-400 leading-tight">
@@ -565,7 +565,7 @@ export default function DashboardPage() {
             role="group"
             aria-roledescription="slide"
             aria-label="2 of 3"
-            className="min-w-full shrink-0 snap-center px-5 pt-7 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
+            className="w-full basis-full max-w-full min-w-0 shrink-0 grow-0 box-border overflow-hidden snap-center px-4 pt-6 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
           >
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Badge variant="gold">Your Standing</Badge>
@@ -580,7 +580,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 w-full max-w-md">
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 {formatHeroSessionTitle(activeSession?.name)} Summary
               </h2>
@@ -589,8 +589,8 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <dl className="mx-auto w-full max-w-md grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+            <dl className="mx-auto w-full max-w-md grid grid-cols-2 gap-2.5 sm:gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] min-w-0 px-3 py-3.5 sm:px-4 sm:py-4">
                 <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
                   {isSessionEnded ? "Your Rank" : "Your Best"}
                 </dt>
@@ -598,12 +598,12 @@ export default function DashboardPage() {
                   {myRow ? `${formatOrdinal(myRow.rank)} · ${myRow.points}p` : "Not played"}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] min-w-0 px-3 py-3.5 sm:px-4 sm:py-4">
                 <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
                   {isSessionEnded ? "Prize Won" : "Projected Prize"}
                 </dt>
                 <dd className="mt-1 font-display text-lg sm:text-xl font-bold text-amber-300 tabular-nums truncate">
-                  {myRow && myRow.prize > 0 ? formatNaira(myRow.prize) : "Top 36 Win"}
+                  {myRow && myRow.prize > 0 ? formatNaira(myRow.prize) : "Top 10 Win"}
                 </dd>
               </div>
             </dl>
@@ -643,49 +643,49 @@ export default function DashboardPage() {
             role="group"
             aria-roledescription="slide"
             aria-label="3 of 3"
-            className="min-w-full shrink-0 snap-center px-5 pt-7 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
+            className="w-full basis-full max-w-full min-w-0 shrink-0 grow-0 box-border overflow-hidden snap-center px-4 pt-6 pb-3 sm:px-14 sm:pt-9 sm:pb-4 flex flex-col items-center justify-center text-center gap-4"
           >
             <Badge variant="info">Quick Guide</Badge>
 
-            <div className="space-y-1.5 max-w-md">
+            <div className="space-y-1.5 w-full max-w-md">
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 How GuessWhat Works
               </h2>
-              <p className="text-sm text-slate-300 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed break-words">
                 Pick what the majority chooses across 10 fast questions. Dynamic 10 to 1 crowd scoring plus speed tiebreakers decide the winners.
               </p>
             </div>
 
-            <div className="mx-auto w-full max-w-md grid grid-cols-3 gap-2">
+            <div className="mx-auto w-full max-w-md grid grid-cols-3 gap-1.5 sm:gap-2">
               {[
                 { label: "10 Questions", sub: "4 Formats" },
                 { label: "10 to 1 Pts", sub: "Live Crowd" },
-                { label: "Top 36 Win", sub: "Real Cash" },
+                { label: "Top 10 Win", sub: "Real Cash" },
               ].map((chip) => (
                 <div
                   key={chip.label}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-2.5 py-3"
+                  className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-1.5 py-2.5 sm:px-2.5 sm:py-3"
                 >
-                  <p className="font-display text-xs sm:text-sm font-bold text-white">
+                  <p className="font-display text-[11px] sm:text-sm font-bold leading-tight text-white">
                     {chip.label}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{chip.sub}</p>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{chip.sub}</p>
                 </div>
               ))}
             </div>
 
-            <div className="w-full max-w-lg mx-auto pt-1 flex flex-col sm:flex-row gap-2.5">
+            <div className="w-full max-w-md sm:max-w-lg mx-auto pt-1 flex flex-col sm:flex-row gap-2.5">
               <button
                 type="button"
                 onClick={() => openOnboardingTour()}
-                className="min-h-12 sm:flex-1 rounded-2xl border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] px-5 py-3 text-sm font-bold text-white inline-flex items-center justify-center gap-2 transition-colors"
+                className="min-h-12 sm:flex-1 rounded-2xl border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] px-4 py-3 text-sm font-bold text-white inline-flex items-center justify-center gap-2 transition-colors"
               >
                 <HelpCircleIcon className="size-4.5 text-accent shrink-0" />
                 <span>Take App Tour</span>
               </button>
               <Link
                 href="/how-to-play"
-                className="min-h-12 sm:flex-[1.3] rounded-2xl border border-accent/40 bg-accent/15 hover:bg-accent/25 px-5 py-3 text-sm sm:text-base font-bold text-accent inline-flex items-center justify-center gap-2 transition-colors"
+                className="min-h-12 sm:flex-[1.3] rounded-2xl border border-accent/40 bg-accent/15 hover:bg-accent/25 px-4 py-3 text-sm sm:text-base font-bold text-accent inline-flex items-center justify-center gap-2 transition-colors"
               >
                 <span>Read Full How to Play Guide</span>
                 <ArrowRightIcon className="size-4 shrink-0" />

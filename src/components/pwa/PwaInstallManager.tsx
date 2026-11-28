@@ -138,7 +138,7 @@ export function PwaInstallManager() {
   return (
     <>
       {canShowFloatingBanner && (
-        <div className="fixed bottom-18 sm:bottom-5 left-3 right-3 sm:left-auto sm:right-5 sm:w-[360px] z-40 animate-fade-in">
+        <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:bottom-5 left-3 right-3 sm:left-auto sm:right-5 sm:w-[360px] z-40 animate-fade-in">
           <div className="rounded-2xl border border-white/15 bg-[#121624]/95 backdrop-blur-xl p-3.5 shadow-[0_14px_40px_rgba(0,0,0,0.55)] flex items-center gap-3">
             <img
               src="/gw-mark.png"
@@ -175,7 +175,7 @@ export function PwaInstallManager() {
 
       {showInstructionsModal && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
           onClick={() => setShowInstructionsModal(false)}
         >
           <div

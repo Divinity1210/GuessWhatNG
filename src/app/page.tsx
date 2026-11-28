@@ -44,7 +44,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-dvh bg-[#0c0d12] text-white overflow-x-hidden font-sans">
       {/* Top Navigation */}
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-[#0c0d12]/90 backdrop-blur-xl">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-[#0c0d12]/90 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <div className="mx-auto flex h-15 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Logo size="xs" />
           <nav className="hidden items-center gap-8 md:flex">
@@ -88,7 +88,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-26 pb-14 sm:pt-34 sm:pb-22">
+      <section className="relative overflow-hidden pt-[calc(6.5rem+env(safe-area-inset-top))] pb-14 sm:pt-34 sm:pb-22">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 size-[420px] sm:size-[520px] rounded-full bg-[#F7911B]/10 blur-[130px] pointer-events-none" />
 
         <div className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 text-center">
